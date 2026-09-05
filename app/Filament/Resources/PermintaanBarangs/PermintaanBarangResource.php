@@ -222,12 +222,10 @@ class PermintaanBarangResource extends Resource
                                 Hidden::make('detail_id'),
 
                                 Placeholder::make('nama')
-                                    ->label('Nama Barang')
-                                    ->content(fn ($state) => $state),
+                                    ->label('Nama Barang'),
 
                                 Placeholder::make('jumlah_diminta')
-                                    ->label('Diminta')
-                                    ->content(fn ($state) => $state),
+                                    ->label('Diminta'),
 
                                 TextInput::make('jumlah_verif_fisik')
                                     ->label('Hasil Pengecekan')
@@ -285,16 +283,13 @@ class PermintaanBarangResource extends Resource
                                 Hidden::make('detail_id'),
 
                                 Placeholder::make('nama')
-                                    ->label('Nama Barang')
-                                    ->content(fn ($state) => $state),
+                                    ->label('Nama Barang'),
 
                                 Placeholder::make('jumlah_diminta')
-                                    ->label('Diminta')
-                                    ->content(fn ($state) => $state),
+                                    ->label('Diminta'),
 
                                 Placeholder::make('hasil_cek')
-                                    ->label('Hasil Cek')
-                                    ->content(fn ($state) => $state),
+                                    ->label('Hasil Cek'),
 
                                 TextInput::make('jumlah_final')
                                     ->label('Disetujui')
