@@ -19,6 +19,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('permintaan_id')->constrained('permintaan_barang')->cascadeOnDelete();
             $table->enum('tahap', [
+                'pengajuan',
                 'ketua_tim',
                 'verifikasi',
                 'kasubbag',

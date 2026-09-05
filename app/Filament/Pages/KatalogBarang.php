@@ -89,41 +89,59 @@ class KatalogBarang extends Page implements HasTable
     public function ajukanAction(): Action
     {
         return Action::make('ajukan')
-            ->label('Ajukan Permintaan')
-            ->icon('heroicon-m-paper-airplane')
-            ->modalHeading('Pengajuan Permintaan Barang')
-            ->modalDescription('Setelah diajukan, jumlah barang akan dikunci sementara hingga permintaan disetujui atau ditolak.')
-            ->modalSubmitActionLabel('Ajukan')
+            ->label('Detail Keranjang')
+            ->icon('heroicon-m-shopping-cart')
+            ->tooltip('Isi detail permintaan')
+            ->modalHeading('Lihat Keranjang dan Ajukan Permintaan')
+            ->modalDescription('Periksa kembali jumlah barang sebelum diajukan. Setelah diajukan, jumlah barang akan dikunci sementara hingga permintaan disetujui atau ditolak.')
+            ->modalSubmitActionLabel('Ajukan Permintaan')
+            ->modalCancelActionLabel('Batal')
+            ->modalWidth('3xl')
+            ->fillForm(fn () => [
+                'nama_pemohon' => auth()->user()->name,
+                'nip_pemohon'  => auth()->user()->nip,
+                'items'        => collect($this->keranjang)
+                    ->map(fn ($item, $id) => [
+                        'barang_id' => $id,
+                        'nama'      => $item['nama'] . ' (' . $item['satuan'] . ')',
+                        'jumlah'    => $item['jumlah'],
+                    ])
+                    ->values()
+                    ->toArray(),
+            ])
             ->schema([
+                \Filament\Forms\Components\Repeater::make('items')
+                    ->label('Barang yang Diminta')
+                    ->schema([
+                        \Filament\Forms\Components\Hidden::make('barang_id'),
+
+                        \Filament\Forms\Components\Placeholder::make('nama')
+                            ->label('Nama Barang')
+                            ->columnSpan(2),
+
+                        TextInput::make('jumlah')
+                            ->label('Jumlah')
+                            ->numeric()
+                            ->minValue(1)
+                            ->required(),
+                    ])
+                    ->columns(3)
+                    ->addable(false)
+                    ->reorderable(false)
+                    ->deleteAction(fn ($action) => $action->label('Hapus')),
+
                 TextInput::make('nama_pemohon')
                     ->label('Nama Pemohon')
-                    ->required()
-                    ->default(fn () => auth()->user()->name),
+                    ->required(),
 
                 TextInput::make('nip_pemohon')
-                    ->label('NIP Pemohon')
-                    ->default(fn () => auth()->user()->nip),
+                    ->label('NIP Pemohon'),
 
                 Textarea::make('keperluan')
                     ->label('Keperluan')
                     ->rows(2),
             ])
             ->action(fn (array $data) => $this->ajukan($data));
-    }
-
-    public function lihatKeranjangAction(): Action
-    {
-        return Action::make('lihatKeranjang')
-            ->label('Lihat')
-            ->icon('heroicon-m-list-bullet')
-            ->color('gray')
-            ->outlined()
-            ->modalHeading('Isi Keranjang')
-            ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Tutup')
-            ->modalContent(fn () => view('filament.partials.isi-keranjang', [
-                'keranjang' => $this->keranjang,
-            ]));
     }
 
     public function getKeranjangProperty(): array
@@ -170,56 +188,6 @@ class KatalogBarang extends Page implements HasTable
         Notification::make()->title('Barang dihapus dari keranjang')->success()->send();
     }
 
-    public function ubahJumlahAction(): Action
-    {
-        return Action::make('ubahJumlah')
-            ->label('Ubah')
-            ->icon('heroicon-m-pencil-square')
-            ->size('xs')
-            ->color('gray')
-            ->modalHeading('Ubah Jumlah')
-            ->modalSubmitActionLabel('Simpan')
-            ->schema(fn (array $arguments) => [
-                TextInput::make('jumlah')
-                    ->label('Jumlah')
-                    ->numeric()
-                    ->minValue(1)
-                    ->required()
-                    ->default(Session::get('keranjang')[$arguments['id']]['jumlah'] ?? 1)
-                    ->helperText(function () use ($arguments) {
-                        $barang = BarangPersediaan::find($arguments['id']);
-                        if (! $barang) {
-                            return null;
-                        }
-                        return 'Stok tersedia: ' . ($barang->stok_fisik - $barang->stok_hold) . ' ' . $barang->satuan;
-                    }),
-            ])
-            ->action(function (array $data, array $arguments) {
-                $barang = BarangPersediaan::find($arguments['id']);
-                if (! $barang) {
-                    return;
-                }
-
-                $jumlah   = (int) $data['jumlah'];
-                $tersedia = $barang->stok_fisik - $barang->stok_hold;
-
-                if ($jumlah > $tersedia) {
-                    Notification::make()
-                        ->title('Jumlah melebihi stok tersedia')
-                        ->body("Stok tersedia hanya {$tersedia} {$barang->satuan}.")
-                        ->danger()
-                        ->send();
-                    return;
-                }
-
-                $keranjang = Session::get('keranjang', []);
-                $keranjang[$barang->id]['jumlah'] = $jumlah;
-                Session::put('keranjang', $keranjang);
-
-                Notification::make()->title('Jumlah diperbarui')->success()->send();
-            });
-    }
-
     /**
      * Menyimpan permintaan dan mengunci stok.
      *
@@ -228,7 +196,14 @@ class KatalogBarang extends Page implements HasTable
      */
     protected function ajukan(array $data): void
     {
-        $keranjang = Session::get('keranjang', []);
+        // Jumlah diambil dari formulir, bukan dari session, agar perubahan
+        // yang dilakukan pengguna pada dialog ikut tersimpan.
+        $keranjang = collect($data['items'] ?? [])
+            ->filter(fn ($i) => (int) ($i['jumlah'] ?? 0) > 0)
+            ->mapWithKeys(fn ($i) => [
+                (int) $i['barang_id'] => ['jumlah' => (int) $i['jumlah']],
+            ])
+            ->toArray();
 
         if (empty($keranjang)) {
             Notification::make()->title('Keranjang masih kosong')->warning()->send();
@@ -276,16 +251,27 @@ class KatalogBarang extends Page implements HasTable
                     ]);
                 }
 
+                // Baris pertama riwayat menandakan pengajuan oleh unit pemohon
                 RiwayatPersetujuan::create([
                     'permintaan_id' => $permintaan->id,
-                    'tahap'         => 'ketua_tim',
+                    'tahap'         => 'pengajuan',
                     'pelaksana_id'  => $user->id,
-                    'keputusan'     => $adalahKetua ? 'setuju' : 'selesai',
-                    'catatan'       => $adalahKetua
-                        ? 'Pengaju berperan sebagai Ketua Tim, tahap persetujuan dilewati.'
-                        : 'Permintaan diajukan.',
+                    'keputusan'     => 'selesai',
+                    'catatan'       => 'Permintaan diajukan.',
                     'waktu'         => now(),
                 ]);
+
+                // Apabila pengaju berperan sebagai Ketua Tim, tahap persetujuan dilewati
+                if ($adalahKetua) {
+                    RiwayatPersetujuan::create([
+                        'permintaan_id' => $permintaan->id,
+                        'tahap'         => 'ketua_tim',
+                        'pelaksana_id'  => $user->id,
+                        'keputusan'     => 'setuju',
+                        'catatan'       => 'Pengaju berperan sebagai Ketua Tim, tahap persetujuan dilewati.',
+                        'waktu'         => now(),
+                    ]);
+                }
             });
         } catch (\Throwable $e) {
             Notification::make()
