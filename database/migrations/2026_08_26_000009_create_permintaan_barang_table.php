@@ -24,6 +24,7 @@ return new class extends Migration
                 'menunggu_kasubbag',
                 'siap_diproses',
                 'siap_diambil',
+                'menunggu_pengesahan',
                 'selesai',
                 'ditolak_ketua',
                 'ditolak_kasubbag',
@@ -39,6 +40,10 @@ return new class extends Migration
 
             // Catatan: seluruh tahapan persetujuan dicatat pada tabel
             // riwayat_persetujuan, bukan sebagai kolom pada tabel ini.
+
+            // Tahap 6 - Pengesahan akhir oleh Kasubbag Umum
+            $table->foreignId('pengesahan_oleh_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->dateTime('pengesahan_at')->nullable();
 
             // QR verifikasi, diseragamkan dengan mekanisme pada BAST mutasi aset
             $table->string('qr_token', 64)->nullable()->unique();

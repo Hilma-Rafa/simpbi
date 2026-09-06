@@ -12,6 +12,7 @@ class PermintaanBarang extends Model
     protected $casts = [
         'hold_expired_at'  => 'datetime',
         'hold_released_at' => 'datetime',
+        'pengesahan_at'    => 'datetime',
     ];
 
     // Status mengikuti alur pada BPMN Proses Bisnis Usulan Permintaan Barang
@@ -21,6 +22,7 @@ class PermintaanBarang extends Model
         'menunggu_kasubbag'    => 'Menunggu Persetujuan Kasubbag',
         'siap_diproses'        => 'Siap Diproses',
         'siap_diambil'         => 'Siap Diambil',
+        'menunggu_pengesahan'  => 'Menunggu Pengesahan',
         'selesai'              => 'Selesai',
         'ditolak_ketua'        => 'Ditolak Ketua Tim',
         'ditolak_kasubbag'     => 'Ditolak Kasubbag',

@@ -6,6 +6,7 @@ use App\Filament\Resources\PermintaanBarangs\Pages;
 use App\Models\PermintaanBarang;
 use App\Models\RiwayatPersetujuan;
 use App\Services\StokService;
+use App\Services\DokumenPermintaanService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -91,6 +92,7 @@ class PermintaanBarangResource extends Resource
                         'ditolak_ketua', 'ditolak_kasubbag' => 'danger',
                         'bermasalah', 'kedaluwarsa'         => 'gray',
                         'siap_diambil'                      => 'info',
+                        'menunggu_pengesahan'               => 'info',
                         default                             => 'warning',
                     }),
 
@@ -380,6 +382,35 @@ class PermintaanBarangResource extends Resource
                             ->visible(fn ($get) => $get('sesuai') === 'tidak'),
                     ])
                     ->action(fn (array $data, $record) => static::konfirmasiPenerimaan($record, $data)),
+
+                    // ---------- TAHAP 6 : PENGESAHAN AKHIR ----------
+ 
+                Action::make('sahkan')
+                    ->label('Sahkan')
+                    ->icon('heroicon-m-check-badge')
+                    ->color('success')
+                    ->button()
+                    ->visible(fn ($record) => auth()->user()->role === 'kasubbag'
+                        && $record->status === 'menunggu_pengesahan')
+                    ->modalHeading('Pengesahan Akhir Permintaan')
+                    ->modalDescription('Pengesahan akan menerbitkan dokumen bukti permintaan beserta kode QR verifikasi.')
+                    ->modalSubmitActionLabel('Sahkan')
+                    ->modalCancelActionLabel('Batal')
+                    ->schema([
+                        Textarea::make('catatan')->label('Catatan (opsional)')->rows(2),
+                    ])
+                    ->action(fn (array $data, $record) => static::sahkan($record, $data['catatan'] ?? null)),
+ 
+                // ---------- UNDUH DOKUMEN ----------
+ 
+                Action::make('unduhBukti')
+                    ->label('Unduh Bukti')
+                    ->icon('heroicon-m-arrow-down-tray')
+                    ->color('gray')
+                    ->outlined()
+                    ->visible(fn ($record) => filled($record->file_bukti_path))
+                    ->url(fn ($record) => route('bukti.unduh', $record))
+                    ->openUrlInNewTab(),
             ])
             ->recordActionsAlignment('right');
     }
@@ -577,7 +608,7 @@ class PermintaanBarangResource extends Resource
             app(StokService::class)->konversi($record, auth()->id());
 
             $record->update([
-                'status'           => 'selesai',
+                'status'           => 'menunggu_pengesahan',
                 'hold_expired_at'  => null,
                 'hold_released_at' => now(),
             ]);
@@ -597,7 +628,41 @@ class PermintaanBarangResource extends Resource
 
         Notification::make()
             ->title('Penerimaan barang dikonfirmasi')
-            ->body('Stok fisik telah diperbarui dan transaksi tercatat pada kartu kendali.')
+            ->body('Stok fisik telah diperbarui. Permintaan menunggu pengesahan akhir Kasubbag Umum.')
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Pengesahan akhir oleh Kasubbag Umum (UC-15).
+     *
+     * Pengesahan menandai transaksi telah selesai dan sah secara
+     * administratif, sekaligus menerbitkan dokumen bukti permintaan
+     * dalam bentuk PDF yang dilengkapi kode QR verifikasi.
+     */
+    protected static function sahkan(PermintaanBarang $record, ?string $catatan): void
+    {
+        DB::transaction(function () use ($record, $catatan) {
+            $record->update([
+                'status'             => 'selesai',
+                'pengesahan_oleh_id' => auth()->id(),
+                'pengesahan_at'      => now(),
+            ]);
+
+            static::catatRiwayat($record, 'pengesahan', 'selesai', $catatan);
+
+            // Dokumen dibentuk setelah riwayat tercatat, agar nama pengesah
+            // dapat dibaca pada berkas yang dihasilkan.
+            $record->refresh()->load('persetujuan.pelaksana');
+
+            $path = app(DokumenPermintaanService::class)->buat($record);
+
+            $record->update(['file_bukti_path' => $path]);
+        });
+
+        Notification::make()
+            ->title('Permintaan disahkan')
+            ->body('Dokumen bukti permintaan telah diterbitkan dan dapat diunduh.')
             ->success()
             ->send();
     }
