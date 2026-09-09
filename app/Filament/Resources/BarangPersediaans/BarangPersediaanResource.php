@@ -18,7 +18,17 @@ class BarangPersediaanResource extends Resource
 {
     protected static ?string $model = BarangPersediaan::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Persediaan';
+
+    protected static ?string $navigationLabel = 'Barang Persediaan';
+
+    protected static ?string $modelLabel = 'Barang Persediaan';
+
+    protected static ?string $pluralModelLabel = 'Barang Persediaan';
+
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'nama_barang';
 

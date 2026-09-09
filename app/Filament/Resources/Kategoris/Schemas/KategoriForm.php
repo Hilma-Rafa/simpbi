@@ -12,15 +12,27 @@ class KategoriForm
     {
         return $schema
             ->components([
-                TextInput::make('kode_akun')
-                    ->required(),
-                TextInput::make('kode_kategori')
-                    ->required(),
                 TextInput::make('nama_kategori')
-                    ->required(),
+                    ->label('Nama Kategori')
+                    ->required()
+                    ->maxLength(100)
+                    ->columnSpanFull(),
+                TextInput::make('kode_kategori')
+                    ->label('Kode Kategori')
+                    ->required()
+                    ->maxLength(20),
+                TextInput::make('kode_akun')
+                    ->label('Kode Akun')
+                    ->helperText('Kode akun neraca sesuai bagan akun.')
+                    ->required()
+                    ->maxLength(10),
                 Select::make('tipe')
-                    ->options(['persediaan' => 'Persediaan', 'aset_tetap' => 'Aset tetap'])
-                    ->required(),
-            ]);
+                    ->label('Tipe')
+                    ->options(['persediaan' => 'Persediaan', 'aset_tetap' => 'Aset Tetap'])
+                    ->native(false)
+                    ->required()
+                    ->columnSpanFull(),
+            ])
+            ->columns(2);
     }
 }

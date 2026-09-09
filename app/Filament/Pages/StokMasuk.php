@@ -1,0 +1,168 @@
+<?php
+
+namespace App\Filament\Pages;
+
+use App\Models\BarangPersediaan;
+use App\Models\MutasiStok;
+use App\Services\StokService;
+use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
+use Filament\Pages\Page;
+use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+
+/**
+ * Pencatatan stok masuk barang persediaan (UC-07).
+ *
+ * Halaman menampilkan riwayat transaksi masuk terbaru dan menyediakan aksi
+ * untuk mencatat penambahan stok. Seluruh perubahan stok dilakukan melalui
+ * StokService agar pencatatan kartu kendali (mutasi_stok) tetap konsisten.
+ * Hanya Petugas Gudang yang berwenang (Instruksi §4).
+ */
+class StokMasuk extends Page implements HasTable
+{
+    use InteractsWithTable;
+
+    protected string $view = 'filament.pages.stok-masuk';
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedInboxArrowDown;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Persediaan';
+
+    protected static ?string $navigationLabel = 'Stok Masuk';
+
+    protected static ?string $title = 'Stok Masuk';
+
+    protected static ?int $navigationSort = 3;
+
+    /** Sumber yang relevan untuk transaksi masuk (Instruksi §22). */
+    public const SUMBER_MASUK = [
+        'pembelian'      => 'Pembelian',
+        'transfer_masuk' => 'Transfer Masuk',
+        'stok_awal'      => 'Stok Awal',
+        'pengembalian'   => 'Pengembalian',
+    ];
+
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->role === 'petugas_gudang';
+    }
+
+    public function table(Table $table): Table
+    {
+        return $table
+            ->query(
+                MutasiStok::query()
+                    ->where('jenis', 'masuk')
+                    ->with(['barang', 'petugas'])
+                    ->latest('tanggal')
+                    ->latest('id')
+            )
+            ->columns([
+                TextColumn::make('tanggal')
+                    ->label('Tanggal')
+                    ->date('d M Y')
+                    ->sortable(),
+                TextColumn::make('barang.nama_barang')
+                    ->label('Barang')
+                    ->searchable()
+                    ->wrap(),
+                TextColumn::make('jumlah')
+                    ->label('Jumlah')
+                    ->numeric()
+                    ->alignEnd()
+                    ->formatStateUsing(fn ($state, $record) => '+' . $state . ' ' . ($record->barang?->satuan ?? '')),
+                TextColumn::make('sumber')
+                    ->label('Sumber')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state) => self::SUMBER_MASUK[$state] ?? ($state ? ucfirst($state) : '—'))
+                    ->color('info'),
+                TextColumn::make('nomor_dasar')
+                    ->label('Nomor Dasar')
+                    ->placeholder('—')
+                    ->toggleable(),
+                TextColumn::make('saldo_sesudah')
+                    ->label('Saldo Setelah')
+                    ->numeric()
+                    ->alignEnd(),
+                TextColumn::make('petugas.name')
+                    ->label('Petugas')
+                    ->toggleable(),
+            ])
+            ->emptyStateHeading('Belum ada stok masuk')
+            ->emptyStateDescription('Belum ada transaksi penambahan stok yang tercatat.')
+            ->emptyStateIcon('heroicon-o-inbox');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            // Pintasan ke halaman Riwayat dengan jenis Mutasi Stok terpilih
+            Action::make('riwayat')
+                ->label('Riwayat')
+                ->icon('heroicon-m-archive-box')
+                ->iconPosition(\Filament\Support\Enums\IconPosition::Before)
+                ->color('gray')
+                ->outlined()
+                ->tooltip('Lihat seluruh pergerakan stok, masuk maupun keluar')
+                ->url(\App\Filament\Pages\Riwayat::getUrl(['jenis' => 'mutasi_stok']))
+                ->visible(fn () => \App\Filament\Pages\Riwayat::canAccess()),
+
+            Action::make('catat')
+                ->label('Catat Stok Masuk')
+                ->icon('heroicon-m-plus')
+                ->modalHeading('Catat Stok Masuk')
+                ->modalSubmitActionLabel('Simpan')
+                ->schema([
+                    Select::make('barang_id')
+                        ->label('Barang')
+                        ->options(fn () => BarangPersediaan::query()
+                            ->where('status_aktif', true)
+                            ->orderBy('nama_barang')
+                            ->pluck('nama_barang', 'id'))
+                        ->searchable()
+                        ->required(),
+                    TextInput::make('jumlah')
+                        ->label('Jumlah')
+                        ->numeric()
+                        ->minValue(1)
+                        ->required(),
+                    Select::make('sumber')
+                        ->label('Sumber')
+                        ->options(self::SUMBER_MASUK)
+                        ->native(false)
+                        ->required(),
+                    TextInput::make('nomor_dasar')
+                        ->label('Nomor Dasar')
+                        ->helperText('Nomor dokumen pengadaan/pengembalian, bila ada.')
+                        ->maxLength(50),
+                    Textarea::make('keterangan')
+                        ->label('Keterangan')
+                        ->rows(2)
+                        ->maxLength(255),
+                ])
+                ->action(function (array $data): void {
+                    app(StokService::class)->tambah(
+                        barangId: (int) $data['barang_id'],
+                        jumlah: (int) $data['jumlah'],
+                        sumber: $data['sumber'],
+                        nomorDasar: $data['nomor_dasar'] ?? null,
+                        keterangan: $data['keterangan'] ?? null,
+                        petugasId: auth()->id(),
+                    );
+
+                    Notification::make()
+                        ->title('Stok masuk tercatat')
+                        ->success()
+                        ->send();
+                }),
+        ];
+    }
+}

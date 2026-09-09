@@ -18,7 +18,17 @@ class KategoriResource extends Resource
 {
     protected static ?string $model = Kategori::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTag;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Persediaan';
+
+    protected static ?string $navigationLabel = 'Kategori Barang';
+
+    protected static ?string $modelLabel = 'Kategori Barang';
+
+    protected static ?string $pluralModelLabel = 'Kategori Barang';
+
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $recordTitleAttribute = 'nama_kategori';
 
