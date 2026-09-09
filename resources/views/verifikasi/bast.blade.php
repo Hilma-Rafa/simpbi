@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Verifikasi BAST — BPS Kota Jakarta Barat</title>
+    <title>{{ __('verifikasi.judul_bast') }}</title>
     <style>
         :root { --biru: #14539A; --hijau: #17663F; --merah: #A32B2B; --abu: #5B6570; --garis: #E3E5E9; }
         * { box-sizing: border-box; }
@@ -30,34 +30,58 @@
         dt { flex: 0 0 150px; color: var(--abu); font-size: 13px; margin: 0; }
         dd { flex: 1; margin: 0; font-weight: 500; }
         .kaki { text-align: center; margin-top: 20px; font-size: 12px; color: var(--abu); }
+
+        /* Penukar bahasa. Dijajarkan di atas kepala halaman, cukup kecil agar
+           tidak merebut perhatian dari pita status keaslian yang justru menjadi
+           alasan orang membuka halaman ini. */
+        .bahasa { display: flex; justify-content: flex-end; gap: 6px; padding: 0 0 10px; }
+        .bahasa a {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 9px; border: 1px solid var(--garis); border-radius: 999px;
+            background: #fff; color: var(--abu);
+            font-size: 12px; font-weight: 600; line-height: 1; text-decoration: none;
+        }
+        .bahasa a.aktif { color: var(--biru); border-color: var(--biru); background: #F0F5FB; }
+        /* Bendera diberi garis dalam supaya bagian putihnya tidak lenyap di
+           atas latar kartu yang juga putih. */
+        .bahasa .bendera { width: 16px; height: 11px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18); }
+
         @media (max-width: 480px) { .baris { flex-direction: column; gap: 2px; } dt { flex: none; } }
     </style>
 </head>
 <body>
+@include('komponen.lambang-bendera')
 <div class="wadah">
+    @include('verifikasi._penukar-bahasa')
+
     <div class="kepala">
-        <h1>BADAN PUSAT STATISTIK KOTA JAKARTA BARAT</h1>
-        <p>Verifikasi Keaslian Dokumen</p>
+        <h1>{{ __('verifikasi.instansi') }}</h1>
+        <p>{{ __('verifikasi.subjudul') }}</p>
     </div>
 
     @if ($bast)
         <div class="kartu">
             <div class="pita sah">
-                <h2>Dokumen Sah</h2>
-                <p>Berita Acara Serah Terima mutasi aset terdaftar dan telah disahkan pada sistem.</p>
+                <h2>{{ __('verifikasi.sah') }}</h2>
+                <p>{{ __('verifikasi.bast.sah_isi') }}</p>
             </div>
             <div class="isi">
                 <dl>
-                    <div class="baris"><dt>Nomor BAST</dt><dd>{{ $bast->nomor_bast }}</dd></div>
-                    <div class="baris"><dt>Jenis Dokumen</dt><dd>Berita Acara Serah Terima Mutasi Aset</dd></div>
-                    <div class="baris"><dt>Aset</dt><dd>{{ $bast->aset?->nama_aset }} (NUP {{ $bast->aset?->nup }})</dd></div>
-                    <div class="baris"><dt>Unit Asal</dt><dd>{{ $bast->timAsal?->nama_tim ?? '-' }}</dd></div>
-                    <div class="baris"><dt>Unit Tujuan</dt><dd>{{ $bast->timTujuan?->nama_tim ?? '-' }}</dd></div>
-                    <div class="baris"><dt>Disahkan Pada</dt><dd>{{ $bast->disahkan_at?->translatedFormat('d F Y, H:i') ?? '-' }}</dd></div>
-                    <div class="baris"><dt>Disahkan Oleh</dt><dd>{{ $bast->disahkanOleh?->name ?? 'Kepala Sub Bagian Umum' }}</dd></div>
+                    <div class="baris"><dt>{{ __('verifikasi.bast.nomor') }}</dt><dd>{{ $bast->nomor_bast }}</dd></div>
+                    <div class="baris"><dt>{{ __('verifikasi.bast.jenis') }}</dt><dd>{{ __('verifikasi.bast.jenis_nilai') }}</dd></div>
+                    {{-- Penyebutan NUP disusun di berkas terjemahan, bukan
+                         dirangkai di sini, sebab dalam bahasa Inggris singkatan
+                         itu tidak dikenal dan perlu ditulis panjang. --}}
+                    <div class="baris"><dt>{{ __('verifikasi.bast.aset') }}</dt>
+                        <dd>{{ __('verifikasi.bast.aset_nilai', ['nama' => $bast->aset?->nama_aset, 'nup' => $bast->aset?->nup]) }}</dd>
+                    </div>
+                    <div class="baris"><dt>{{ __('verifikasi.bast.tim_asal') }}</dt><dd>{{ $bast->timAsal?->nama_tim ?? '-' }}</dd></div>
+                    <div class="baris"><dt>{{ __('verifikasi.bast.tim_tujuan') }}</dt><dd>{{ $bast->timTujuan?->nama_tim ?? '-' }}</dd></div>
+                    <div class="baris"><dt>{{ __('verifikasi.bast.disahkan_pada') }}</dt><dd>{{ $bast->disahkan_at?->translatedFormat('d F Y, H:i') ?? '-' }}</dd></div>
+                    <div class="baris"><dt>{{ __('verifikasi.bast.disahkan_oleh') }}</dt><dd>{{ $bast->disahkanOleh?->name ?? __('verifikasi.pengesah_bawaan') }}</dd></div>
                     <div class="baris">
-                        <dt>Status</dt>
-                        <dd>{{ $bast->dikonfirmasi_at ? 'Selesai administratif (telah dikonfirmasi penerima)' : 'Menunggu konfirmasi penerima' }}</dd>
+                        <dt>{{ __('verifikasi.bast.status') }}</dt>
+                        <dd>{{ $bast->dikonfirmasi_at ? __('verifikasi.bast.status_selesai') : __('verifikasi.bast.status_menunggu') }}</dd>
                     </div>
                 </dl>
             </div>
@@ -65,19 +89,18 @@
     @else
         <div class="kartu">
             <div class="pita tidak">
-                <h2>Dokumen Tidak Ditemukan</h2>
-                <p>Kode verifikasi tidak terdaftar atau dokumen belum disahkan. Keaslian tidak dapat dipastikan.</p>
+                <h2>{{ __('verifikasi.tidak_ditemukan') }}</h2>
+                <p>{{ __('verifikasi.bast.tidak_isi') }}</p>
             </div>
             <div class="isi">
                 <p style="margin:0;color:var(--abu);font-size:14px;">
-                    Apabila Anda memperoleh dokumen ini dari pihak yang mengatasnamakan
-                    Sub Bagian Umum BPS Kota Jakarta Barat, mohon lakukan konfirmasi secara langsung.
+                    {{ __('verifikasi.imbauan') }}
                 </p>
             </div>
         </div>
     @endif
 
-    <p class="kaki">Halaman verifikasi ini dihasilkan secara otomatis oleh sistem.</p>
+    <p class="kaki">{{ __('verifikasi.kaki') }}</p>
 </div>
 </body>
 </html>

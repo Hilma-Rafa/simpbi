@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Verifikasi Dokumen — BPS Kota Jakarta Barat</title>
+    <title>{{ __('verifikasi.judul_permintaan') }}</title>
     <style>
         :root {
             --biru: #14539A;
@@ -99,6 +99,21 @@
             color: var(--abu);
         }
 
+        /* Penukar bahasa. Dijajarkan di atas kepala halaman, cukup kecil agar
+           tidak merebut perhatian dari pita status keaslian yang justru menjadi
+           alasan orang membuka halaman ini. */
+        .bahasa { display: flex; justify-content: flex-end; gap: 6px; padding: 0 0 10px; }
+        .bahasa a {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 9px; border: 1px solid var(--garis); border-radius: 999px;
+            background: #fff; color: var(--abu);
+            font-size: 12px; font-weight: 600; line-height: 1; text-decoration: none;
+        }
+        .bahasa a.aktif { color: var(--biru); border-color: var(--biru); background: #F0F5FB; }
+        /* Bendera diberi garis dalam supaya bagian putihnya tidak lenyap di
+           atas latar kartu yang juga putih. */
+        .bahasa .bendera { width: 16px; height: 11px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .18); }
+
         @media (max-width: 480px) {
             .baris { flex-direction: column; gap: 2px; }
             dt { flex: none; }
@@ -106,56 +121,59 @@
     </style>
 </head>
 <body>
+@include('komponen.lambang-bendera')
 <div class="wadah">
 
+    @include('verifikasi._penukar-bahasa')
+
     <div class="kepala">
-        <h1>BADAN PUSAT STATISTIK KOTA JAKARTA BARAT</h1>
-        <p>Verifikasi Keaslian Dokumen</p>
+        <h1>{{ __('verifikasi.instansi') }}</h1>
+        <p>{{ __('verifikasi.subjudul') }}</p>
     </div>
 
     @if ($permintaan)
         <div class="kartu">
 
             <div class="pita sah">
-                <h2>Dokumen Sah</h2>
-                <p>Dokumen terdaftar pada Sistem Informasi Manajemen Permintaan Barang dan Inventaris.</p>
+                <h2>{{ __('verifikasi.sah') }}</h2>
+                <p>{{ __('verifikasi.permintaan.sah_isi') }}</p>
             </div>
 
             <div class="isi">
                 <dl>
                     <div class="baris">
-                        <dt>Nomor Dokumen</dt>
+                        <dt>{{ __('verifikasi.permintaan.nomor') }}</dt>
                         <dd>{{ $permintaan->kode_permintaan }}</dd>
                     </div>
                     <div class="baris">
-                        <dt>Unit Pemohon</dt>
+                        <dt>{{ __('verifikasi.permintaan.tim') }}</dt>
                         <dd>{{ $permintaan->tim?->nama_tim ?? '-' }}</dd>
                     </div>
                     <div class="baris">
-                        <dt>Nama Pemohon</dt>
+                        <dt>{{ __('verifikasi.permintaan.pemohon') }}</dt>
                         <dd>{{ $permintaan->nama_pemohon }}</dd>
                     </div>
                     <div class="baris">
-                        <dt>Tanggal Pengajuan</dt>
+                        <dt>{{ __('verifikasi.permintaan.tanggal') }}</dt>
                         <dd>{{ $permintaan->created_at?->translatedFormat('d F Y') }}</dd>
                     </div>
                     <div class="baris">
-                        <dt>Disahkan Pada</dt>
+                        <dt>{{ __('verifikasi.permintaan.disahkan_pada') }}</dt>
                         <dd>{{ $permintaan->pengesahan_at?->translatedFormat('d F Y, H:i') ?? '-' }}</dd>
                     </div>
                     <div class="baris">
-                        <dt>Disahkan Oleh</dt>
-                        <dd>{{ $pengesah ?? 'Kepala Sub Bagian Umum' }}</dd>
+                        <dt>{{ __('verifikasi.permintaan.disahkan_oleh') }}</dt>
+                        <dd>{{ $pengesah ?? __('verifikasi.pengesah_bawaan') }}</dd>
                     </div>
                 </dl>
 
-                <h3>Rincian Barang</h3>
+                <h3>{{ __('verifikasi.permintaan.rincian') }}</h3>
                 <table>
                     <thead>
                         <tr>
-                            <th>Nama Barang</th>
-                            <th class="kanan">Jumlah</th>
-                            <th>Satuan</th>
+                            <th>{{ __('verifikasi.permintaan.kolom_nama') }}</th>
+                            <th class="kanan">{{ __('verifikasi.permintaan.kolom_jumlah') }}</th>
+                            <th>{{ __('verifikasi.permintaan.kolom_satuan') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -173,19 +191,18 @@
     @else
         <div class="kartu">
             <div class="pita tidak">
-                <h2>Dokumen Tidak Ditemukan</h2>
-                <p>Kode verifikasi tidak terdaftar pada sistem. Dokumen tidak dapat dipastikan keasliannya.</p>
+                <h2>{{ __('verifikasi.tidak_ditemukan') }}</h2>
+                <p>{{ __('verifikasi.permintaan.tidak_isi') }}</p>
             </div>
             <div class="isi">
                 <p style="margin:0;color:var(--abu);font-size:14px;">
-                    Apabila Anda memperoleh dokumen ini dari pihak yang mengatasnamakan
-                    Sub Bagian Umum BPS Kota Jakarta Barat, mohon lakukan konfirmasi secara langsung.
+                    {{ __('verifikasi.imbauan') }}
                 </p>
             </div>
         </div>
     @endif
 
-    <p class="kaki">Halaman verifikasi ini dihasilkan secara otomatis oleh sistem.</p>
+    <p class="kaki">{{ __('verifikasi.kaki') }}</p>
 
 </div>
 </body>

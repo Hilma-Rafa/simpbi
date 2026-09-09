@@ -34,7 +34,9 @@ Route::get('/bahasa/{kode}', function (string $kode) {
 /**
  * Halaman verifikasi keaslian dokumen.
  * Dapat diakses tanpa autentikasi, karena ditujukan bagi siapa pun
- * yang memindai kode QR pada dokumen bukti permintaan.
+ * yang memindai kode QR pada dokumen bukti permintaan. Karena pembacanya
+ * belum tentu pegawai dan belum tentu berbahasa Indonesia, halaman ini ikut
+ * mengikuti pilihan bahasa pengunjung seperti halaman muka.
  */
 Route::get('/verifikasi/{token}', function (string $token) {
     $permintaan = PermintaanBarang::query()
@@ -49,7 +51,7 @@ Route::get('/verifikasi/{token}', function (string $token) {
         ?->name;
 
     return view('verifikasi.permintaan', compact('permintaan', 'pengesah'));
-})->name('verifikasi.permintaan');
+})->middleware(TerapkanBahasa::class)->name('verifikasi.permintaan');
 
 /**
  * Halaman verifikasi keaslian BAST mutasi aset.
@@ -64,7 +66,7 @@ Route::get('/verifikasi-bast/{token}', function (string $token) {
         ->first();
 
     return view('verifikasi.bast', compact('bast'));
-})->name('verifikasi.bast');
+})->middleware(TerapkanBahasa::class)->name('verifikasi.bast');
 
 /**
  * Pengunduhan berkas BAST mutasi aset (hanya pengguna terautentikasi).
