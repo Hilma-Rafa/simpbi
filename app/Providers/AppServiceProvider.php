@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\WhatsApp\PengirimCatat;
+use App\Services\WhatsApp\PengirimFonnte;
 use App\Services\WhatsApp\PengirimOpenWa;
 use App\Services\WhatsApp\PengirimWhatsApp;
 use Filament\Notifications\Livewire\Notifications;
@@ -25,6 +26,7 @@ class AppServiceProvider extends ServiceProvider
          */
         $this->app->bind(PengirimWhatsApp::class, function () {
             return match (config('whatsapp.driver')) {
+                'fonnte' => new PengirimFonnte(),
                 'openwa' => new PengirimOpenWa(),
                 default  => new PengirimCatat(),
             };

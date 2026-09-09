@@ -48,6 +48,20 @@ return [
      * akan melaporkan diri belum terkonfigurasi, dan notifikasi tercatat gagal
      * dengan alasan yang jelas alih-alih hilang tanpa jejak.
      */
+    /*
+     * Layanan Fonnte.
+     *
+     * Gerbangnya berjalan di peladen Fonnte, sehingga tidak ada apa pun yang
+     * perlu dipasang di sisi SIMPBI — cukup token dari dasbor mereka.
+     */
+    'fonnte' => [
+        // Token perangkat dari dasbor Fonnte, dikirim apa adanya pada tajuk
+        // Authorization tanpa awalan "Bearer".
+        'token'       => env('WHATSAPP_FONNTE_TOKEN'),
+        // Batas waktu satu panggilan, dalam detik
+        'batas_detik' => (int) env('WHATSAPP_FONNTE_BATAS_DETIK', 15),
+    ],
+
     'openwa' => [
         // Alamat pangkal gerbang, tanpa /api. Contoh: http://127.0.0.1:2785
         'alamat'   => env('WHATSAPP_OPENWA_ALAMAT'),
