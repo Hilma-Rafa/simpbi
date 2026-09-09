@@ -1,13 +1,18 @@
 # Panduan Pemasangan Kanal Notifikasi WhatsApp (UC-23)
 
 Dokumen ini menjelaskan cara menyalakan kanal WhatsApp pada SIMPBI, dari
-memasang gerbang sampai memastikan pesan benar-benar sampai. Ditulis untuk
+menautkan nomor sampai memastikan pesan benar-benar sampai. Ditulis untuk
 pemasangan pertama kali, dan dapat dipakai kembali ketika nomor gerbang harus
 diganti.
 
-Acuan gerbang: **OpenWA 0.23.4** (`github.com/rmyndharis/OpenWA`). Tampilan dan
-nama tombolnya dapat berbeda pada versi lain; yang tidak berubah adalah alur
-dan endpoint-nya.
+Gerbang yang dipakai adalah **Fonnte**, layanan WhatsApp gateway yang berjalan
+sepenuhnya di peladen penyedianya. Tidak ada perangkat lunak yang perlu dipasang
+di komputer maupun peladen SIMPBI — tidak ada Docker, tidak ada kontainer, tidak
+ada kebutuhan memori tambahan. Yang dibutuhkan hanya satu nomor WhatsApp dan
+satu token.
+
+Bagi yang lebih memilih memasang gerbangnya sendiri, jalur OpenWA tetap
+didukung sistem dan diringkas pada **Lampiran A**.
 
 ---
 
@@ -15,18 +20,19 @@ dan endpoint-nya.
 
 **Kanal WhatsApp bersifat pelengkap, bukan tulang punggung.** Notifikasi dalam
 aplikasi terbit lebih dulu dan tidak bergantung pada keberhasilan WhatsApp.
-Kalau gerbang mati atau nomornya diblokir, alur kerja SIMPBI tetap berjalan
-utuh — yang hilang hanya pemberitahuan tambahan lewat ponsel.
+Kalau gerbang bermasalah atau nomornya diblokir, alur kerja SIMPBI tetap
+berjalan utuh — yang hilang hanya pemberitahuan tambahan lewat ponsel.
 
 **Sistem tidak akan mengirim apa pun sebelum dinyalakan dengan sengaja.**
 Bawaan pemasangan adalah pelaksana `catat`, yang hanya menulis pesan ke berkas
 log. Ini disengaja supaya salinan sistem yang baru dipasang tidak pernah tidak
 sengaja mengirim pesan ke nomor pegawai sungguhan.
 
-**Gerbang ini memakai klien WhatsApp tidak resmi.** WhatsApp tidak
-mengizinkannya secara resmi, dan selalu ada kemungkinan nomor dibatasi atau
-diblokir. Karena itu langkah pertama di bawah bukan soal perangkat lunak,
-melainkan soal nomor.
+**Layanan ini memakai klien WhatsApp tidak resmi.** Fonnte menautkan nomor Anda
+sebagai perangkat tertaut, cara yang sama dengan gerbang yang dipasang sendiri.
+Karena itu, meskipun tidak ada yang perlu dipasang, **risiko nomor dibatasi atau
+diblokir tetap ada**. Langkah pertama di bawah karena itu bukan soal perangkat
+lunak, melainkan soal nomor.
 
 ---
 
@@ -35,10 +41,12 @@ melainkan soal nomor.
 | Kebutuhan | Keterangan |
 | --- | --- |
 | **Nomor WhatsApp khusus** | Kartu SIM tersendiri untuk sistem. **Jangan** memakai nomor pribadi maupun nomor dinas yang dipakai berkomunikasi sehari-hari. Bila nomor ini diblokir, tidak ada percakapan penting yang ikut hilang. |
-| **Ponsel untuk memindai** | Diperlukan sekali saat pemasangan, dan sesekali bila sesi terputus. |
-| **Docker dan Docker Compose** | Gerbang dijalankan sebagai kontainer. |
-| **Memori peladen** | Mesin `whatsapp-web.js` memakai sekitar 300–500 MB per sesi. SIMPBI hanya butuh satu sesi. |
-| **Akses ke berkas `.env` SIMPBI** | Untuk mengisi alamat gerbang dan kunci API. |
+| **Ponsel untuk memindai** | Diperlukan sekali saat pemasangan, dan sesekali bila perangkat terputus. |
+| **Akun Fonnte** | Pendaftaran gratis di <https://fonnte.com>. |
+| **Akses ke berkas `.env` SIMPBI** | Untuk mengisi token. |
+
+Tidak ada kebutuhan Docker, virtualisasi, maupun memori tambahan pada komputer
+Anda — seluruh gerbang berjalan di sisi Fonnte.
 
 ### Berapa nomor yang sebenarnya dibutuhkan
 
@@ -54,98 +62,56 @@ tugas.
 
 ### Menjaga sesi tetap hidup
 
-Nomor gerbang tertaut ke OpenWA sebagai *perangkat tertaut*, dan WhatsApp
+Nomor gerbang tertaut ke Fonnte sebagai *perangkat tertaut*, dan WhatsApp
 memutus seluruh perangkat tertaut bila ponsel pemegang nomor tidak aktif selama
 **14 hari**. Begitu terputus, seluruh pengiriman ditolak sampai kode QR dipindai
-ulang.
+ulang di dasbor Fonnte.
 
 Karena ponsel yang khusus dipakai untuk ini biasanya jarang disentuh, jadikan
 kebiasaan menyalakannya dan membuka WhatsApp sebentar setidaknya dua minggu
-sekali. Tanda-tanda sesi terputus mudah dikenali: seluruh notifikasi baru
-berstatus **Gagal** dengan keterangan *"Sesi gerbang belum tersambung ke
-WhatsApp."*
+sekali. Bila demonstrasi sistem masih beberapa minggu lagi, **pindai kode QR
+mendekati harinya**, bukan jauh-jauh hari.
 
 ---
 
-## 3. Memasang gerbang OpenWA
+## 3. Menautkan nomor di Fonnte
 
-```bash
-git clone https://github.com/rmyndharis/OpenWA.git
-cd OpenWA
-docker compose -f docker-compose.dev.yml up -d
-```
+1. **Daftar dan masuk** ke dasbor Fonnte (<https://fonnte.com>).
+2. **Tambahkan perangkat** pada halaman *Device*, memakai nomor WhatsApp khusus
+   yang sudah disiapkan.
+3. **Pindai kode QR** yang ditampilkan, dari ponsel bernomor tersebut, lewat
+   **WhatsApp → Perangkat Tertaut → Tautkan Perangkat**.
+4. **Salin token perangkat** dari halaman *Token (API key)*.
 
-Setelah kontainer berjalan:
+> **Perhatikan jenis tokennya.** Fonnte membedakan **token perangkat** (device
+> token) dan **token akun** (account token). Yang dipakai untuk mengirim pesan
+> adalah **token perangkat**. Bila keliru, pengiriman akan ditolak dan SIMPBI
+> mencatatnya sebagai *"Token Fonnte ditolak. Periksa WHATSAPP_FONNTE_TOKEN pada
+> berkas .env."*
 
-- Dasbor: <http://localhost:2785>
-- API: <http://localhost:2785/api>
-- Dokumentasi API interaktif: <http://localhost:2785/api/docs>
+Perlakukan token seperti kata sandi: siapa pun yang memilikinya dapat mengirim
+pesan atas nama nomor gerbang. Token **tidak boleh** ikut masuk ke repositori —
+tempatnya hanya di berkas `.env`, yang sudah diabaikan Git.
 
-**Pilihan mesin.** OpenWA dapat memakai `whatsapp-web.js` (bawaan) atau
-`baileys`, diatur lewat variabel `ENGINE_TYPE`. Untuk SIMPBI **pertahankan
-bawaannya**: `whatsapp-web.js` menjalankan Chromium sungguhan sehingga lalu
-lintasnya menyerupai WhatsApp Web biasa dan risiko pemblokirannya lebih rendah,
-dengan imbalan pemakaian memori lebih besar. Penghematan memori `baileys` baru
-berarti bila sesinya banyak, sedangkan SIMPBI hanya memakai satu.
+### Paket dan kuota
 
-**Kunci API pertama.** OpenWA membuat kunci bootstrap saat pertama kali
-dijalankan dan menyimpannya pada berkas `.api-key` di dalam direktori kerjanya.
-Ambil nilainya dari sana, atau dari dasbor bila versi Anda menyediakannya.
-Simpan kunci ini seperti kata sandi — siapa pun yang memilikinya dapat mengirim
-pesan atas nama nomor gerbang.
-
----
-
-## 4. Membuat sesi dan memindai kode QR
-
-Ganti `KUNCI_API` dengan kunci dari langkah sebelumnya.
-
-**Buat sesi bernama `simpbi`:**
-
-```bash
-curl -X POST http://localhost:2785/api/sessions \
-  -H "Content-Type: application/json" \
-  -H "X-API-Key: KUNCI_API" \
-  -d '{"name": "simpbi"}'
-```
-
-**Jalankan sesinya:**
-
-```bash
-curl -X POST http://localhost:2785/api/sessions/simpbi/start \
-  -H "X-API-Key: KUNCI_API"
-```
-
-**Ambil kode QR-nya:**
-
-```bash
-curl http://localhost:2785/api/sessions/simpbi/qr \
-  -H "X-API-Key: KUNCI_API"
-```
-
-Jawabannya berisi gambar QR dalam bentuk data URL:
-`{"qrCode": "data:image/png;base64,...", "status": "qr_ready"}`. Tempelkan
-nilai `qrCode` ke bilah alamat peramban untuk menampilkannya, lalu pindai dari
-ponsel bernomor khusus tadi melalui **WhatsApp → Perangkat Tertaut → Tautkan
-Perangkat**. Lebih mudah lagi bila dasbor OpenWA sudah menampilkan QR-nya
-langsung.
-
-Sesi dianggap siap ketika statusnya bukan lagi `qr_ready`. Selama status masih
-menunggu pemindaian, setiap pengiriman akan ditolak dengan kode 409 — dan
-SIMPBI akan mencatatnya sebagai *"Sesi gerbang belum tersambung ke WhatsApp.
-Pindai ulang kode QR pada dasbor OpenWA."*
+Fonnte menyediakan paket gratis yang memadai untuk pengembangan dan pengujian,
+dengan batas jumlah pesan per bulan dan tanda air pada pesan yang dikirim.
+Volume SIMPBI sangat kecil — belasan pesan sehari pada pemakaian normal —
+sehingga paket gratis umumnya cukup untuk uji coba dan demonstrasi. Bila tanda
+air itu mengganggu pada tangkapan layar untuk laporan, paket berbayar termurah
+sudah menghilangkannya. Periksa ketentuan terbaru pada halaman harga Fonnte,
+sebab paket dan batasnya dapat berubah.
 
 ---
 
-## 5. Menghubungkan SIMPBI ke gerbang
+## 4. Menghubungkan SIMPBI ke Fonnte
 
 Isikan pada berkas `.env` SIMPBI:
 
 ```dotenv
-WHATSAPP_DRIVER=openwa
-WHATSAPP_OPENWA_ALAMAT=http://127.0.0.1:2785
-WHATSAPP_OPENWA_SESI=simpbi
-WHATSAPP_OPENWA_KUNCI=KUNCI_API
+WHATSAPP_DRIVER=fonnte
+WHATSAPP_FONNTE_TOKEN=token-perangkat-dari-dasbor-fonnte
 ```
 
 Lalu bersihkan singgahan konfigurasi, karena Laravel menyimpan berkas `.env`
@@ -155,17 +121,17 @@ yang sudah dibaca:
 php artisan config:clear
 ```
 
-Bila gerbang dijalankan di mesin lain, ganti `127.0.0.1` dengan alamat mesin
-tersebut dan pastikan porta 2785 hanya terbuka untuk peladen SIMPBI, **bukan
-untuk umum**.
+Tidak ada alamat peladen yang perlu diisi: alamat API Fonnte sudah tetap di
+dalam kode. Batas waktu satu panggilan dapat diubah lewat
+`WHATSAPP_FONNTE_BATAS_DETIK` bila diperlukan, bawaannya 15 detik.
 
 ---
 
-## 6. Menyalakan kanal dari dalam aplikasi
+## 5. Menyalakan kanal dari dalam aplikasi
 
 Penyalaan kanal sengaja **tidak** diatur lewat `.env`, melainkan lewat aplikasi,
-supaya dapat dimatikan sewaktu-waktu tanpa akses peladen — misalnya ketika
-nomor bermasalah menjelang jam kerja.
+supaya dapat dimatikan sewaktu-waktu tanpa akses peladen — misalnya ketika nomor
+bermasalah menjelang jam kerja.
 
 Masuk sebagai **Admin Sistem** → menu **Pengaturan** → bagian **Pengaturan
 Sistem** → nyalakan **Aktifkan notifikasi WhatsApp** → **Simpan Perubahan**.
@@ -175,10 +141,10 @@ berkanal WhatsApp.
 
 ---
 
-## 7. Menjalankan antrean
+## 6. Menjalankan antrean
 
 Pengiriman dikerjakan lewat antrean supaya permintaan yang sedang dikerjakan
-pengguna tidak perlu menunggu gerbang menjawab, dan supaya jeda antar pesan
+pengguna tidak perlu menunggu Fonnte menjawab, dan supaya jeda antar pesan
 benar-benar berlaku.
 
 Pada `.env`:
@@ -210,7 +176,7 @@ berlaku dan percobaan ulang otomatis tidak jalan.
 
 ---
 
-## 8. Uji coba pertama
+## 7. Uji coba pertama
 
 1. Pastikan Ketua Tim yang akan diuji sudah memiliki nomor pada data
    penggunanya. Pengguna tanpa nomor tidak dibuatkan baris WhatsApp sama sekali.
@@ -224,21 +190,25 @@ daftar periksa berikut.
 
 ---
 
-## 9. Daftar periksa saat pesan tidak sampai
+## 8. Daftar periksa saat pesan tidak sampai
 
 Keterangan pada kolom status di halaman Riwayat → Notifikasi sudah menyebutkan
 penyebabnya. Padanannya:
 
 | Keterangan yang muncul | Penyebab | Tindakan |
 | --- | --- | --- |
-| Sesi gerbang belum tersambung ke WhatsApp | Sesi terputus atau belum dipindai | Pindai ulang kode QR (langkah 4) |
-| Kunci API OpenWA ditolak | `WHATSAPP_OPENWA_KUNCI` salah atau kedaluwarsa | Perbarui kunci di `.env`, lalu `php artisan config:clear` |
-| Sesi "…" tidak ditemukan pada gerbang | Nama sesi berbeda dengan yang ada di gerbang | Samakan `WHATSAPP_OPENWA_SESI` dengan nama sesi sebenarnya |
-| Gerbang OpenWA tidak dapat dihubungi | Kontainer mati, alamat salah, atau porta terblokir | `docker compose ps`, periksa `WHATSAPP_OPENWA_ALAMAT` |
-| Gerbang membatasi laju pengiriman | Pesan terlalu rapat | Perbesar `WHATSAPP_JEDA_DETIK` pada `.env` |
-| Gerbang OpenWA mengalami gangguan internal | Masalah di sisi gerbang | Periksa log kontainer OpenWA |
-| Nomor WhatsApp pengguna belum diisi atau tidak dikenali | Kolom nomor kosong atau formatnya tidak terbaca | Lengkapi lewat menu Pengguna, format `628…` |
-| Gerbang WhatsApp "…" belum terkonfigurasi | Salah satu dari alamat, sesi, atau kunci kosong | Lengkapi keempat variabel pada langkah 5 |
+| Token Fonnte ditolak | Token salah, kedaluwarsa, atau tertukar dengan token akun | Salin ulang **token perangkat** dari dasbor, perbarui `.env`, lalu `php artisan config:clear` |
+| Kuota pengiriman Fonnte habis | Batas paket terlampaui | Isi ulang paket pada dasbor Fonnte |
+| Perangkat pada Fonnte belum tersambung | Nomor terputus dari Fonnte, biasanya karena ponsel lama tidak aktif | Pindai ulang kode QR pada halaman Device |
+| Nomor tujuan ditolak Fonnte | Nomor penerima tidak sah atau bukan pengguna WhatsApp | Perbaiki nomor lewat menu Pengguna, format `628…` |
+| Permintaan ditolak Fonnte karena isian tidak lengkap | Ada parameter yang tidak terkirim | Periksa log aplikasi; laporkan bila berulang |
+| Layanan Fonnte tidak dapat dihubungi | Jaringan peladen terputus atau Fonnte sedang bermasalah | Periksa koneksi internet peladen, coba lagi beberapa saat kemudian |
+| Layanan Fonnte mengembalikan galat (HTTP 5xx) | Gangguan di sisi Fonnte | Tunggu dan kirim ulang |
+| Nomor WhatsApp pengguna belum diisi atau tidak dikenali | Kolom nomor kosong atau formatnya tidak terbaca | Lengkapi lewat menu Pengguna |
+| Gerbang WhatsApp "fonnte" belum terkonfigurasi | `WHATSAPP_FONNTE_TOKEN` kosong | Isi token pada langkah 4 |
+
+Setiap keterangan selalu menyertakan alasan asli dari Fonnte di dalam tanda
+kurung, untuk penelusuran lebih lanjut.
 
 Setelah penyebabnya dibereskan, baris yang gagal dapat dikirim ulang: pilih
 barisnya di **Riwayat → Notifikasi** lalu tekan **Kirim Ulang**, atau centang
@@ -247,11 +217,16 @@ sudah terkirim tidak dapat diulang, supaya penerima tidak menerima pesan yang
 sama dua kali.
 
 **Bila status tetap "Menunggu" dan tidak berubah**, kemungkinan besar pekerja
-antrean tidak berjalan. Periksa proses `queue:work` pada langkah 7.
+antrean tidak berjalan. Periksa proses `queue:work` pada langkah 6.
+
+**Bila status "Terkirim" tetapi pesan tidak sampai**, periksa riwayat pengiriman
+pada dasbor Fonnte. Status Terkirim berarti Fonnte sudah menerima dan mengantre
+pesannya; pengantaran ke ponsel penerima terjadi setelah itu dan berada di luar
+jangkauan SIMPBI.
 
 ---
 
-## 10. Mematikan kanal kembali
+## 9. Mematikan kanal kembali
 
 Ada dua tingkat, pilih sesuai keperluan:
 
@@ -264,17 +239,23 @@ Ada dua tingkat, pilih sesuai keperluan:
 
 ---
 
-## 11. Catatan operasional dan keterbatasan
+## 10. Catatan operasional dan keterbatasan
 
-**Risiko pemblokiran nomor tetap ada.** Dokumentasi OpenWA sendiri menyatakan
-*"There is always a non-zero risk of account restriction or ban"* dan
-menyarankan memakai nomor yang siap dikorbankan, serta tidak menyarankan
-pemakaiannya pada lingkungan teregulasi. Untuk instansi pemerintah, hal ini
-perlu disampaikan apa adanya sebagai keterbatasan sistem, bukan disembunyikan.
+**Risiko pemblokiran nomor tetap ada.** Memakai layanan yang di-hosting memang
+menghilangkan kerepotan memasang gerbang, tetapi tidak mengubah kenyataan bahwa
+nomor tertaut sebagai perangkat WhatsApp Web dan otomasinya tidak diizinkan
+secara resmi. Untuk instansi pemerintah, hal ini perlu disampaikan apa adanya
+sebagai keterbatasan sistem, bukan disembunyikan.
 
 **Cara memperkecil risiko:** pakai nomor khusus, kirim hanya notifikasi
-transaksional yang volumenya rendah, pertahankan jeda antar pesan, dan jangan
-sekali-kali memakai gerbang ini untuk pesan siaran.
+transaksional yang volumenya rendah, pertahankan jeda antar pesan
+(`WHATSAPP_JEDA_DETIK`, bawaan 5 detik), dan jangan sekali-kali memakai gerbang
+ini untuk pesan siaran.
+
+**Ketergantungan pada pihak ketiga.** Berbeda dengan gerbang yang dipasang
+sendiri, ketersediaan kanal ini bergantung pada layanan Fonnte dan pada paket
+yang masih aktif. Kalau layanannya bermasalah, notifikasi dalam aplikasi tetap
+jalan dan alur kerja tidak terganggu.
 
 **Bila suatu saat dibutuhkan jalur resmi,** WhatsApp Cloud API dari Meta dapat
 dipasang tanpa mengubah alur notifikasi: cukup menambahkan satu pelaksana baru
@@ -288,14 +269,65 @@ mempercepat pemberitahuannya.
 
 ---
 
+## Lampiran A — Alternatif: gerbang OpenWA yang dipasang sendiri
+
+Pelaksana `openwa` tetap tersedia di dalam sistem bagi yang ingin menjalankan
+gerbangnya sendiri, misalnya karena tidak ingin bergantung pada layanan pihak
+ketiga. Konsekuensinya: butuh Docker, sekitar 300–500 MB memori untuk satu sesi,
+dan pemeliharaan kontainer menjadi tanggung jawab sendiri.
+
+```bash
+git clone https://github.com/rmyndharis/OpenWA.git
+cd OpenWA
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Dasbor pada <http://localhost:2785>, dokumentasi API pada `/api/docs`. Kunci API
+bootstrap tersimpan pada berkas `.api-key` di direktori kerjanya. Pertahankan
+mesin bawaan `whatsapp-web.js` — risiko pemblokirannya lebih rendah dibanding
+`baileys` karena menjalankan Chromium sungguhan.
+
+Membuat sesi dan mengambil kode QR:
+
+```bash
+curl -X POST http://localhost:2785/api/sessions \
+  -H "Content-Type: application/json" -H "X-API-Key: KUNCI_API" \
+  -d '{"name": "simpbi"}'
+
+curl -X POST http://localhost:2785/api/sessions/simpbi/start -H "X-API-Key: KUNCI_API"
+
+curl http://localhost:2785/api/sessions/simpbi/qr -H "X-API-Key: KUNCI_API"
+```
+
+Lalu pada `.env` SIMPBI:
+
+```dotenv
+WHATSAPP_DRIVER=openwa
+WHATSAPP_OPENWA_ALAMAT=http://127.0.0.1:2785
+WHATSAPP_OPENWA_SESI=simpbi
+WHATSAPP_OPENWA_KUNCI=KUNCI_API
+```
+
+Langkah 5 sampai 9 pada panduan utama berlaku sama. Keterangan kegagalannya
+berbeda kata tetapi setara maknanya — misalnya *"Sesi gerbang belum tersambung
+ke WhatsApp. Pindai ulang kode QR pada dasbor OpenWA."*
+
+Bila porta gerbang dibuka dari mesin lain, pastikan hanya peladen SIMPBI yang
+dapat menjangkaunya, **bukan umum**.
+
+---
+
 ## Ringkasan berkas terkait
 
 | Berkas | Isi |
 | --- | --- |
-| `config/whatsapp.php` | Pilihan pelaksana, jeda antar pesan, banyaknya percobaan, kredensial gerbang |
+| `config/whatsapp.php` | Pilihan pelaksana, jeda antar pesan, banyaknya percobaan, kredensial tiap gerbang |
 | `app/Services/WhatsApp/PengirimWhatsApp.php` | Kontrak pengirim, agar gerbang dapat diganti |
-| `app/Services/WhatsApp/PengirimOpenWa.php` | Pelaksana untuk gerbang OpenWA |
+| `app/Services/WhatsApp/PengirimFonnte.php` | Pelaksana untuk layanan Fonnte |
+| `app/Services/WhatsApp/PengirimOpenWa.php` | Pelaksana untuk gerbang OpenWA yang dipasang sendiri |
 | `app/Services/WhatsApp/PengirimCatat.php` | Pelaksana bawaan, hanya mencatat ke log |
 | `app/Jobs/KirimPesanWhatsApp.php` | Pengiriman satu baris notifikasi lewat antrean |
 | `app/Services/NotifikasiService.php` | Penerbitan baris notifikasi kedua kanal |
-| `tests/Feature/PengirimanWhatsAppTest.php` | Pengujian otomatis seluruh perilaku di atas |
+| `app/Filament/Pages/Riwayat.php` | Riwayat pengiriman dan aksi kirim ulang |
+| `tests/Feature/PengirimanFonnteTest.php` | Pengujian otomatis pelaksana Fonnte |
+| `tests/Feature/PengirimanWhatsAppTest.php` | Pengujian otomatis kontrak, job, dan pelaksana OpenWA |
