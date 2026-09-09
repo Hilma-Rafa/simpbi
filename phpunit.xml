@@ -29,6 +29,12 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <!-- Gerbang WhatsApp ditetapkan di sini agar pengujian tidak ikut
+             berubah ketika .env pengembang memakai gerbang sungguhan. -->
+        <env name="WHATSAPP_DRIVER" value="catat"/>
+        <env name="WHATSAPP_FONNTE_TOKEN" value=""/>
+        <env name="WHATSAPP_OPENWA_ALAMAT" value=""/>
+        <env name="WHATSAPP_OPENWA_KUNCI" value=""/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>

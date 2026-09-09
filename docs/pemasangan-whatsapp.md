@@ -125,6 +125,12 @@ Tidak ada alamat peladen yang perlu diisi: alamat API Fonnte sudah tetap di
 dalam kode. Batas waktu satu panggilan dapat diubah lewat
 `WHATSAPP_FONNTE_BATAS_DETIK` bila diperlukan, bawaannya 15 detik.
 
+> **Pastikan `APP_URL` benar.** Notifikasi yang menuntut tindakan menyertakan
+> tautan langsung ke halaman transaksinya, dan tautan itu dibentuk dari
+> `APP_URL`. Selama nilainya masih `http://localhost`, tautan yang terkirim
+> tidak dapat dibuka penerima. Isi dengan alamat sebenarnya begitu sistem
+> ditempatkan di peladen, misalnya `APP_URL=https://simpbi.bps3174.go.id`.
+
 ---
 
 ## 5. Menyalakan kanal dari dalam aplikasi

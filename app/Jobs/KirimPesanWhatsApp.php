@@ -2,7 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Filament\Resources\BastMutasiAsets\BastMutasiAsetResource;
+use App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource;
+use App\Models\BastMutasiAset;
 use App\Models\Notifikasi;
+use App\Models\PermintaanBarang;
 use App\Services\WhatsApp\PengirimanGagal;
 use App\Services\WhatsApp\PengirimWhatsApp;
 use App\Support\NomorWhatsApp;
@@ -119,7 +123,76 @@ class KirimPesanWhatsApp implements ShouldQueue
      */
     protected function susunPesan(Notifikasi $notifikasi): string
     {
-        return "*{$notifikasi->judul}*\n\n{$notifikasi->pesan}\n\n_SIMPBI — BPS Kota Jakarta Barat_";
+        $bagian = ["*{$notifikasi->judul}*", '', $notifikasi->pesan];
+
+        if ($tautan = $this->tautanTindakan($notifikasi)) {
+            $bagian[] = '';
+            $bagian[] = 'Buka: ' . $tautan;
+        }
+
+        $bagian[] = '';
+        $bagian[] = '_SIMPBI — BPS Kota Jakarta Barat_';
+
+        return implode("\n", $bagian);
+    }
+
+    /**
+     * Tautan ke halaman yang perlu dibuka penerima, bila memang ada yang harus
+     * dikerjakan.
+     *
+     * Notifikasi yang sifatnya kabar — permintaan selesai, ditolak, atau
+     * kedaluwarsa — sengaja tidak diberi tautan: tidak ada yang perlu dibuka,
+     * dan makin sedikit tautan yang beredar makin kecil pula kemiripan pesan
+     * dengan pola sebaran yang dicurigai WhatsApp.
+     *
+     * Kebutuhan tindakan tidak disimpan sebagai kolom baru pada baris
+     * notifikasi, melainkan dibaca dari keadaan transaksinya pada saat pesan
+     * dikirim. Dengan begitu tabel `notifikasi` tidak perlu berubah, dan
+     * tautan tidak pernah mengajak membuka sesuatu yang ternyata sudah
+     * ditangani orang lain lebih dulu.
+     */
+    protected function tautanTindakan(Notifikasi $notifikasi): ?string
+    {
+        if (! $notifikasi->referensi_id) {
+            return null;
+        }
+
+        return match ($notifikasi->referensi_tabel) {
+            'permintaan_barang' => $this->tautanPermintaan((int) $notifikasi->referensi_id),
+            'bast_mutasi_aset'  => $this->tautanBast((int) $notifikasi->referensi_id),
+
+            // Peringatan stok tidak diberi tautan karena tindak lanjutnya
+            // berbeda menurut peran — Petugas Gudang mencatat stok masuk,
+            // sedangkan Kasubbag menimbang pengadaan — sehingga tidak ada satu
+            // halaman yang tepat untuk semua penerimanya.
+            default => null,
+        };
+    }
+
+    protected function tautanPermintaan(int $id): ?string
+    {
+        $permintaan = PermintaanBarang::find($id);
+
+        if (! $permintaan || in_array($permintaan->status, PermintaanBarang::STATUS_RIWAYAT, true)) {
+            return null;
+        }
+
+        // Panel disebut tegas karena job berjalan di luar permintaan HTTP,
+        // sehingga Filament tidak mengetahui panel mana yang sedang aktif.
+        return PermintaanBarangResource::getUrl('detail', ['record' => $id], panel: 'admin');
+    }
+
+    protected function tautanBast(int $id): ?string
+    {
+        $bast = BastMutasiAset::find($id);
+
+        if (! $bast || $bast->status === 'selesai_administratif') {
+            return null;
+        }
+
+        // Mutasi aset belum memiliki halaman rinci tersendiri, sehingga
+        // penerima diarahkan ke daftarnya.
+        return BastMutasiAsetResource::getUrl('index', panel: 'admin');
     }
 
     protected function tandaiGagal(Notifikasi $notifikasi, string $alasan): void

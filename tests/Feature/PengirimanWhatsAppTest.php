@@ -16,6 +16,7 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\URL;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Concerns\MenyiapkanDataUji;
 use Tests\TestCase;
@@ -360,6 +361,157 @@ class PengirimanWhatsAppTest extends TestCase
             1,
             Notifikasi::query()->where('user_id', $penerima->id)->dalamAplikasi()->count(),
             'Satu kejadian menghasilkan dua baris, tetapi lonceng hanya menampilkan yang dalam aplikasi.'
+        );
+    }
+
+    // =====================================================================
+    // TAUTAN TINDAKAN DI DALAM PESAN
+    // =====================================================================
+
+    /**
+     * Tautan hanya disertakan bila penerima memang harus mengerjakan sesuatu.
+     */
+    #[DataProvider('statusPerluTindakan')]
+    public function test_permintaan_yang_masih_berjalan_disertai_tautan(string $status): void
+    {
+        Http::fake(['*' => Http::response(['messageId' => 'x'], 201)]);
+
+        $permintaan = $this->permintaan($status);
+        $notifikasi = $this->notifikasi(tambahan: [
+            'referensi_tabel' => 'permintaan_barang',
+            'referensi_id'    => $permintaan->id,
+        ]);
+
+        (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
+
+        Http::assertSent(fn (Request $r) => str_contains($r['text'], 'Buka: ')
+            && str_contains($r['text'], '/admin/permintaan-barangs/' . $permintaan->id));
+    }
+
+    /** @return array<string, array{string}> */
+    public static function statusPerluTindakan(): array
+    {
+        return [
+            'menunggu ketua'      => ['menunggu_ketua'],
+            'menunggu verifikasi' => ['menunggu_verifikasi'],
+            'menunggu kasubbag'   => ['menunggu_kasubbag'],
+            'siap diproses'       => ['siap_diproses'],
+            'siap diambil'        => ['siap_diambil'],
+            'menunggu pengesahan' => ['menunggu_pengesahan'],
+        ];
+    }
+
+    #[DataProvider('statusTanpaTindakan')]
+    public function test_permintaan_yang_sudah_berakhir_tidak_disertai_tautan(string $status): void
+    {
+        Http::fake(['*' => Http::response(['messageId' => 'x'], 201)]);
+
+        $permintaan = $this->permintaan($status);
+        $notifikasi = $this->notifikasi(tambahan: [
+            'referensi_tabel' => 'permintaan_barang',
+            'referensi_id'    => $permintaan->id,
+        ]);
+
+        (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
+
+        Http::assertSent(fn (Request $r) => ! str_contains($r['text'], 'Buka: '));
+    }
+
+    /** @return array<string, array{string}> */
+    public static function statusTanpaTindakan(): array
+    {
+        return [
+            'selesai'          => ['selesai'],
+            'ditolak ketua'    => ['ditolak_ketua'],
+            'ditolak kasubbag' => ['ditolak_kasubbag'],
+            'kedaluwarsa'      => ['kedaluwarsa'],
+            'bermasalah'       => ['bermasalah'],
+        ];
+    }
+
+    public function test_peringatan_stok_tidak_disertai_tautan(): void
+    {
+        // Tindak lanjutnya berbeda per peran, sehingga tidak ada satu halaman
+        // yang tepat untuk semua penerimanya.
+        Http::fake(['*' => Http::response(['messageId' => 'x'], 201)]);
+
+        $notifikasi = $this->notifikasi(tambahan: [
+            'tipe'            => 'stok',
+            'referensi_tabel' => 'barang_persediaan',
+            'referensi_id'    => $this->buatBarang()->id,
+        ]);
+
+        (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
+
+        Http::assertSent(fn (Request $r) => ! str_contains($r['text'], 'Buka: '));
+    }
+
+    public function test_notifikasi_tanpa_referensi_tetap_terkirim_tanpa_tautan(): void
+    {
+        Http::fake(['*' => Http::response(['messageId' => 'x'], 201)]);
+
+        $notifikasi = $this->notifikasi();
+        (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
+
+        $this->assertSame('terkirim', $notifikasi->refresh()->status_kirim);
+        Http::assertSent(fn (Request $r) => ! str_contains($r['text'], 'Buka: '));
+    }
+
+    public function test_tautan_memakai_alamat_aplikasi_dari_konfigurasi(): void
+    {
+        // Di lingkungan sebenarnya alamat pangkal berasal dari APP_URL, yang
+        // dibaca sekali saat aplikasi hidup. Karena itu alamatnya ditetapkan
+        // lewat URL::forceRootUrl, bukan dengan mengubah config setelah
+        // aplikasi berjalan -- yang tidak lagi berpengaruh.
+        // Skema ditetapkan terpisah karena forceRootUrl mempertahankan skema
+        // permintaan yang sedang berjalan. Pada lingkungan sebenarnya keduanya
+        // datang sekaligus dari APP_URL.
+        URL::forceRootUrl('https://simpbi.contoh.go.id');
+        URL::forceScheme('https');
+        Http::fake(['*' => Http::response(['messageId' => 'x'], 201)]);
+
+        $permintaan = $this->permintaan('menunggu_ketua');
+        $notifikasi = $this->notifikasi(tambahan: [
+            'referensi_tabel' => 'permintaan_barang',
+            'referensi_id'    => $permintaan->id,
+        ]);
+
+        (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
+
+        Http::assertSent(fn (Request $r) => str_contains($r['text'], 'https://simpbi.contoh.go.id/admin/permintaan-barangs/'));
+    }
+
+    public function test_susunan_pesan_tetap_utuh_ketika_ada_tautan(): void
+    {
+        Http::fake(['*' => Http::response(['messageId' => 'x'], 201)]);
+
+        $permintaan = $this->permintaan('menunggu_ketua');
+        $notifikasi = $this->notifikasi(tambahan: [
+            'referensi_tabel' => 'permintaan_barang',
+            'referensi_id'    => $permintaan->id,
+        ]);
+
+        (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
+
+        Http::assertSent(function (Request $r) {
+            $teks = $r['text'];
+
+            return str_starts_with($teks, '*Permintaan menunggu persetujuan Anda*')
+                && str_contains($teks, 'PB-2026-0001')
+                && str_ends_with($teks, '_SIMPBI — BPS Kota Jakarta Barat_');
+        });
+    }
+
+    /** Permintaan seadanya, hanya untuk menguji keadaan statusnya. */
+    private function permintaan(string $status): \App\Models\PermintaanBarang
+    {
+        $tim = $this->buatTim();
+
+        return $this->buatPermintaan(
+            $tim,
+            $this->buatPengguna('tim', $tim),
+            [['barang' => $this->buatBarang(), 'diminta' => 1]],
+            status: $status,
         );
     }
 }
