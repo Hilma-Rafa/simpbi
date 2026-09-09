@@ -51,6 +51,14 @@ class LepaskanHoldKedaluwarsa extends Command
         foreach ($kedaluwarsa as $permintaan) {
             try {
                 DB::transaction(function () use ($permintaan, $stok) {
+                    // Tahap dibaca SEBELUM status diperbarui. Bila dibaca
+                    // sesudahnya, statusnya sudah menjadi "kedaluwarsa"
+                    // sehingga seluruh permintaan tercatat berhenti di tahap
+                    // Ketua Tim — nilai bawaan pemetaan — dan riwayatnya tidak
+                    // lagi dapat dipakai menelusuri di titik mana permintaan
+                    // sebenarnya terhenti.
+                    $tahap = static::tahapTerakhir($permintaan->status);
+
                     $stok->release($permintaan);
 
                     $permintaan->update([
@@ -60,7 +68,7 @@ class LepaskanHoldKedaluwarsa extends Command
 
                     RiwayatPersetujuan::create([
                         'permintaan_id' => $permintaan->id,
-                        'tahap'         => static::tahapTerakhir($permintaan->status),
+                        'tahap'         => $tahap,
                         'pelaksana_id'  => $permintaan->pengaju_id,
                         'keputusan'     => 'tolak',
                         'catatan'       => 'Tahapan tidak ditindaklanjuti sampai batas waktu. '
