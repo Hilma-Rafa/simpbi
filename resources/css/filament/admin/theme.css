@@ -1,9 +1,538 @@
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
 
 @source '../../../../app/Filament/**/*';
+@source '../../../../app/Livewire/**/*';
 @source '../../../../resources/views/filament/**/*';
+/* Komponen Livewire kustom (lonceng notifikasi) juga memakai utility Tailwind,
+   sehingga berkasnya harus ikut dipindai ketika tema dibangun. */
+@source '../../../../resources/views/livewire/**/*';
 
+/*
+ * Token SIMPBI di dalam panel Filament — agar utility seperti `bg-navy`,
+ * `text-navy`, `bg-accent` tersedia pada view kustom (login, widget, partial).
+ * Nilai identik dengan resources/css/app.css (Instruksi §25).
+ */
+@theme {
+    --color-navy: #0B2A5B;
+    --color-brand: #1557A6;
+    --color-brand-light: #EAF3FB;
+    --color-accent: #F59E0B;
+    --color-accent-light: #FFF7E6;
+}
+
+/* Modal terasa lebih fokus (institutional, tidak ramai). */
 .fi-modal-close-overlay {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
+}
+
+/* ================= Halaman masuk dua sisi (Instruksi §28) =================
+ *
+ * AKAR MASALAH LABEL YANG HILANG
+ * Panel kanan halaman masuk sebelumnya memakai `bg-white` tanpa padanan mode
+ * gelap, sedangkan komponen formulir Filament tetap mengikuti skema warna
+ * sistem. Ketika sistem pengguna berada pada mode gelap, Filament mewarnai
+ * label menjadi putih dan latar kolom isian menjadi putih 5%, sehingga label
+ * "Alamat Email" dan "Kata Sandi" menjadi putih di atas panel putih — tidak
+ * terbaca sama sekali. Itu sebabnya masalahnya hanya muncul "kadang", yaitu
+ * pada perangkat yang skema warnanya gelap.
+ *
+ * Perbaikannya ada di dua sisi: tata letak kini menyediakan padanan mode gelap
+ * (lihat resources/views/filament/auth/two-panel.blade.php), dan warna label
+ * serta batas kolom isian ditegaskan di sini untuk seluruh keadaan.
+ */
+.fi-simpbi-login {
+    min-height: 100dvh;
+}
+
+/* ---------- Formulir ---------- */
+.fi-simpbi-login-form .fi-form,
+.fi-simpbi-login-form .fi-sc-form {
+    gap: 1.15rem;
+}
+
+/* Label selalu memiliki warna eksplisit dan bobot yang cukup, tidak
+   bergantung pada warna bawaan yang berubah mengikuti skema sistem. */
+.fi-simpbi-login-form .fi-fo-field-label,
+.fi-simpbi-login-form .fi-fo-field-label-content {
+    color: var(--color-navy);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.dark .fi-simpbi-login-form .fi-fo-field-label,
+.dark .fi-simpbi-login-form .fi-fo-field-label-content {
+    color: var(--gray-100);
+}
+
+/* Batas dan latar kolom isian dibuat kontras terhadap panel, menggantikan
+   cincin bawaan Filament yang hanya 10% dan lenyap di atas panel putih. */
+.fi-simpbi-login-form .fi-input-wrp {
+    background-color: var(--gray-50);
+    box-shadow: inset 0 0 0 1px var(--gray-300);
+    border-radius: 0.625rem;
+    transition: box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.dark .fi-simpbi-login-form .fi-input-wrp {
+    background-color: color-mix(in oklab, var(--gray-950) 60%, transparent);
+    box-shadow: inset 0 0 0 1px var(--gray-600);
+}
+
+.fi-simpbi-login-form .fi-input-wrp:hover {
+    box-shadow: inset 0 0 0 1px var(--gray-400);
+}
+
+.dark .fi-simpbi-login-form .fi-input-wrp:hover {
+    box-shadow: inset 0 0 0 1px var(--gray-500);
+}
+
+/* Kolom yang sedang diisi berlatar putih penuh agar terlihat aktif. */
+.fi-simpbi-login-form .fi-input-wrp:focus-within {
+    background-color: #fff;
+    box-shadow:
+        inset 0 0 0 1px var(--color-brand),
+        0 0 0 3px color-mix(in oklab, var(--color-brand) 18%, transparent);
+}
+
+.dark .fi-simpbi-login-form .fi-input-wrp:focus-within {
+    background-color: color-mix(in oklab, var(--gray-950) 35%, transparent);
+    box-shadow:
+        inset 0 0 0 1px var(--color-brand),
+        0 0 0 3px color-mix(in oklab, var(--color-brand) 28%, transparent);
+}
+
+/* Keadaan galat validasi tetap terbaca, termasuk ketika kolom sedang aktif. */
+.fi-simpbi-login-form .fi-input-wrp.fi-invalid,
+.fi-simpbi-login-form .fi-input-wrp.fi-invalid:hover {
+    background-color: color-mix(in oklab, var(--danger-500) 6%, #fff);
+    box-shadow: inset 0 0 0 1px var(--danger-500);
+}
+
+.dark .fi-simpbi-login-form .fi-input-wrp.fi-invalid,
+.dark .fi-simpbi-login-form .fi-input-wrp.fi-invalid:hover {
+    background-color: color-mix(in oklab, var(--danger-500) 12%, transparent);
+}
+
+.fi-simpbi-login-form .fi-input-wrp.fi-invalid:focus-within {
+    box-shadow:
+        inset 0 0 0 1px var(--danger-500),
+        0 0 0 3px color-mix(in oklab, var(--danger-500) 20%, transparent);
+}
+
+/* Keadaan nonaktif dibedakan dengan jelas, bukan sekadar diredupkan. */
+.fi-simpbi-login-form .fi-input-wrp.fi-disabled {
+    background-color: var(--gray-100);
+    box-shadow: inset 0 0 0 1px var(--gray-200);
+    cursor: not-allowed;
+}
+
+.dark .fi-simpbi-login-form .fi-input-wrp.fi-disabled {
+    background-color: color-mix(in oklab, var(--gray-950) 80%, transparent);
+    box-shadow: inset 0 0 0 1px var(--gray-700);
+}
+
+/* Isian dan teks bayangan */
+.fi-simpbi-login-form .fi-input {
+    padding-block: 0.6rem;
+    font-size: 0.9375rem;
+}
+
+.fi-simpbi-login-form .fi-input::placeholder {
+    color: var(--gray-400);
+}
+
+/* Tombol perlihatkan/sembunyikan kata sandi agar tetap terbaca. */
+.fi-simpbi-login-form .fi-input-wrp-actions .fi-icon-btn {
+    color: var(--gray-500);
+}
+
+.fi-simpbi-login-form .fi-input-wrp-actions .fi-icon-btn:hover {
+    color: var(--color-brand);
+}
+
+.dark .fi-simpbi-login-form .fi-input-wrp-actions .fi-icon-btn {
+    color: var(--gray-400);
+}
+
+/* ---------- Tombol Masuk ----------
+ * Filament memakai warna tingkat 400 untuk tombol utama pada mode terang,
+ * yang terbaca pucat untuk sebuah aksi utama. Di halaman masuk tombolnya
+ * ditegaskan memakai biru utama SIMPBI dan dibuat selebar formulir.
+ */
+.fi-simpbi-login-form .fi-sc-actions .fi-btn {
+    width: 100%;
+    justify-content: center;
+    background-color: var(--color-brand);
+    color: #fff;
+    padding-block: 0.6rem;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgb(11 42 91 / 0.16);
+    transition: background-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.fi-simpbi-login-form .fi-sc-actions .fi-btn:hover {
+    background-color: var(--color-navy);
+    box-shadow: 0 6px 16px -6px rgb(11 42 91 / 0.5);
+}
+
+.fi-simpbi-login-form .fi-sc-actions .fi-btn:active {
+    transform: translateY(1px);
+}
+
+.fi-simpbi-login-form .fi-sc-actions .fi-btn:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+}
+
+/* Kotak centang "Ingat saya" */
+.fi-simpbi-login-form .fi-checkbox-input {
+    border-radius: 0.3rem;
+}
+
+
+/* ================= Penghalusan halaman masuk =================
+ * Seluruh gerak di bawah ini hanya memakai transform dan opacity, sehingga
+ * tidak memicu perhitungan ulang tata letak. Dekorasi memakai opasitas rendah
+ * agar tidak menarik perhatian dari judul, dan semuanya berhenti ketika
+ * pengguna meminta pengurangan gerak.
+ */
+
+/* ---------- Bentuk geometris yang hanyut perlahan ---------- */
+.fi-simpbi-login-bentuk {
+    position: absolute;
+    border-radius: 9999px;
+    border: 1px solid rgb(255 255 255 / 0.07);
+    will-change: transform;
+}
+
+.fi-simpbi-login-bentuk-1 {
+    inset-block-start: -6rem;
+    inset-inline-end: -7rem;
+    inline-size: 26rem;
+    block-size: 26rem;
+    animation: simpbi-hanyut-1 34s ease-in-out infinite;
+}
+
+.fi-simpbi-login-bentuk-2 {
+    inset-block-end: -9rem;
+    inset-inline-start: -6rem;
+    inline-size: 22rem;
+    block-size: 22rem;
+    border-color: rgb(245 158 11 / 0.10);
+    animation: simpbi-hanyut-2 42s ease-in-out infinite;
+}
+
+/* Persegi membulat, diputar sedikit agar tidak seragam dengan lingkaran */
+.fi-simpbi-login-bentuk-3 {
+    inset-block-start: 42%;
+    inset-inline-end: 12%;
+    inline-size: 9rem;
+    block-size: 9rem;
+    border-radius: 1.75rem;
+    animation: simpbi-hanyut-3 28s ease-in-out infinite;
+}
+
+@keyframes simpbi-hanyut-1 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50%      { transform: translate3d(-1.5rem, 1.75rem, 0) scale(1.04); }
+}
+
+@keyframes simpbi-hanyut-2 {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50%      { transform: translate3d(1.75rem, -1.25rem, 0) scale(0.96); }
+}
+
+@keyframes simpbi-hanyut-3 {
+    0%, 100% { transform: translate3d(0, 0, 0) rotate(12deg); }
+    50%      { transform: translate3d(-0.75rem, -1.5rem, 0) rotate(20deg); }
+}
+
+/* ---------- Paralaks halus mengikuti penunjuk ----------
+ * Nilai --px dan --py diisi skrip pada elemen pembungkus, dan hanya lapisan
+ * dekorasi yang ikut bergeser. Teks tidak pernah tersentuh.
+ */
+.fi-simpbi-login-lapisan {
+    transition: transform 400ms cubic-bezier(.22, .61, .36, 1);
+    transform: translate3d(calc(var(--px, 0) * var(--kedalaman, 1)), calc(var(--py, 0) * var(--kedalaman, 1)), 0);
+    will-change: transform;
+}
+
+/* ---------- Lambang dapat disentuh ---------- */
+.fi-simpbi-login-merek {
+    transition: transform 250ms cubic-bezier(.22, .61, .36, 1);
+}
+
+.fi-simpbi-login-merek:hover {
+    transform: translateY(-2px);
+}
+
+.fi-simpbi-login-merek-tanda {
+    transition: transform 250ms cubic-bezier(.22, .61, .36, 1), box-shadow 250ms ease;
+}
+
+.fi-simpbi-login-merek:hover .fi-simpbi-login-merek-tanda {
+    transform: scale(1.02);
+    box-shadow: 0 10px 26px -10px rgb(255 255 255 / 0.45);
+}
+
+/* ---------- Lencana ---------- */
+.fi-simpbi-login-lencana {
+    transition: background-color 250ms ease, border-color 250ms ease, box-shadow 250ms ease;
+}
+
+.fi-simpbi-login-lencana:hover {
+    background-color: rgb(255 255 255 / 0.10);
+    border-color: rgb(255 255 255 / 0.25);
+    box-shadow: 0 0 0 4px rgb(245 158 11 / 0.08);
+}
+
+/* ---------- Tiga sorotan ---------- */
+.fi-simpbi-login-sorotan {
+    border: 1px solid rgb(255 255 255 / 0.08);
+    background-color: rgb(255 255 255 / 0.03);
+    border-radius: 0.875rem;
+    transition:
+        transform 250ms cubic-bezier(.22, .61, .36, 1),
+        border-color 250ms ease,
+        background-color 250ms ease;
+}
+
+.fi-simpbi-login-sorotan:hover {
+    transform: translateY(-2px);
+    border-color: rgb(255 255 255 / 0.16);
+    background-color: rgb(255 255 255 / 0.06);
+}
+
+.fi-simpbi-login-sorotan-ikon {
+    transition: background-color 250ms ease, box-shadow 250ms ease;
+}
+
+.fi-simpbi-login-sorotan:hover .fi-simpbi-login-sorotan-ikon {
+    background-color: rgb(255 255 255 / 0.14);
+    box-shadow: 0 0 0 3px rgb(255 255 255 / 0.05);
+}
+
+/* ---------- Tombol perlihatkan kata sandi ---------- */
+.fi-simpbi-login-form .fi-input-wrp-actions .fi-icon-btn {
+    border-radius: 0.5rem;
+    transition: color 200ms ease, background-color 200ms ease;
+}
+
+.fi-simpbi-login-form .fi-input-wrp-actions .fi-icon-btn:hover {
+    background-color: color-mix(in oklab, var(--color-brand) 10%, transparent);
+}
+
+/* ---------- Kotak centang ---------- */
+.fi-simpbi-login-form .fi-checkbox-input {
+    transition: background-color 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+}
+
+.fi-simpbi-login-form .fi-checkbox-input:hover {
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-brand) 10%, transparent);
+}
+
+/* ---------- Tombol Masuk: naik saat disorot, turun saat ditekan ---------- */
+.fi-simpbi-login-form .fi-sc-actions .fi-btn {
+    transition:
+        background-color 250ms ease,
+        box-shadow 250ms cubic-bezier(.22, .61, .36, 1),
+        transform 250ms cubic-bezier(.22, .61, .36, 1);
+}
+
+.fi-simpbi-login-form .fi-sc-actions .fi-btn:hover {
+    transform: translateY(-1px);
+}
+
+.fi-simpbi-login-form .fi-sc-actions .fi-btn:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 2px rgb(11 42 91 / 0.2);
+}
+
+/* ---------- Keadaan sedang memproses masuk ----------
+ * Pencegahan pengiriman ganda sudah ditangani Filament melalui
+ * wire:loading.attr="disabled"; di sini hanya penampakannya yang diperjelas.
+ */
+.fi-simpbi-login-form .fi-sc-actions .fi-btn:disabled,
+.fi-simpbi-login-form .fi-sc-actions .fi-btn[disabled] {
+    transform: none;
+    cursor: progress;
+    opacity: 0.9;
+}
+
+.fi-simpbi-login-form .fi-loading-indicator {
+    inline-size: 1.05rem;
+    block-size: 1.05rem;
+}
+
+/* Kolom isian diredupkan sedikit selama proses, sebagai penanda bahwa
+   formulir sedang dikirim dan tidak menerima perubahan. */
+.fi-simpbi-login-memproses .fi-fo-field-wrp {
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity 250ms ease;
+}
+
+/* ---------- Menghormati preferensi pengurangan gerak ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .fi-simpbi-login-bentuk,
+    .fi-simpbi-login-lapisan {
+        animation: none;
+        transition: none;
+        transform: none;
+    }
+
+    .fi-simpbi-login-merek,
+    .fi-simpbi-login-merek-tanda,
+    .fi-simpbi-login-sorotan,
+    .fi-simpbi-login-form .fi-sc-actions .fi-btn {
+        transition: none;
+    }
+
+    .fi-simpbi-login-merek:hover,
+    .fi-simpbi-login-sorotan:hover,
+    .fi-simpbi-login-form .fi-sc-actions .fi-btn:hover {
+        transform: none;
+    }
+}
+
+/* ---------- Hiasan panel kiri ----------
+ * Kisi tipis sebagai latar, agar sisi kiri tidak terasa kosong tanpa perlu
+ * gambar tambahan yang memberatkan halaman.
+ */
+.fi-simpbi-login-kisi {
+    background-image:
+        linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+    background-size: 3.5rem 3.5rem;
+    /* Peredupan bertahap agar kisi luruh perlahan dan tidak meninggalkan
+       tepi kotak yang terlihat pada latar navy. */
+    mask-image: radial-gradient(120% 95% at 18% 32%, #000 0%, rgb(0 0 0 / 0.45) 42%, transparent 78%);
+    -webkit-mask-image: radial-gradient(120% 95% at 18% 32%, #000 0%, rgb(0 0 0 / 0.45) 42%, transparent 78%);
+}
+
+/* ---------- Layar pemuatan ----------
+ * Tanda SIMPBI berputar pada sumbu Y sambil bergeser mendatar, memberi kesan
+ * kepingan yang dibalik. Memakai perspektif tiga dimensi dan durasi 880ms
+ * dengan pelambatan halus, dibuat berulang tanpa terasa terburu-buru.
+ */
+.fi-simpbi-pemuatan {
+    perspective: 640px;
+}
+
+.fi-simpbi-pemuatan-tanda {
+    position: relative;
+    transform-style: preserve-3d;
+    animation: simpbi-balik-kepingan 880ms cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
+    will-change: transform, opacity;
+}
+
+/* Cahaya lembut yang berdenyut di belakang tanda, seirama dengan putarannya. */
+.fi-simpbi-pemuatan-tanda::before {
+    content: '';
+    position: absolute;
+    inset: -35%;
+    border-radius: 9999px;
+    background: radial-gradient(circle, rgb(245 158 11 / 0.22), transparent 68%);
+    transform: translateZ(-1px);
+    animation: simpbi-denyut-cahaya 1760ms cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
+    pointer-events: none;
+}
+
+@keyframes simpbi-denyut-cahaya {
+    0%, 100% { opacity: 0.35; transform: translateZ(-1px) scale(0.92); }
+    50%      { opacity: 0.75; transform: translateZ(-1px) scale(1.06); }
+}
+
+/* Nama sistem masuk dengan pudar dan geseran ringan, sekali saja. */
+.fi-simpbi-pemuatan-teks {
+    opacity: 0;
+    transform: translateY(0.5rem);
+    animation: simpbi-pemuatan-teks 620ms cubic-bezier(.22, .61, .36, 1) 180ms forwards;
+}
+
+.fi-simpbi-pemuatan-teks-kedua {
+    animation-delay: 300ms;
+}
+
+@keyframes simpbi-pemuatan-teks {
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes simpbi-balik-kepingan {
+    0% {
+        transform: translateX(0) rotateY(0deg) scale(1);
+        opacity: 1;
+    }
+    35% {
+        transform: translateX(0.6rem) rotateY(180deg) scale(0.93);
+        opacity: 0.82;
+    }
+    70% {
+        transform: translateX(-0.35rem) rotateY(340deg) scale(1.03);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(0) rotateY(360deg) scale(1);
+        opacity: 1;
+    }
+}
+
+/* Titik denyut di bawah tanda, sebagai penanda proses masih berjalan. */
+.fi-simpbi-pemuatan-titik span {
+    animation: simpbi-denyut 1.2s ease-in-out infinite;
+}
+
+.fi-simpbi-pemuatan-titik span:nth-child(2) { animation-delay: 0.15s; }
+.fi-simpbi-pemuatan-titik span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes simpbi-denyut {
+    0%, 100% { opacity: 0.25; transform: scale(0.85); }
+    50%      { opacity: 1;    transform: scale(1); }
+}
+
+/* Layar pemuatan menghilang setelah halaman siap. */
+.fi-simpbi-pemuatan[hidden] {
+    display: none !important;
+}
+
+.fi-simpbi-pemuatan-selesai {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 320ms ease, visibility 0s linear 320ms;
+}
+
+/* Menghormati preferensi pengguna yang membatasi gerak. */
+@media (prefers-reduced-motion: reduce) {
+    .fi-simpbi-pemuatan-tanda,
+    .fi-simpbi-pemuatan-tanda::before,
+    .fi-simpbi-pemuatan-titik span {
+        animation-duration: 0.01ms;
+        animation-iteration-count: 1;
+    }
+
+    .fi-simpbi-pemuatan-teks {
+        opacity: 1;
+        transform: none;
+        animation: none;
+    }
+
+    .fi-simpbi-login-form .fi-sc-actions .fi-btn {
+        transition: none;
+    }
+}
+
+/* ============== Panel dashboard bergulir (Instruksi §45) ==============
+ * Beberapa panel dashboard menampilkan seluruh baris data pada tinggi
+ * tetap dan digulir, agar dashboard tidak memanjang. Scrollbar dibuat
+ * tipis supaya tidak mendominasi tampilan panel yang padat.
+ */
+.fi-simpbi-panel-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-300) transparent;
+}
+
+.dark .fi-simpbi-panel-scroll {
+    scrollbar-color: var(--gray-600) transparent;
 }

@@ -6,7 +6,43 @@
 @source "../**/*.js";
 @source "../**/*.vue";
 
+/*
+ * SIMPBI design tokens — sumber tunggal warna & tipografi untuk halaman Blade
+ * (landing, login, verifikasi QR, dokumen bukti). Nilai mengikuti Instruksi
+ * §25 (warna), §26 (typography), §27 (radius/spacing). Jangan menambah warna
+ * di luar palet ini tanpa persetujuan.
+ */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /* Identitas & aksi */
+    --color-navy: #0B2A5B;
+    --color-brand: #1557A6;
+    --color-brand-light: #EAF3FB;
+    --color-accent: #F59E0B;
+    --color-accent-light: #FFF7E6;
+
+    /* Semantik status */
+    --color-success: #16A34A;
+    --color-danger: #DC2626;
+    --color-warning: #D97706;
+    --color-info: #2563EB;
+
+    /* Netral & permukaan */
+    --color-ink: #0F172A;
+    --color-muted: #6B7280;
+    --color-surface: #F8FAFC;
+    --color-card: #FFFFFF;
+    --color-hairline: #E5E7EB;
+
+    /* Radius (Instruksi §27) */
+    --radius-control: 8px;
+    --radius-card: 14px;
+    --radius-hero: 24px;
+}
+
+/* Seleksi teks bernuansa merek — bekerja pada permukaan terang maupun navy. */
+::selection {
+    background-color: color-mix(in oklab, var(--color-brand) 22%, transparent);
 }
