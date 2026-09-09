@@ -1,22 +1,10 @@
 @php
-    // Saldo sebelum baris pertama pada daftar ini
-    $awal = $mutasi->isNotEmpty()
-        ? $mutasi->first()->saldo_sesudah - $mutasi->first()->jumlah
-        : $barang->stok_fisik;
-
+    // Stok awal dan stok akhir dihitung di BarangPersediaansTable dan diterima
+    // apa adanya, agar tampilan di layar dan hasil cetak PDF selalu memakai
+    // angka yang sama persis. Yang dihitung di sini hanya penjumlahan lajur
+    // masuk dan keluar, yang memang hanya dipakai untuk ringkasan ini.
     $totalMasuk  = $mutasi->where('jumlah', '>', 0)->sum('jumlah');
     $totalKeluar = abs($mutasi->where('jumlah', '<', 0)->sum('jumlah'));
-    $akhir       = $mutasi->isNotEmpty() ? $mutasi->last()->saldo_sesudah : $barang->stok_fisik;
-
-    $uraian = [
-        'pembelian'          => 'Pembelian',
-        'transfer_masuk'     => 'Transfer Masuk',
-        'stok_awal'          => 'Stok Awal',
-        'pemakaian'          => 'Pemakaian',
-        'pengembalian'       => 'Pengembalian',
-        'reklasifikasi_aset' => 'Reklasifikasi ke Aset',
-        'stok_opname'        => 'Stok Opname',
-    ];
 
     $ringkasan = [
         ['Saldo Awal',   $awal,        'text-gray-900 dark:text-white'],
@@ -33,7 +21,7 @@
         <div>
             <dt class="text-xs text-gray-500 dark:text-gray-400">Kode Barang</dt>
             <dd class="text-sm font-medium text-gray-900 dark:text-white">
-                {{ $barang->kategori?->kode_kategori }}.{{ $barang->kode_barang }}
+                {{ $barang->kode_lengkap }}
             </dd>
         </div>
         <div>
@@ -45,10 +33,8 @@
             <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ $barang->satuan }}</dd>
         </div>
         <div>
-            <dt class="text-xs text-gray-500 dark:text-gray-400">Kategori</dt>
-            <dd class="text-sm font-medium text-gray-900 dark:text-white">
-                {{ $barang->kategori?->nama_kategori ?? '—' }}
-            </dd>
+            <dt class="text-xs text-gray-500 dark:text-gray-400">Periode</dt>
+            <dd class="text-sm font-medium text-gray-900 dark:text-white">{{ $periode }}</dd>
         </div>
     </dl>
 
@@ -98,7 +84,7 @@
                             {{ $m->tanggal?->format('d-m-Y') }}
                         </td>
                         <td class="py-2.5 px-3 text-gray-900 dark:text-white">
-                            {{ $uraian[$m->sumber] ?? '—' }}
+                            {{ $m->uraian }}
                             @if ($m->petugas)
                                 <span class="block text-xs text-gray-500">{{ $m->petugas->name }}</span>
                             @endif
@@ -116,7 +102,7 @@
                 @empty
                     <tr>
                         <td colspan="6" class="py-10 text-center text-gray-500">
-                            Belum ada mutasi tercatat untuk barang ini.
+                            Belum ada mutasi tercatat untuk barang ini pada {{ $periode }}.
                         </td>
                     </tr>
                 @endforelse
