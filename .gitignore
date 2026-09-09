@@ -21,3 +21,22 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# impeccable native engine binaries (platform-specific, ~14MB each, regenerated on install/update)
+**/skills/impeccable/scripts/bin/
+
+# Sumber data seeder yang memuat data pribadi pegawai (nomor WhatsApp, NIP,
+# email). Berkas aslinya tidak boleh masuk repositori; yang ikut hanya
+# berkas contoh berisi struktur kolom tanpa data sebenarnya.
+/database/data/*.xlsx
+/database/data/*.csv
+!/database/data/*.contoh.xlsx
+!/database/data/*.contoh.csv
+
+# Perkakas Claude Code yang terpasang lokal — bukan bagian sistem dan dapat
+# dipasang ulang. Dokumen rancangan (.claude/Instruksi.md dan Perancangan.pdf)
+# tetap diversikan karena menjadi acuan implementasi.
+/.claude/skills/
+/.claude/agents/
+/.claude/settings.local.json
+/skills-lock.json
