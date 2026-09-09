@@ -7,6 +7,7 @@ use App\Models\PermintaanBarang;
 use App\Models\RiwayatPersetujuan;
 use App\Services\StokService;
 use App\Services\DokumenPermintaanService;
+use App\Services\NotifikasiService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -16,16 +17,22 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Filament\Support\Icons\Heroicon;
+use BackedEnum;
 
 class PermintaanBarangResource extends Resource
 {
     protected static ?string $model = PermintaanBarang::class;
 
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Permintaan & Distribusi';
     protected static ?string $navigationLabel = 'Permintaan Barang';
     protected static ?string $modelLabel = 'Permintaan Barang';
     protected static ?string $pluralModelLabel = 'Permintaan Barang';
@@ -61,6 +68,20 @@ class PermintaanBarangResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            // Daftar ini hanya memuat permintaan yang masih berjalan.
+            // Permintaan yang sudah berstatus akhir pindah tampilannya ke
+            // halaman Riwayat, tanpa dipindahkan atau dihapus dari basis data.
+            // Pembatasan diletakkan pada tabel, bukan pada getEloquentQuery(),
+            // agar halaman Riwayat, widget dasbor, dan halaman rincian tetap
+            // dapat membaca seluruh permintaan memakai cakupan peran yang sama.
+            ->modifyQueryUsing(fn (Builder $query) => $query->whereNotIn(
+                'status',
+                PermintaanBarang::STATUS_RIWAYAT
+            ))
+            // Penyaring langsung diterapkan. Bawaan Filament menundanya
+            // sampai tombol "Terapkan filter" ditekan, sehingga tautan
+            // bertanda penyaring dari dasbor tampak tidak bekerja.
+            ->deferFilters(false)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('kode_permintaan')
@@ -105,11 +126,52 @@ class PermintaanBarangResource extends Resource
                     ->placeholder('—'),
             ])
             ->filters([
+                Filter::make('kode_permintaan')
+                    ->label('Kode Permintaan')
+                    ->schema([
+                        TextInput::make('value')
+                            ->label('Kode Permintaan')
+                            ->placeholder('Masukkan kode permintaan...')
+                            ->maxLength(50),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            filled($data['value'] ?? null),
+                            fn (Builder $query) => $query->where(
+                                'kode_permintaan',
+                                $data['value']
+                            )
+                        );
+                    })
+                    // Tanpa penanda ini pengguna tidak melihat bahwa daftar
+                    // sedang tersaring, dan tidak dapat menghapusnya sekali klik.
+                    ->indicateUsing(fn (array $data): ?string => filled($data['value'] ?? null)
+                        ? 'Kode: ' . $data['value']
+                        : null),
+
                 SelectFilter::make('status')
                     ->label('Status')
-                    ->options(PermintaanBarang::STATUS),
+                    ->multiple()
+                    // Hanya status yang mungkin muncul pada daftar aktif.
+                    // Status akhir dipindahkan ke halaman Riwayat, sehingga
+                    // menawarkannya di sini hanya akan menghasilkan daftar kosong.
+                    ->options(collect(PermintaanBarang::STATUS)
+                        ->except(PermintaanBarang::STATUS_RIWAYAT)
+                        ->all()),
 
-                // Penyaring periode, mengikuti pola rentang waktu pada aplikasi perbankan
+                // Dipakai pula sebagai sasaran tautan panel "Permintaan per
+                // Tim Kerja" pada dashboard. Tidak ditampilkan bagi Tim dan
+                // Ketua Tim, sebab daftar mereka telah dibatasi pada timnya.
+                SelectFilter::make('tim_pemohon_id')
+                    ->label('Tim Pemohon')
+                    ->relationship('tim', 'nama_tim')
+                    ->searchable()
+                    ->preload()
+                    ->visible(fn () => in_array(
+                        auth()->user()?->role,
+                        ['kasubbag', 'petugas_gudang', 'admin']
+                    )),
+
                 SelectFilter::make('periode')
                     ->label('Periode')
                     ->options([
@@ -133,31 +195,12 @@ class PermintaanBarangResource extends Resource
                             : $query;
                     }),
             ])
+            // Rincian dibuka dengan mengklik barisnya, menggantikan tombol
+            // "Detail" yang sebelumnya ada pada setiap baris. Filament memberi
+            // baris penunjuk tangan dan sorotan ketika ditunjuk, dan klik pada
+            // tombol aksi tidak ikut membuka halaman rincian.
+            ->recordUrl(fn ($record) => static::getUrl('detail', ['record' => $record]))
             ->recordActions([
-
-                // ---------- DETAIL ----------
-
-                Action::make('detail')
-                    ->label('Detail')
-                    ->icon('heroicon-m-eye')
-                    ->iconPosition(\Filament\Support\Enums\IconPosition::Before)
-                    ->color('primary')
-                    ->button()
-                    ->size('sm')
-                    ->tooltip('Lihat status, rincian barang, dan riwayat proses')
-                    ->modalHeading(fn ($record) => 'Detail Permintaan ' . $record->kode_permintaan)
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Tutup')
-                    ->modalWidth('5xl')
-                    ->modalContent(fn ($record) => view(
-                        'filament.partials.detail-permintaan',
-                        ['record' => $record->load([
-                            'tim',
-                            'detail.barang',
-                            'ketidaksesuaian',
-                            'persetujuan.pelaksana',
-                        ])]
-                    )),
 
                 // ---------- TAHAP 1 : PERSETUJUAN KETUA TIM ----------
 
@@ -402,17 +445,33 @@ class PermintaanBarangResource extends Resource
                     ->action(fn (array $data, $record) => static::sahkan($record, $data['catatan'] ?? null)),
  
                 // ---------- UNDUH DOKUMEN ----------
- 
-                Action::make('unduhBukti')
-                    ->label('Unduh Bukti')
-                    ->icon('heroicon-m-arrow-down-tray')
-                    ->color('gray')
-                    ->outlined()
-                    ->visible(fn ($record) => filled($record->file_bukti_path))
-                    ->url(fn ($record) => route('bukti.unduh', $record))
-                    ->openUrlInNewTab(),
+
+                static::aksiUnduhBukti()->size('sm'),
             ])
             ->recordActionsAlignment('right');
+    }
+
+    /**
+     * Tombol pengunduhan dokumen bukti permintaan.
+     *
+     * Didefinisikan satu kali dan dipakai baik pada baris tabel maupun pada
+     * kepala halaman rincian, agar bentuknya seragam dengan tombol aksi lain
+     * pada sistem: tombol bergaris dengan warna utama SIMPBI, bukan tautan
+     * abu-abu yang tampak berbeda sendiri di antara tombol alur persetujuan.
+     */
+    public static function aksiUnduhBukti(): Action
+    {
+        return Action::make('unduhBukti')
+            ->label('Unduh Bukti')
+            ->icon('heroicon-m-arrow-down-tray')
+            ->iconPosition(\Filament\Support\Enums\IconPosition::Before)
+            ->color('primary')
+            ->button()
+            ->outlined()
+            ->tooltip('Unduh dokumen bukti permintaan yang telah disahkan')
+            ->visible(fn ($record) => filled($record?->file_bukti_path))
+            ->url(fn ($record) => route('bukti.unduh', $record))
+            ->openUrlInNewTab();
     }
 
     // =====================================================================
@@ -430,6 +489,9 @@ class PermintaanBarangResource extends Resource
 
             static::catatRiwayat($record, 'ketua_tim', 'setuju', $catatan);
         });
+
+        // Memberitahukan pihak yang harus bertindak berikutnya
+        app(NotifikasiService::class)->permintaanBerubah($record->refresh(), $catatan);
 
         Notification::make()
             ->title('Permintaan disetujui')
@@ -451,6 +513,9 @@ class PermintaanBarangResource extends Resource
 
             static::catatRiwayat($record, 'ketua_tim', 'tolak', $catatan);
         });
+
+        // Memberitahukan pihak yang harus bertindak berikutnya
+        app(NotifikasiService::class)->permintaanBerubah($record->refresh(), $catatan);
 
         Notification::make()
             ->title('Permintaan ditolak')
@@ -482,6 +547,9 @@ class PermintaanBarangResource extends Resource
 
             static::catatRiwayat($record, 'verifikasi', 'selesai', $data['keterangan'] ?? null);
         });
+
+        // Memberitahukan pihak yang harus bertindak berikutnya
+        app(NotifikasiService::class)->permintaanBerubah($record->refresh(), null);
 
         Notification::make()
             ->title('Hasil verifikasi tersimpan')
@@ -515,6 +583,9 @@ class PermintaanBarangResource extends Resource
             static::catatRiwayat($record, 'kasubbag', 'setuju', $data['catatan'] ?? null);
         });
 
+        // Memberitahukan pihak yang harus bertindak berikutnya
+        app(NotifikasiService::class)->permintaanBerubah($record->refresh(), null);
+
         Notification::make()
             ->title('Permintaan disetujui')
             ->body('Diteruskan kepada Petugas Gudang untuk penyiapan barang.')
@@ -536,6 +607,9 @@ class PermintaanBarangResource extends Resource
             static::catatRiwayat($record, 'kasubbag', 'tolak', $catatan);
         });
 
+        // Memberitahukan pihak yang harus bertindak berikutnya
+        app(NotifikasiService::class)->permintaanBerubah($record->refresh(), $catatan);
+
         Notification::make()
             ->title('Permintaan ditolak')
             ->body('Stok yang dikunci telah dilepaskan kembali.')
@@ -554,6 +628,9 @@ class PermintaanBarangResource extends Resource
 
             static::catatRiwayat($record, 'penyiapan', 'selesai', 'Barang telah disiapkan.');
         });
+
+        // Memberitahukan pihak yang harus bertindak berikutnya
+        app(NotifikasiService::class)->permintaanBerubah($record->refresh(), null);
 
         Notification::make()
             ->title('Barang ditandai siap diambil')
@@ -616,6 +693,19 @@ class PermintaanBarangResource extends Resource
             static::catatRiwayat($record, 'konfirmasi', 'selesai', 'Barang diterima oleh pemohon.');
         });
 
+        // Memberitahukan pihak yang harus bertindak berikutnya, sekaligus
+        // memperingatkan pengelola bila pengeluaran barang membuat stoknya
+        // menipis atau habis.
+        app(NotifikasiService::class)->permintaanBerubah($record->refresh(), $data['deskripsi'] ?? null);
+
+        if ($sesuai || $dapatDiatasi) {
+            foreach ($record->detail as $rincian) {
+                if ($rincian->barang) {
+                    app(NotifikasiService::class)->stokMenipis($rincian->barang->refresh());
+                }
+            }
+        }
+
         if (! $sesuai && ! $dapatDiatasi) {
             Notification::make()
                 ->title('Permintaan ditandai bermasalah')
@@ -660,6 +750,9 @@ class PermintaanBarangResource extends Resource
             $record->update(['file_bukti_path' => $path]);
         });
 
+        // Memberitahukan pihak yang harus bertindak berikutnya
+        app(NotifikasiService::class)->permintaanBerubah($record->refresh(), $catatan);
+
         Notification::make()
             ->title('Permintaan disahkan')
             ->body('Dokumen bukti permintaan telah diterbitkan dan dapat diunduh.')
@@ -697,7 +790,8 @@ class PermintaanBarangResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPermintaanBarangs::route('/'),
+            'index'  => Pages\ListPermintaanBarangs::route('/'),
+            'detail' => Pages\DetailPermintaanBarang::route('/{record}'),
         ];
     }
 }

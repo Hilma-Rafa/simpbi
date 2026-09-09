@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\BarangPersediaan;
 use App\Models\PermintaanBarang;
 use App\Models\RiwayatPersetujuan;
+use App\Services\NotifikasiService;
 use App\Services\StokService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
@@ -18,13 +19,25 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Session;
+use Livewire\Attributes\Url;
 
 class KatalogBarang extends Page implements HasTable
 {
     use InteractsWithTable;
 
+    /**
+     * Penyaring tabel diikat ke URL, sebagaimana halaman daftar Filament,
+     * agar tautan dari panel dashboard dapat membuka katalog yang telah
+     * tersaring pada satu kategori.
+     *
+     * @var array<string, mixed> | null
+     */
+    #[Url(as: 'filters')]
+    public ?array $tableFilters = null;
+
     protected string $view = 'filament.pages.katalog-barang';
 
+    protected static string|\UnitEnum|null $navigationGroup = 'Permintaan & Distribusi';
     protected static ?string $navigationLabel = 'Katalog Barang';
     protected static ?string $title = 'Katalog Barang';
     protected static ?int $navigationSort = 1;
@@ -223,8 +236,10 @@ class KatalogBarang extends Page implements HasTable
 
         $adalahKetua = $user->role === 'ketua_tim';
 
+        $permintaan = null;
+
         try {
-            DB::transaction(function () use ($keranjang, $user, $adalahKetua, $data) {
+            DB::transaction(function () use ($keranjang, $user, $adalahKetua, $data, &$permintaan) {
                 app(StokService::class)->hold(
                     array_map(fn ($i) => $i['jumlah'], $keranjang)
                 );
@@ -283,6 +298,13 @@ class KatalogBarang extends Page implements HasTable
         }
 
         Session::forget('keranjang');
+
+        // Memberitahukan pihak yang harus menindaklanjuti pengajuan ini,
+        // yaitu Ketua Tim, atau langsung Petugas Gudang bila pengaju adalah
+        // Ketua Tim itu sendiri.
+        if (isset($permintaan)) {
+            app(NotifikasiService::class)->permintaanBerubah($permintaan->refresh());
+        }
 
         Notification::make()
             ->title('Permintaan berhasil diajukan')
