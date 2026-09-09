@@ -4,6 +4,7 @@ namespace App\Filament\Resources\BastMutasiAsets\Tables;
 
 use App\Models\BastMutasiAset;
 use App\Services\MutasiAsetService;
+use App\Services\NotifikasiService;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Tables\Columns\TextColumn;
@@ -69,6 +70,11 @@ class BastMutasiAsetsTable
                     ->visible(fn (BastMutasiAset $r): bool => $r->status === 'menunggu_pengesahan' && auth()->user()?->role === 'kasubbag')
                     ->action(function (BastMutasiAset $r): void {
                         app(MutasiAsetService::class)->sahkan($r, auth()->id());
+
+                        // Ketua Tim tujuan kini berkepentingan: aset sudah
+                        // berpindah dan menunggu konfirmasi penerimaannya.
+                        app(NotifikasiService::class)->bastBerubah($r->refresh());
+
                         Notification::make()->title('BAST disahkan')->success()->send();
                     }),
 
@@ -84,6 +90,11 @@ class BastMutasiAsetsTable
                         && auth()->user()?->tim_id === $r->tim_tujuan_id)
                     ->action(function (BastMutasiAset $r): void {
                         app(MutasiAsetService::class)->konfirmasi($r, auth()->id());
+
+                        // Pembuat BAST dan pengesahnya diberi tahu bahwa
+                        // mutasinya sudah tuntas secara administratif.
+                        app(NotifikasiService::class)->bastBerubah($r->refresh());
+
                         Notification::make()->title('Penerimaan aset dikonfirmasi')->success()->send();
                     }),
 

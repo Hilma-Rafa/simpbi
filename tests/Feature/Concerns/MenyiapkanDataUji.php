@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Concerns;
 
+use App\Models\AsetTetap;
 use App\Models\BarangPersediaan;
+use App\Models\BastMutasiAset;
 use App\Models\DetailPermintaanBarang;
 use App\Models\Kategori;
 use App\Models\PermintaanBarang;
@@ -60,6 +62,51 @@ trait MenyiapkanDataUji
             'stok_hold'    => $stokHold,
             'stok_minimum' => 0,
             'status_aktif' => true,
+            ...$tambahan,
+        ]);
+    }
+
+    protected function buatAset(?Tim $penempatan = null, array $tambahan = []): AsetTetap
+    {
+        static $urutan = 0;
+        $urutan++;
+
+        $kategori = Kategori::firstOrCreate(
+            ['kode_kategori' => 'PM'],
+            ['kode_akun' => '1.3.2', 'nama_kategori' => 'Peralatan dan Mesin', 'tipe' => 'aset_tetap'],
+        );
+
+        return AsetTetap::create([
+            'nup'               => 'NUP-' . str_pad((string) $urutan, 4, '0', STR_PAD_LEFT),
+            'nama_aset'         => 'Aset Uji ' . $urutan,
+            'kategori_id'       => $kategori->id,
+            'tim_penempatan_id' => $penempatan?->id,
+            'kondisi'           => 'baik',
+            'status_aktif'      => true,
+            ...$tambahan,
+        ]);
+    }
+
+    protected function buatBast(
+        Tim $asal,
+        Tim $tujuan,
+        User $pembuat,
+        string $status = 'menunggu_pengesahan',
+        array $tambahan = [],
+    ): BastMutasiAset {
+        static $urutan = 0;
+        $urutan++;
+
+        return BastMutasiAset::create([
+            'nomor_bast'     => 'BAST-UJI-' . str_pad((string) $urutan, 4, '0', STR_PAD_LEFT),
+            'aset_id'        => $this->buatAset($asal)->id,
+            'tim_asal_id'    => $asal->id,
+            'tim_tujuan_id'  => $tujuan->id,
+            'alasan_mutasi'  => 'Redistribusi untuk keperluan uji.',
+            'pihak_penyerah' => $pembuat->name,
+            'pihak_penerima' => 'Penerima Uji',
+            'status'         => $status,
+            'dibuat_oleh_id' => $pembuat->id,
             ...$tambahan,
         ]);
     }

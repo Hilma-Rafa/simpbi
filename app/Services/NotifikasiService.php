@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\KirimPesanWhatsApp;
 use App\Models\BarangPersediaan;
+use App\Models\BastMutasiAset;
 use App\Models\Notifikasi;
 use App\Models\PermintaanBarang;
 use App\Models\User;
@@ -298,14 +299,56 @@ class NotifikasiService
     // =====================================================================
 
     /**
-     * Notifikasi mutasi aset kepada Ketua Tim tujuan dan Kasubbag Umum,
-     * mengikuti cakupan BastMutasiAsetResource yang sudah berlaku.
+     * Notifikasi atas perpindahan status BAST mutasi aset.
+     *
+     * Bentuknya sengaja disamakan dengan permintaanBerubah(): penerima
+     * ditentukan dari status yang baru, yaitu pihak yang harus bertindak
+     * berikutnya, bukan ditentukan oleh pemanggil. Dengan begitu tidak ada
+     * peran yang menerima pemberitahuan atas tahapan yang bukan urusannya —
+     * Ketua Tim tujuan, misalnya, tidak perlu tahu bahwa BAST baru dibuat,
+     * sebab ia baru berkepentingan setelah dokumennya disahkan.
      */
-    public function mutasiAset(string $judul, string $pesan, ?int $timTujuanId, ?int $bastId = null): int
+    public function bastBerubah(BastMutasiAset $bast): int
     {
-        $penerima = $this->berperan('kasubbag')
-            ->merge($timTujuanId ? $this->berperan('ketua_tim', $timTujuanId) : collect());
+        $bast->loadMissing(['aset', 'timAsal', 'timTujuan']);
 
-        return $this->kirim($penerima, $judul, $pesan, 'mutasi', 'bast_mutasi_aset', $bastId);
+        $nomor  = $bast->nomor_bast;
+        $aset   = $bast->aset?->nama_aset ?? 'Aset';
+        $nup    = $bast->aset?->nup;
+        $asal   = $bast->timAsal?->nama_tim ?? 'unit asal';
+        $tujuan = $bast->timTujuan?->nama_tim ?? 'unit tujuan';
+
+        [$penerima, $judul, $pesan] = match ($bast->status) {
+            'menunggu_pengesahan' => [
+                $this->berperan('kasubbag'),
+                'BAST mutasi aset menunggu pengesahan',
+                "{$nomor} untuk mutasi {$aset}" . ($nup ? " ({$nup})" : '')
+                    . " dari {$asal} ke {$tujuan} menunggu pengesahan Anda.",
+            ],
+
+            'menunggu_konfirmasi' => [
+                $this->berperan('ketua_tim', $bast->tim_tujuan_id),
+                'Aset menunggu konfirmasi penerimaan',
+                "{$nomor} telah disahkan. {$aset}" . ($nup ? " ({$nup})" : '')
+                    . " dipindahkan ke {$tujuan} dan menunggu konfirmasi penerimaan.",
+            ],
+
+            'selesai_administratif' => [
+                // Petugas Gudang membuat BAST-nya dan Kasubbag mengesahkannya,
+                // sehingga keduanya perlu tahu bahwa mutasinya sudah tuntas.
+                $this->berperan(['kasubbag', 'petugas_gudang']),
+                'Mutasi aset selesai',
+                "{$nomor} telah dikonfirmasi diterima oleh {$tujuan}. "
+                    . 'Penempatan aset sudah diperbarui.',
+            ],
+
+            default => [collect(), '', ''],
+        };
+
+        if ($judul === '') {
+            return 0;
+        }
+
+        return $this->kirim($penerima, $judul, $pesan, 'mutasi', 'bast_mutasi_aset', $bast->id);
     }
 }

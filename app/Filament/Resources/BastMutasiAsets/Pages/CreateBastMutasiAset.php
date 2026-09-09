@@ -5,6 +5,7 @@ namespace App\Filament\Resources\BastMutasiAsets\Pages;
 use App\Filament\Resources\BastMutasiAsets\BastMutasiAsetResource;
 use App\Services\DokumenBastService;
 use App\Services\MutasiAsetService;
+use App\Services\NotifikasiService;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateBastMutasiAset extends CreateRecord
@@ -26,6 +27,10 @@ class CreateBastMutasiAset extends CreateRecord
     {
         $path = app(DokumenBastService::class)->buat($this->record);
         $this->record->update(['file_bast_path' => $path]);
+
+        // Memberitahukan pihak yang harus bertindak berikutnya, yaitu Kasubbag
+        // Umum yang mengesahkan BAST ini (UC-17).
+        app(NotifikasiService::class)->bastBerubah($this->record->refresh());
     }
 
     protected function getRedirectUrl(): string
