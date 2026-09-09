@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="id" class="scroll-smooth">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SIMPBI — Sistem Informasi Manajemen Permintaan Barang dan Inventaris</title>
-    <meta name="description"
-        content="SIMPBI — Sistem Informasi Manajemen Permintaan Barang dan Inventaris. Sub-Bagian Umum, Badan Pusat Statistik Kota Jakarta Barat.">
+    <title>{{ __('muka.meta.judul') }}</title>
+    <meta name="description" content="{{ __('muka.meta.deskripsi') }}">
 
     <link rel="icon" href="{{ asset('images/logo-bps.png') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
@@ -80,12 +79,20 @@
             }
         }
 
-        /* ---------- Nama panjang: galat berulang ----------
+        /* ---------- Nama panjang: retakan warna ----------
            Tiga lapisan teks yang sama ditumpuk: satu lapisan asli, dua lapisan
            bayangan berwarna di belakangnya. Bayangan itu diam hampir sepanjang
            waktu dan hanya bergeser sesaat, sehingga terbaca sebagai gangguan
            sinyal yang lewat, bukan sebagai teks yang bergetar terus-menerus —
-           yang akan melelahkan dibaca dan membuat halaman terasa rusak. */
+           yang akan melelahkan dibaca dan membuat halaman terasa rusak.
+
+           Inilah satu-satunya gerak berulang yang tersisa di sini. Sebelumnya
+           ada tiga sekaligus — retakan warna, berkas pindai yang melintas, dan
+           pengacakan huruf oleh JavaScript — dan ketiganya berjalan pada satu
+           baris teks yang sama sehingga saling berebut perhatian. Dua yang
+           lain dibuang; yang bertahan adalah retakan warna, karena karakter
+           teknisnya paling menyambung dengan wordmark SIMPBI di atasnya dan
+           seluruhnya cukup ditangani CSS. */
         .glitch {
             position: relative;
             display: inline-block;
@@ -134,31 +141,6 @@
             85%, 89.9%  { opacity: 0; transform: none; }
             90%         { opacity: .75; transform: translate(3px, 0);   clip-path: inset(30% 0 48% 0); }
             91.5%, 100% { opacity: 0; transform: none; }
-        }
-
-        /* Kata yang sedang diacak skrip: warnanya berubah sesaat agar
-           pengacakannya terbaca sebagai proses, bukan salah ketik. */
-        .kata-acak {
-            color: #7DD3FC;
-            text-shadow: 0 0 12px rgba(125, 211, 252, .45);
-        }
-
-        /* Berkas pindai tipis yang melintas pelan di atas nama panjang. */
-        .glitch-pindai::after {
-            content: '';
-            position: absolute;
-            inset: -0.35em 0;
-            pointer-events: none;
-            background: linear-gradient(180deg, transparent 0%, rgba(125, 211, 252, .16) 45%, rgba(125, 211, 252, .04) 55%, transparent 100%);
-            height: 2.2em;
-            animation: simpbi-pindai 7s cubic-bezier(.5, 0, .5, 1) infinite;
-        }
-
-        @keyframes simpbi-pindai {
-            0%, 55%   { transform: translateY(-120%); opacity: 0; }
-            60%       { opacity: 1; }
-            80%       { transform: translateY(120%); opacity: 0; }
-            100%      { transform: translateY(120%); opacity: 0; }
         }
 
         /* ---------- Penampakan saat digulir ---------- */
@@ -237,6 +219,33 @@
         .nav-link.is-active { color: #fff; }
         .nav-link.is-active::after { width: 0.9rem; }
 
+        /* ---------- Penukar bahasa ----------
+           Panel disembunyikan dengan visibility, bukan display, supaya
+           membuka dan menutupnya dapat dianimasikan. Dengan display:none
+           peralihannya akan terpotong dan panel terasa melompat. */
+        .menu-bahasa {
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-0.25rem) scale(.97);
+            transition:
+                opacity .18s cubic-bezier(.22, .61, .36, 1),
+                transform .18s cubic-bezier(.22, .61, .36, 1),
+                visibility .18s;
+        }
+
+        .menu-bahasa.is-open {
+            opacity: 1;
+            visibility: visible;
+            transform: none;
+        }
+
+        /* Bendera diberi garis tipis agar bagian putihnya tidak lenyap di atas
+           bilah navigasi yang gelap. */
+        .bendera {
+            border-radius: 2px;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28);
+        }
+
         /* ---------- Menghormati preferensi pengurangan gerak ---------- */
         @media (prefers-reduced-motion: reduce) {
             .js [data-reveal],
@@ -251,9 +260,10 @@
 
             .cue-arrow { animation: none; }
 
+            .menu-bahasa { transition: none; }
+
             .glitch::before,
-            .glitch::after,
-            .glitch-pindai::after {
+            .glitch::after {
                 animation: none;
                 opacity: 0;
             }
@@ -261,6 +271,35 @@
     </style>
 </head>
 <body class="bg-surface text-ink antialiased" style="font-family: var(--font-sans)">
+
+    {{-- Bendera untuk penukar bahasa. Digambar sebagai SVG, bukan emoji,
+         karena Windows tidak menggambar emoji bendera sama sekali — yang
+         muncul justru huruf "ID" dan "GB", sehingga di komputer pengguna
+         hasilnya tidak akan seperti yang dimaksud. Keduanya didefinisikan
+         sekali di sini dan dipakai ulang lewat <use>, supaya id clipPath di
+         dalam Union Jack tidak pernah kembar di satu halaman. --}}
+    <svg class="hidden" aria-hidden="true" focusable="false">
+        <symbol id="bendera-id" viewBox="0 0 60 30">
+            <rect width="60" height="15" fill="#CE1126" />
+            <rect y="15" width="60" height="15" fill="#F5F5F5" />
+        </symbol>
+        <symbol id="bendera-en" viewBox="0 0 60 30">
+            <clipPath id="bendera-en-kotak">
+                <path d="M0,0 v30 h60 v-30 z" />
+            </clipPath>
+            <clipPath id="bendera-en-diagonal">
+                <path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z" />
+            </clipPath>
+            <g clip-path="url(#bendera-en-kotak)">
+                <path d="M0,0 v30 h60 v-30 z" fill="#012169" />
+                <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6" />
+                <path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#bendera-en-diagonal)" stroke="#C8102E"
+                    stroke-width="4" />
+                <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10" />
+                <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6" />
+            </g>
+        </symbol>
+    </svg>
 
     {{-- ============================ NAVBAR ============================
          Bilah selebar layar yang menempel di tepi atas, bukan pil mengambang.
@@ -273,7 +312,7 @@
          menambah panjang menu tanpa menambah kegunaan. --}}
     <header id="nav"
         class="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-navy/85 backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(.22,.61,.36,1)]">
-        <nav class="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
+        <nav class="relative mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
 
             {{-- Lambang, sekaligus jalan pulang ke atas halaman --}}
             <a href="#beranda" class="flex shrink-0 items-center gap-2.5">
@@ -283,30 +322,83 @@
                 <span class="font-wordmark text-[15px] font-bold tracking-[0.14em] text-white">SIMPBI</span>
             </a>
 
-            {{-- Menu di tengah bilah --}}
-            <div class="hidden flex-1 items-center justify-center gap-8 md:flex">
-                @foreach (['Tentang' => 'tentang', 'Fitur' => 'fitur', 'Alur' => 'alur', 'Verifikasi' => 'verifikasi'] as $label => $anchor)
+            {{-- Menu, dipusatkan terhadap bilah dan bukan terhadap ruang sisa.
+                 Sebelumnya menu ini memakai flex-1 di antara lambang dan tombol
+                 aksi, sehingga titik tengahnya mengikuti ruang yang tersisa —
+                 dan karena lambang di kiri tidak selebar tombol di kanan, menu
+                 selalu tampak melenceng. Diposisikan mutlak pada 50% lebar
+                 bilah, letaknya benar-benar di tengah berapa pun lebar kedua
+                 sisinya.
+
+                 Wadahnya dibuat tembus klik agar tidak menghalangi lambang atau
+                 tombol seandainya sempat bertumpuk pada lebar layar tertentu;
+                 tautannya sendiri dikembalikan menjadi dapat diklik. --}}
+            <div class="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 md:flex">
+                @foreach (['tentang', 'fitur', 'alur', 'verifikasi'] as $anchor)
                     <a href="#{{ $anchor }}" data-nav="{{ $anchor }}"
-                        class="nav-link py-2 text-[13.5px] font-medium text-white/65 transition-colors duration-200 hover:text-white">{{ $label }}</a>
+                        class="nav-link pointer-events-auto py-2 text-[13.5px] font-medium text-white/65 transition-colors duration-200 hover:text-white">{{ __('muka.nav.' . $anchor) }}</a>
                 @endforeach
             </div>
 
-            {{-- Dua aksi: yang bergaris luar untuk tamu yang hanya memeriksa
-                 dokumen, yang berisi penuh untuk pengguna sistem. --}}
+            {{-- Dua aksi di ujung kanan: penukar bahasa, lalu satu-satunya
+                 tombol utama. Tombol "Verifikasi Dokumen" yang dulu di sini
+                 ditiadakan — tautan Verifikasi pada menu tengah sudah menuju
+                 bagian yang sama, jadi menyebutkannya dua kali hanya melebarkan
+                 sisi kanan tanpa menambah kegunaan.
+
+                 Penukar bahasa dibuat sesempit mungkin: hanya bendera yang
+                 sedang dipakai, kode dua huruf, dan panah. Tingginya sama
+                 dengan tombol di sebelahnya karena memakai ukuran huruf yang
+                 persis sama, sehingga keduanya sebaris tanpa perlu tinggi yang
+                 dipatok. Padding tegaknya 7px, bukan 8px seperti tetangganya,
+                 justru supaya tingginya sama: tombol ini punya garis tepi yang
+                 menambah 1px di atas dan di bawah. --}}
             <div class="ml-auto hidden shrink-0 items-center gap-2 sm:flex">
-                <a href="#verifikasi"
-                    class="rounded-lg border border-white/20 px-4 py-2 text-[13.5px] font-semibold text-white transition-[background-color,border-color] duration-200 hover:border-white/35 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60">
-                    Verifikasi Dokumen
-                </a>
+                <div class="relative" data-penukar-bahasa>
+                    <button type="button" id="tombolBahasa" aria-haspopup="true" aria-expanded="false"
+                        aria-label="{{ __('muka.nav.bahasa') }}"
+                        class="flex items-center gap-1.5 rounded-lg border border-white/20 px-2.5 py-[7px] text-[13.5px] font-semibold text-white transition-[background-color,border-color] duration-200 hover:border-white/35 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60">
+                        <svg class="bendera h-3 w-[1.125rem] shrink-0" aria-hidden="true">
+                            <use href="#bendera-{{ app()->getLocale() }}" />
+                        </svg>
+                        <span class="uppercase">{{ app()->getLocale() }}</span>
+                        <svg class="h-3.5 w-3.5 text-white/60 transition-transform duration-200" data-panah
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                            stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+                    </button>
+
+                    <div id="menuBahasa" role="menu" aria-labelledby="tombolBahasa"
+                        class="menu-bahasa absolute right-0 top-full z-50 mt-2 w-44 rounded-xl border border-white/15 bg-navy/95 p-1.5 shadow-[0_16px_40px_-16px_rgba(0,0,0,.8)] backdrop-blur-md">
+                        @foreach (['id', 'en'] as $kode)
+                            <a href="{{ route('bahasa.ganti', $kode) }}" role="menuitem"
+                                @class([
+                                    'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] transition-colors duration-150',
+                                    'bg-white/10 font-semibold text-white' => app()->getLocale() === $kode,
+                                    'font-medium text-white/70 hover:bg-white/5 hover:text-white' => app()->getLocale() !== $kode,
+                                ])>
+                                <svg class="bendera h-3 w-[1.125rem] shrink-0" aria-hidden="true">
+                                    <use href="#bendera-{{ $kode }}" />
+                                </svg>
+                                {{ __('muka.bahasa.' . $kode) }}
+                                @if (app()->getLocale() === $kode)
+                                    <svg class="ml-auto h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2.4" stroke-linecap="round"
+                                        stroke-linejoin="round"><path d="M5 12l4 4L19 6" /></svg>
+                                @endif
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+
                 <a href="{{ url('/admin') }}"
                     class="rounded-lg bg-accent px-4 py-2 text-[13.5px] font-semibold text-navy transition-[background-color,box-shadow,transform] duration-200 hover:bg-accent/90 hover:shadow-[0_6px_18px_-6px_rgba(245,158,11,.7)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[.98]">
-                    Masuk ke Sistem
+                    {{ __('muka.nav.masuk') }}
                 </a>
             </div>
 
             <button id="menuBtn"
                 class="ml-auto grid h-10 w-10 shrink-0 place-items-center rounded-lg text-white transition-colors duration-200 hover:bg-white/10 sm:ml-2 md:hidden"
-                aria-label="Buka menu" aria-expanded="false">
+                aria-label="{{ __('muka.nav.buka_menu') }}" aria-expanded="false">
                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
                     stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
             </button>
@@ -317,19 +409,39 @@
     <div id="mobileMenu"
         class="fixed inset-0 z-50 hidden flex-col bg-navy/95 px-6 pt-24 backdrop-blur-xl md:hidden">
         <button id="menuClose" class="absolute right-6 top-7 grid h-10 w-10 place-items-center rounded-full text-white"
-            aria-label="Tutup menu">
+            aria-label="{{ __('muka.nav.tutup_menu') }}">
             <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
                 stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
         <nav class="flex flex-col gap-1">
-            @foreach (['Tentang' => 'tentang', 'Fitur' => 'fitur', 'Alur' => 'alur', 'Verifikasi' => 'verifikasi'] as $label => $anchor)
+            @foreach (['tentang', 'fitur', 'alur', 'verifikasi'] as $anchor)
                 <a href="#{{ $anchor }}" data-close
-                    class="font-display border-b border-white/10 py-4 text-2xl font-semibold text-white/85 transition-colors duration-200 hover:text-white">{{ $label }}</a>
+                    class="font-display border-b border-white/10 py-4 text-2xl font-semibold text-white/85 transition-colors duration-200 hover:text-white">{{ __('muka.nav.' . $anchor) }}</a>
             @endforeach
             <a href="{{ url('/admin') }}"
                 class="mt-6 flex items-center justify-center gap-2 rounded-lg bg-accent py-3.5 text-sm font-semibold text-navy">
-                Masuk ke Sistem
+                {{ __('muka.nav.masuk') }}
             </a>
+
+            {{-- Pada layar kecil penukar bahasa dijajarkan begitu saja, bukan
+                 disembunyikan di balik dropdown lagi: hanya ada dua pilihan,
+                 dan menu ini sudah terbuka penuh selayar sehingga tidak ada
+                 ruang yang perlu dihemat. --}}
+            <div class="mt-6 flex items-center justify-center gap-2">
+                @foreach (['id', 'en'] as $kode)
+                    <a href="{{ route('bahasa.ganti', $kode) }}"
+                        @class([
+                            'flex items-center gap-2 rounded-lg border px-3.5 py-2 text-sm',
+                            'border-white/30 bg-white/10 font-semibold text-white' => app()->getLocale() === $kode,
+                            'border-white/15 font-medium text-white/65' => app()->getLocale() !== $kode,
+                        ])>
+                        <svg class="bendera h-3 w-[1.125rem] shrink-0" aria-hidden="true">
+                            <use href="#bendera-{{ $kode }}" />
+                        </svg>
+                        {{ __('muka.bahasa.' . $kode) }}
+                    </a>
+                @endforeach
+            </div>
         </nav>
     </div>
 
@@ -338,7 +450,7 @@
         // Judul diungkap per kata, baris demi baris. Jeda dihitung di sini agar
         // urutannya terbaca sekali pandang dan mudah disetel.
         $barisJudul = [
-            0 => 'Sistem Informasi Manajemen Permintaan Barang dan Inventaris',
+            0 => __('muka.hero.nama_panjang'),
         ];
         $jedaKata = 55;   // jarak antar kata
         $jedaBaris = 180; // jeda tambahan sebelum baris kedua
@@ -364,7 +476,7 @@
             <span class="hero-in inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white/75"
                 style="--d: 60ms">
                 <span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
-                Sistem Internal<span class="hidden sm:inline"> · BPS Kota Jakarta Barat</span>
+                {{ __('muka.hero.badge') }}<span class="hidden sm:inline">{{ __('muka.hero.badge_satker') }}</span>
             </span>
 
             {{-- Wordmark. Dibesarkan sampai hampir memenuhi lebar wadah supaya
@@ -380,7 +492,7 @@
                  data-text karena dua lapisan bayangan glitch membacanya dari
                  sana. --}}
             <p class="font-display mx-auto mt-5 max-w-4xl text-balance text-xl font-semibold leading-snug tracking-[-0.015em] text-white/90 sm:text-2xl md:text-[2rem]">
-                <span class="glitch glitch-pindai" data-text="{{ $barisJudul[0] }}" data-glitch>
+                <span class="glitch" data-text="{{ $barisJudul[0] }}">
                     @foreach ($barisJudul as $indeksBaris => $baris)
                         @foreach (explode(' ', $baris) as $indeksKata => $kata)
                             <span class="word-in" data-kata
@@ -392,15 +504,14 @@
 
             {{-- Penjelasan singkat --}}
             <p class="hero-in mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-white/60 sm:text-base" style="--d: 900ms">
-                Kelola permintaan, ketersediaan persediaan, dan distribusi barang dalam satu proses
-                yang terintegrasi dan dapat ditelusuri.
+                {{ __('muka.hero.deskripsi') }}
             </p>
 
             {{-- Aksi --}}
             <div class="hero-in mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row" style="--d: 1000ms">
                 <a href="{{ url('/admin') }}"
                     class="group flex w-full items-center justify-center gap-2 rounded-full bg-accent py-3 pl-6 pr-3 text-sm font-semibold text-navy transition-[background-color,transform,box-shadow] duration-300 ease-[cubic-bezier(.22,.61,.36,1)] hover:bg-accent/90 hover:shadow-[0_10px_28px_-10px_rgba(245,158,11,.75)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[.98] sm:w-auto">
-                    Masuk ke Sistem
+                    {{ __('muka.hero.tombol_masuk') }}
                     <span
                         class="grid h-8 w-8 place-items-center rounded-full bg-navy/10 transition-transform duration-300 ease-[cubic-bezier(.22,.61,.36,1)] group-hover:translate-x-1">
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -409,7 +520,7 @@
                 </a>
                 <a href="#alur"
                     class="group flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-white transition-[background-color,border-color,transform] duration-300 ease-[cubic-bezier(.22,.61,.36,1)] hover:border-white/25 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60 active:scale-[.98] sm:w-auto">
-                    Lihat Alur
+                    {{ __('muka.hero.tombol_alur') }}
                     <svg class="h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(.22,.61,.36,1)] group-hover:translate-y-0.5"
                         viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
                         <path d="M12 5v14M6 13l6 6 6-6" />
@@ -420,7 +531,7 @@
             {{-- Satuan kerja --}}
             <div class="hero-in mt-8 flex items-center justify-center gap-3 text-[13px] text-white/45" style="--d: 1080ms">
                 <span class="hidden h-px w-8 bg-white/15 sm:block"></span>
-                <span>Sub-Bagian Umum · Badan Pusat Statistik Kota Jakarta Barat</span>
+                <span>{{ __('muka.hero.satker') }}</span>
                 <span class="hidden h-px w-8 bg-white/15 sm:block"></span>
             </div>
 
@@ -443,12 +554,7 @@
              enam tahap persetujuan, dan dua kanal notifikasi. --}}
         <div class="relative -mx-4 mt-16 border-t border-white/10 md:mt-20">
             <dl class="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-white/10 md:grid-cols-4">
-                @foreach ([
-                    ['5', 'Peran Pengguna'],
-                    ['8', 'Tim Kerja'],
-                    ['6', 'Tahap Persetujuan'],
-                    ['2', 'Kanal Notifikasi'],
-                ] as $i => $angka)
+                @foreach (__('muka.hero.angka') as $i => $angka)
                     <div class="hero-in px-4 py-6 text-center md:py-7" style="--d: {{ 1240 + $i * 70 }}ms">
                         <dt class="font-wordmark text-2xl font-bold tracking-[0.04em] text-white sm:text-3xl">{{ $angka[0] }}</dt>
                         <dd class="mt-1 text-[11.5px] font-medium uppercase tracking-[0.14em] text-white/50">{{ $angka[1] }}</dd>
@@ -462,32 +568,37 @@
     <section id="tentang" class="scroll-mt-24 px-4 py-24 md:py-32">
         <div class="mx-auto max-w-6xl">
             <div class="max-w-2xl" data-reveal>
-                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Mengapa SIMPBI</span>
+                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">{{ __('muka.tentang.label') }}</span>
                 <h2 class="mt-3 text-3xl font-bold tracking-tight text-navy sm:text-4xl">
-                    Satu proses yang jelas, dari permintaan hingga pengesahan.
+                    {{ __('muka.tentang.judul') }}
                 </h2>
                 <p class="mt-4 text-[15px] leading-relaxed text-muted">
-                    Menggantikan pencatatan manual yang tersebar dengan alur kerja yang terstandar,
-                    dapat dipantau, dan dapat ditelusuri kembali.
+                    {{ __('muka.tentang.paragraf') }}
                 </p>
             </div>
 
             <div class="mt-12 grid gap-5 md:grid-cols-3">
-                @foreach ([
-                    ['Stok lebih mudah dipantau', 'Informasi stok fisik, HOLD, dan tersedia dapat dilihat dengan lebih terstruktur.', 'M3 13h2l1.5 6h11L21 8H6M9 21a1 1 0 100-2 1 1 0 000 2m8 0a1 1 0 100-2 1 1 0 000 2'],
-                    ['Permintaan lebih terstandar', 'Katalog menjadi acuan barang yang digunakan dalam setiap pengajuan.', 'M4 6h16M4 12h16M4 18h10'],
-                    ['Proses lebih mudah ditelusuri', 'Setiap permintaan memiliki status dan riwayat proses yang tercatat.', 'M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z'],
-                ] as $i => $c)
+                @php
+                    // Jalur ikon tetap tinggal di tampilan: bentuk gambarnya
+                    // tidak berubah menurut bahasa, jadi menyalinnya ke berkas
+                    // terjemahan hanya menggandakan hal yang sama dua kali.
+                    $ikonTentang = [
+                        'M3 13h2l1.5 6h11L21 8H6M9 21a1 1 0 100-2 1 1 0 000 2m8 0a1 1 0 100-2 1 1 0 000 2',
+                        'M4 6h16M4 12h16M4 18h10',
+                        'M12 8v4l3 2m6-2a9 9 0 11-18 0 9 9 0 0118 0z',
+                    ];
+                @endphp
+                @foreach (__('muka.tentang.kartu') as $i => $c)
                     <div data-reveal style="transition-delay: {{ $i * 90 }}ms"
                         class="rounded-card border border-hairline bg-card p-1.5 shadow-[0_1px_2px_rgba(15,23,42,.04)]">
                         <div class="rounded-[10px] bg-surface/60 p-6">
                             <span class="grid h-11 w-11 place-items-center rounded-xl bg-brand-light text-brand">
                                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="{{ $c[2] }}" /></svg>
+                                    <path d="{{ $ikonTentang[$i] }}" /></svg>
                             </span>
-                            <h3 class="mt-5 text-base font-semibold text-navy">{{ $c[0] }}</h3>
-                            <p class="mt-2 text-sm leading-relaxed text-muted">{{ $c[1] }}</p>
+                            <h3 class="mt-5 text-base font-semibold text-navy">{{ $c['judul'] }}</h3>
+                            <p class="mt-2 text-sm leading-relaxed text-muted">{{ $c['isi'] }}</p>
                         </div>
                     </div>
                 @endforeach
@@ -499,31 +610,34 @@
     <section id="fitur" class="scroll-mt-24 bg-white px-4 py-24 md:py-32">
         <div class="mx-auto max-w-6xl">
             <div class="max-w-2xl" data-reveal>
-                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Fitur</span>
+                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">{{ __('muka.fitur.label') }}</span>
                 <h2 class="mt-3 text-3xl font-bold tracking-tight text-navy sm:text-4xl">
-                    Dirancang untuk pekerjaan harian unit kerja.
+                    {{ __('muka.fitur.judul') }}
                 </h2>
             </div>
 
             <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach ([
-                    ['Katalog Barang', 'Daftar barang persediaan terstandar sebagai acuan pengajuan.', 'M4 6a2 2 0 012-2h9l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2zM14 4v5h5'],
-                    ['Permintaan & Persetujuan', 'Alur pengajuan berjenjang dengan persetujuan sesuai kewenangan.', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
-                    ['Pengendalian Stok', 'Mekanisme HOLD, RELEASE, dan konversi menjaga stok tetap akurat.', 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'],
-                    ['Monitoring & Laporan', 'Dashboard per peran dan laporan yang dapat diekspor.', 'M4 19h16M7 16V8m5 8V5m5 11v-6'],
-                    ['Pencatatan Mutasi Aset', 'Penempatan, redistribusi, dan mutasi aset tetap peralatan & mesin.', 'M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4'],
-                    ['BAST + Verifikasi QR', 'Berita acara serah terima dengan tanda tangan digital dan QR.', 'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z'],
-                ] as $i => $f)
+                @php
+                    $ikonFitur = [
+                        'M4 6a2 2 0 012-2h9l5 5v9a2 2 0 01-2 2H6a2 2 0 01-2-2zM14 4v5h5',
+                        'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+                        'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
+                        'M4 19h16M7 16V8m5 8V5m5 11v-6',
+                        'M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4',
+                        'M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 14h2v2h-2zM14 18h2v2h-2zM18 18h2v2h-2z',
+                    ];
+                @endphp
+                @foreach (__('muka.fitur.kartu') as $i => $f)
                     <div data-reveal style="transition-delay: {{ ($i % 3) * 90 }}ms"
                         class="group rounded-card border border-hairline bg-card p-6 transition-all duration-500 ease-[cubic-bezier(.32,.72,0,1)] hover:-translate-y-1 hover:border-brand/30 hover:shadow-[0_12px_30px_-12px_rgba(21,87,166,.25)]">
                         <span
                             class="grid h-11 w-11 place-items-center rounded-xl bg-navy text-white transition-colors duration-500 group-hover:bg-brand">
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="{{ $f[2] }}" /></svg>
+                                <path d="{{ $ikonFitur[$i] }}" /></svg>
                         </span>
-                        <h3 class="mt-5 text-base font-semibold text-navy">{{ $f[0] }}</h3>
-                        <p class="mt-2 text-sm leading-relaxed text-muted">{{ $f[1] }}</p>
+                        <h3 class="mt-5 text-base font-semibold text-navy">{{ $f['judul'] }}</h3>
+                        <p class="mt-2 text-sm leading-relaxed text-muted">{{ $f['isi'] }}</p>
                     </div>
                 @endforeach
             </div>
@@ -534,36 +648,42 @@
     <section id="alur" class="scroll-mt-24 px-4 py-24 md:py-32">
         <div class="mx-auto max-w-6xl">
             <div class="max-w-2xl" data-reveal>
-                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">Alur Permintaan</span>
+                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-brand">{{ __('muka.alur.label') }}</span>
                 <h2 class="mt-3 text-3xl font-bold tracking-tight text-navy sm:text-4xl">
-                    Tujuh tahap, satu jejak yang jelas.
+                    {{ __('muka.alur.judul') }}
                 </h2>
+                {{-- Nama peran disisipkan sebagai potongan HTML supaya tetap
+                     dicetak tebal, sedangkan letaknya di dalam kalimat diserahkan
+                     pada berkas terjemahan — dalam bahasa Inggris urutan katanya
+                     berbeda. Isinya berasal dari berkas terjemahan sendiri,
+                     bukan dari masukan pengguna, sehingga aman dicetak mentah. --}}
                 <p class="mt-4 text-[15px] leading-relaxed text-muted">
-                    Untuk pengaju berperan <span class="font-semibold text-navy">Ketua Tim</span>, tahap persetujuan
-                    Ketua dilewati dan permintaan langsung menuju verifikasi gudang.
+                    {!! __('muka.alur.paragraf', [
+                        'peran' => '<span class="font-semibold text-navy">' . e(__('muka.alur.peran')) . '</span>',
+                    ]) !!}
                 </p>
             </div>
 
             <ol class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                @foreach ([
-                    'Pengajuan', 'Persetujuan Ketua', 'Verifikasi Gudang', 'Persetujuan Kasubbag',
-                    'Penyiapan', 'Penerimaan', 'Pengesahan',
-                ] as $i => $step)
+                @foreach (__('muka.alur.tahap') as $i => $tahap)
                     <li data-reveal style="transition-delay: {{ ($i % 4) * 70 }}ms"
                         class="relative flex items-start gap-3 rounded-card border border-hairline bg-card p-5">
                         <span
                             class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-light text-sm font-bold text-brand">{{ $i + 1 }}</span>
                         <div>
-                            <p class="text-sm font-semibold text-navy">{{ $step }}</p>
-                            @if ($step === 'Persetujuan Ketua')
-                                <p class="mt-1 text-[11px] font-medium text-accent">Dilewati untuk pengaju Ketua Tim</p>
+                            <p class="text-sm font-semibold text-navy">{{ $tahap }}</p>
+                            {{-- Ditandai lewat urutan, bukan lewat perbandingan
+                                 teks: nama tahapnya berubah mengikuti bahasa,
+                                 sedangkan posisinya dalam alur tidak. --}}
+                            @if ($i === 1)
+                                <p class="mt-1 text-[11px] font-medium text-accent">{{ __('muka.alur.catatan_ketua') }}</p>
                             @endif
                         </div>
                     </li>
                 @endforeach
                 <li data-reveal
                     class="flex items-center justify-center rounded-card border border-dashed border-brand/30 bg-brand-light/50 p-5 text-center text-sm font-semibold text-brand">
-                    Selesai & terarsip
+                    {{ __('muka.alur.selesai') }}
                 </li>
             </ol>
         </div>
@@ -573,16 +693,15 @@
     <section id="verifikasi" class="scroll-mt-24 bg-navy px-4 py-24 text-white md:py-32">
         <div class="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
             <div data-reveal>
-                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">Verifikasi Dokumen</span>
+                <span class="text-[11px] font-semibold uppercase tracking-[0.2em] text-accent">{{ __('muka.verifikasi.label') }}</span>
                 <h2 class="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-                    Setiap dokumen resmi dapat dipindai dan diperiksa keasliannya.
+                    {{ __('muka.verifikasi.judul') }}
                 </h2>
                 <p class="mt-4 text-[15px] leading-relaxed text-white/70">
-                    Bukti permintaan dan BAST mutasi aset dilengkapi kode QR. Pemindaian mengarah ke halaman
-                    verifikasi yang menampilkan status keaslian dokumen tanpa membuka data sensitif.
+                    {{ __('muka.verifikasi.paragraf') }}
                 </p>
                 <div class="mt-7 flex flex-wrap gap-3 text-sm text-white/75">
-                    @foreach (['Nomor & jenis dokumen', 'Tanggal pengesahan', 'Status keaslian'] as $item)
+                    @foreach (__('muka.verifikasi.daftar') as $item)
                         <span class="inline-flex items-center gap-2 rounded-full bg-white/5 px-3.5 py-1.5">
                             <svg class="h-3.5 w-3.5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2.2" stroke-linecap="round"><path d="M5 12l4 4L19 6" /></svg>
@@ -601,11 +720,11 @@
                                 <img src="{{ asset('images/logo-bps.png') }}" alt="" class="h-full w-full object-contain">
                             </span>
                             <div class="text-[11px] font-semibold leading-tight text-navy">
-                                BADAN PUSAT STATISTIK<br><span class="text-muted">Kota Jakarta Barat</span>
+                                {{ __('muka.verifikasi.demo.instansi') }}<br><span class="text-muted">{{ __('muka.verifikasi.demo.kota') }}</span>
                             </div>
                         </div>
                         <span
-                            class="rounded-full bg-accent-light px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-warning">Demo</span>
+                            class="rounded-full bg-accent-light px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-warning">{{ __('muka.verifikasi.demo.label') }}</span>
                     </div>
 
                     <div class="mt-6 grid grid-cols-[auto_1fr] items-center gap-5">
@@ -615,18 +734,18 @@
                             </svg>
                         </div>
                         <div class="min-w-0">
-                            <p class="text-[11px] font-medium uppercase tracking-wide text-muted">Bukti Permintaan Barang</p>
+                            <p class="text-[11px] font-medium uppercase tracking-wide text-muted">{{ __('muka.verifikasi.demo.jenis') }}</p>
                             <p class="mt-1 font-semibold text-navy">PB-2026-0001</p>
                             <p class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-semibold text-success">
-                                <span class="h-1.5 w-1.5 rounded-full bg-success"></span> Dokumen sah
+                                <span class="h-1.5 w-1.5 rounded-full bg-success"></span> {{ __('muka.verifikasi.demo.status') }}
                             </p>
                         </div>
                     </div>
 
                     <div class="mt-6 rounded-lg bg-surface px-3.5 py-2.5 font-mono text-[11px] text-muted">
-                        Token: SIMPBI-DEMO-2026-0001
+                        {{ __('muka.verifikasi.demo.token') }} SIMPBI-DEMO-2026-0001
                     </div>
-                    <p class="mt-2 text-[11px] text-muted">Contoh tampilan. Bukan dokumen resmi.</p>
+                    <p class="mt-2 text-[11px] text-muted">{{ __('muka.verifikasi.demo.catatan') }}</p>
                 </div>
             </div>
         </div>
@@ -636,13 +755,13 @@
     <section class="px-4 py-24">
         <div data-reveal
             class="mx-auto max-w-5xl overflow-hidden rounded-hero border border-hairline bg-white p-10 text-center shadow-[0_20px_50px_-24px_rgba(11,42,91,.25)] md:p-16">
-            <h2 class="text-3xl font-bold tracking-tight text-navy sm:text-4xl">Masuk untuk mulai bekerja.</h2>
+            <h2 class="text-3xl font-bold tracking-tight text-navy sm:text-4xl">{{ __('muka.ajakan.judul') }}</h2>
             <p class="mx-auto mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
-                Akses SIMPBI menggunakan akun yang telah diberikan oleh administrator sistem.
+                {{ __('muka.ajakan.paragraf') }}
             </p>
             <a href="{{ url('/admin') }}"
                 class="group mt-8 inline-flex items-center gap-2 rounded-full bg-navy py-3.5 pl-6 pr-3 text-sm font-semibold text-white transition-all duration-500 ease-[cubic-bezier(.32,.72,0,1)] hover:bg-brand active:scale-[.98]">
-                Masuk ke Sistem
+                {{ __('muka.ajakan.tombol') }}
                 <span
                     class="grid h-8 w-8 place-items-center rounded-full bg-white/15 transition-transform duration-500 ease-[cubic-bezier(.32,.72,0,1)] group-hover:translate-x-1 group-hover:-translate-y-0.5">
                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -661,10 +780,10 @@
                 </span>
                 <div class="text-sm leading-tight">
                     <p class="font-bold text-navy">SIMPBI</p>
-                    <p class="text-muted">Sub-Bagian Umum · BPS Kota Jakarta Barat</p>
+                    <p class="text-muted">{{ __('muka.kaki.satker') }}</p>
                 </div>
             </div>
-            <p class="text-xs text-muted">© {{ date('Y') }} Badan Pusat Statistik Kota Jakarta Barat. Sistem internal.</p>
+            <p class="text-xs text-muted">{{ __('muka.kaki.hak_cipta', ['tahun' => date('Y')]) }}</p>
         </div>
     </footer>
 
@@ -727,64 +846,41 @@
         menu.querySelectorAll('[data-close]').forEach(a => a.addEventListener('click', tutupMenu));
         document.addEventListener('keydown', e => { if (e.key === 'Escape') tutupMenu(); });
 
-        /* ---------- Pengacakan huruf pada nama panjang ----------
-           Sesekali satu kata diacak hurufnya sebentar lalu pulih huruf demi
-           huruf, seperti sinyal yang tersusun ulang. Hanya satu kata pada satu
-           waktu, dan hanya kata yang cukup panjang, supaya kalimatnya tetap
-           terbaca dan gangguan ini tidak berubah menjadi hiasan yang berisik.
-
-           Teks aslinya disimpan sebelum diubah dan selalu dikembalikan pada
-           akhir daur, sehingga isi halaman tidak pernah tertinggal dalam
-           keadaan teracak — termasuk bila tab ditinggalkan di tengah animasi. */
+        /* ---------- Penukar bahasa ----------
+           Panel dibuka dan ditutup dari sini, bukan lewat :focus-within, sebab
+           tautan di dalamnya harus tetap dapat diklik dengan tetikus sekaligus
+           dijangkau dengan papan ketik. Isi panel sudah tercetak lengkap di
+           HTML, jadi tanpa JavaScript pun kedua bahasanya tetap terjangkau. */
         (() => {
-            const wadah = document.querySelector('[data-glitch]');
+            const wadah = document.querySelector('[data-penukar-bahasa]');
             if (!wadah) return;
 
-            // Pembaca layar dan mesin pencari cukup membaca teks utuh sekali;
-            // pengacakan ini murni hiasan.
-            wadah.setAttribute('aria-label', wadah.dataset.text || wadah.textContent.trim());
+            const tombol = wadah.querySelector('#tombolBahasa');
+            const panel = wadah.querySelector('#menuBahasa');
+            const panah = wadah.querySelector('[data-panah]');
 
-            const kata = [...wadah.querySelectorAll('[data-kata]')].filter(el => el.textContent.length >= 6);
-            if (!kata.length) return;
-
-            const kurangiGerak = window.matchMedia('(prefers-reduced-motion: reduce)');
-            const HURUF = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&/\\<>[]{}';
-            const acak = () => HURUF[Math.floor(Math.random() * HURUF.length)];
-
-            let sedangJalan = false;
-
-            const acakSatuKata = (el) => {
-                const asli = el.textContent;
-                let langkah = 0;
-                el.classList.add('kata-acak');
-
-                const jentera = setInterval(() => {
-                    langkah++;
-
-                    // Huruf pulih berurutan dari kiri; sisanya masih teracak.
-                    const pulih = Math.max(0, langkah - 4);
-                    el.textContent = asli
-                        .split('')
-                        .map((h, i) => (i < pulih || h === ' ' ? asli[i] : acak()))
-                        .join('');
-
-                    if (pulih >= asli.length) {
-                        clearInterval(jentera);
-                        el.textContent = asli;
-                        el.classList.remove('kata-acak');
-                        sedangJalan = false;
-                    }
-                }, 45);
+            const setel = (terbuka) => {
+                panel.classList.toggle('is-open', terbuka);
+                tombol.setAttribute('aria-expanded', terbuka ? 'true' : 'false');
+                if (panah) panah.style.transform = terbuka ? 'rotate(180deg)' : '';
             };
 
-            setInterval(() => {
-                // Tab yang tidak terlihat tidak perlu dianimasikan, dan
-                // preferensi pengurangan gerak dapat berubah kapan saja.
-                if (sedangJalan || document.hidden || kurangiGerak.matches) return;
+            tombol.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setel(!panel.classList.contains('is-open'));
+            });
 
-                sedangJalan = true;
-                acakSatuKata(kata[Math.floor(Math.random() * kata.length)]);
-            }, 3800);
+            // Klik di luar wadah menutup panel; klik di dalamnya tidak, supaya
+            // tautan bahasa sempat dijalankan lebih dulu.
+            document.addEventListener('click', (e) => {
+                if (!wadah.contains(e.target)) setel(false);
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key !== 'Escape') return;
+                setel(false);
+                tombol.focus();
+            });
         })();
     </script>
 </body>

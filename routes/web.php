@@ -1,13 +1,31 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Middleware\TerapkanBahasa;
 use App\Models\PermintaanBarang;
 use App\Models\BastMutasiAset;
 use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
     return view('welcome');
-});
+})->middleware(TerapkanBahasa::class)->name('muka');
+
+/**
+ * Penukar bahasa halaman muka.
+ *
+ * Pilihan disimpan di sesi lalu pengunjung dikembalikan ke halaman asalnya,
+ * sehingga posisi gulir dan tautan jangkar (#fitur, #alur) tidak hilang hanya
+ * karena bahasanya diganti.
+ */
+Route::get('/bahasa/{kode}', function (string $kode) {
+    // Kode di luar daftar ditolak supaya nilai sembarang dari URL tidak
+    // pernah tersimpan di sesi dan terbawa ke permintaan berikutnya.
+    abort_unless(in_array($kode, TerapkanBahasa::BAHASA_TERSEDIA, true), 404);
+
+    session(['bahasa' => $kode]);
+
+    return back(fallback: route('muka'));
+})->name('bahasa.ganti');
 
 // ============================================================
 // Tambahan pada routes/web.php
