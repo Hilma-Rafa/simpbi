@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Models\PermintaanBarang;
+use App\Models\BastMutasiAset;
 use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
@@ -31,6 +32,34 @@ Route::get('/verifikasi/{token}', function (string $token) {
 
     return view('verifikasi.permintaan', compact('permintaan', 'pengesah'));
 })->name('verifikasi.permintaan');
+
+/**
+ * Halaman verifikasi keaslian BAST mutasi aset.
+ * Terbuka bagi siapa pun yang memindai QR e-TTD pada dokumen BAST.
+ * Hanya BAST yang telah disahkan yang dapat diverifikasi.
+ */
+Route::get('/verifikasi-bast/{token}', function (string $token) {
+    $bast = BastMutasiAset::query()
+        ->where('qr_token', $token)
+        ->whereNotNull('disahkan_at')
+        ->with(['aset', 'timAsal', 'timTujuan', 'disahkanOleh'])
+        ->first();
+
+    return view('verifikasi.bast', compact('bast'));
+})->name('verifikasi.bast');
+
+/**
+ * Pengunduhan berkas BAST mutasi aset (hanya pengguna terautentikasi).
+ */
+Route::get('/dokumen-bast/{bast}', function (BastMutasiAset $bast) {
+    abort_unless($bast->file_bast_path, 404);
+    abort_unless(Storage::disk('public')->exists($bast->file_bast_path), 404);
+
+    return Storage::disk('public')->download(
+        $bast->file_bast_path,
+        $bast->nomor_bast . '.pdf'
+    );
+})->middleware('auth')->name('bast.unduh');
 
 /**
  * Pengunduhan berkas bukti permintaan.

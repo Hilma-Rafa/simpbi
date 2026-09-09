@@ -6,6 +6,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class AsetTetapForm
@@ -14,29 +15,68 @@ class AsetTetapForm
     {
         return $schema
             ->components([
-                TextInput::make('nup')
-                    ->required(),
-                TextInput::make('nama_aset')
-                    ->required(),
-                Select::make('kategori_id')
-                    ->label('Kategori')
-                    ->relationship('kategori', 'nama_kategori')
-                    ->required(),
-                Select::make('tim_penempatan_id')
-                    ->label('Tim Penempatan')
-                    ->relationship('timPenempatan', 'nama_tim'),
-                Select::make('kondisi')
-                    ->options(['baik' => 'Baik', 'rusak_ringan' => 'Rusak ringan', 'rusak_berat' => 'Rusak berat'])
-                    ->default('baik')
-                    ->required(),
-                Select::make('sumber_data')
-                    ->options(['manual' => 'Manual', 'impor' => 'Impor', 'api' => 'Api'])
-                    ->default('manual')
-                    ->required(),
-                TextInput::make('external_id'),
-                DateTimePicker::make('synced_at'),
-                Toggle::make('status_aktif')
-                    ->required(),
+                Section::make('Identitas Aset')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('nup')
+                            ->label('NUP')
+                            ->helperText('Nomor Urut Pendaftaran aset.')
+                            ->required()
+                            ->maxLength(30),
+                        TextInput::make('nama_aset')
+                            ->label('Nama Aset')
+                            ->required()
+                            ->maxLength(150),
+                        Select::make('kategori_id')
+                            ->label('Kategori')
+                            ->relationship('kategori', 'nama_kategori')
+                            ->searchable()
+                            ->preload()
+                            ->required(),
+                        Toggle::make('status_aktif')
+                            ->label('Aset Aktif')
+                            ->default(true)
+                            ->inline(false),
+                    ]),
+
+                Section::make('Penempatan & Kondisi')
+                    ->columns(2)
+                    ->schema([
+                        Select::make('tim_penempatan_id')
+                            ->label('Unit Penempatan')
+                            ->relationship('timPenempatan', 'nama_tim')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Belum ditempatkan'),
+                        Select::make('kondisi')
+                            ->label('Kondisi')
+                            ->options([
+                                'baik'         => 'Baik',
+                                'rusak_ringan' => 'Rusak Ringan',
+                                'rusak_berat'  => 'Rusak Berat',
+                            ])
+                            ->default('baik')
+                            ->native(false)
+                            ->required(),
+                    ]),
+
+                Section::make('Sinkronisasi Data')
+                    ->description('Diisi otomatis saat impor atau sinkronisasi data aset.')
+                    ->columns(2)
+                    ->collapsed()
+                    ->schema([
+                        Select::make('sumber_data')
+                            ->label('Sumber Data')
+                            ->options(['manual' => 'Manual', 'impor' => 'Impor', 'api' => 'API'])
+                            ->default('manual')
+                            ->native(false)
+                            ->required(),
+                        TextInput::make('external_id')
+                            ->label('ID Eksternal')
+                            ->maxLength(50),
+                        DateTimePicker::make('synced_at')
+                            ->label('Waktu Sinkronisasi'),
+                    ]),
             ]);
     }
 }

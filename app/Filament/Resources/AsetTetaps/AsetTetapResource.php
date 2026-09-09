@@ -18,7 +18,17 @@ class AsetTetapResource extends Resource
 {
     protected static ?string $model = AsetTetap::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCpuChip;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Inventaris';
+
+    protected static ?string $navigationLabel = 'Aset Tetap';
+
+    protected static ?string $modelLabel = 'Aset Tetap';
+
+    protected static ?string $pluralModelLabel = 'Aset Tetap';
+
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'nama_aset';
 
