@@ -40,6 +40,31 @@ melainkan soal nomor.
 | **Memori peladen** | Mesin `whatsapp-web.js` memakai sekitar 300–500 MB per sesi. SIMPBI hanya butuh satu sesi. |
 | **Akses ke berkas `.env` SIMPBI** | Untuk mengisi alamat gerbang dan kunci API. |
 
+### Berapa nomor yang sebenarnya dibutuhkan
+
+**Satu nomor baru, untuk seluruh sistem.** Yang menanggung risiko hanyalah akun
+yang melakukan otomasi, yaitu pengirimnya. Para penerima — Ketua Tim, Kasubbag,
+Petugas Gudang, dan akun Tim — cukup memakai nomor yang sudah mereka pakai
+sehari-hari, sebab menerima pesan adalah kegiatan WhatsApp yang biasa dan tidak
+berisiko. Tidak ada seorang pun yang perlu menyediakan nomor kedua.
+
+Sebaiknya nomor gerbang menjadi milik Sub Bagian Umum, bukan milik pribadi
+seseorang, agar tidak ikut berpindah ketika pegawai yang bersangkutan berganti
+tugas.
+
+### Menjaga sesi tetap hidup
+
+Nomor gerbang tertaut ke OpenWA sebagai *perangkat tertaut*, dan WhatsApp
+memutus seluruh perangkat tertaut bila ponsel pemegang nomor tidak aktif selama
+**14 hari**. Begitu terputus, seluruh pengiriman ditolak sampai kode QR dipindai
+ulang.
+
+Karena ponsel yang khusus dipakai untuk ini biasanya jarang disentuh, jadikan
+kebiasaan menyalakannya dan membuka WhatsApp sebentar setidaknya dua minggu
+sekali. Tanda-tanda sesi terputus mudah dikenali: seluruh notifikasi baru
+berstatus **Gagal** dengan keterangan *"Sesi gerbang belum tersambung ke
+WhatsApp."*
+
 ---
 
 ## 3. Memasang gerbang OpenWA
