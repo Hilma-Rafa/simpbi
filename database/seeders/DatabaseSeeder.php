@@ -8,7 +8,7 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Menjalankan seluruh seeder dalam urutan ketergantungan:
-     * Tim → Pengguna → Ketua Tim → Katalog barang persediaan → Stok awal → Aset tetap.
+     * Tim → Pengguna → Ketua Tim → Katalog barang persediaan → Stok awal → Aset tetap → BAST contoh.
      *
      * KetuaTimSeeder berjalan setelah PenggunaSeeder karena melengkapi akun
      * Ketua Tim bawaan dengan data pegawai sebenarnya, dan akan melewati diri
@@ -25,6 +25,9 @@ class DatabaseSeeder extends Seeder
             // dari stok fisik yang baru saja diisi seeder tersebut.
             StokAwalSeeder::class,
             AsetTetapSeeder::class,
+            // Setelah aset tetap, sebab BAST contohnya memutasikan salah satu
+            // aset yang baru saja dibuat seeder tersebut.
+            BastMutasiAsetSeeder::class,
         ]);
     }
 }
