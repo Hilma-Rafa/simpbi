@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('nip', 30)->nullable();
             $table->string('email', 100)->nullable();
-            // Format E.164 tanpa tanda plus, contoh: 6281296875227
+            // Format E.164 tanpa tanda plus, contoh: 6281234567890
             $table->string('no_hp', 20)->nullable();
             $table->enum('role', ['admin', 'tim', 'ketua_tim', 'petugas_gudang', 'kasubbag']);
             $table->foreignId('tim_id')->nullable()->constrained('tim')->nullOnDelete();

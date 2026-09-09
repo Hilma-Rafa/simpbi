@@ -12,6 +12,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -138,11 +139,33 @@ class StokMasuk extends Page implements HasTable
                         ->label('Sumber')
                         ->options(self::SUMBER_MASUK)
                         ->native(false)
+                        ->live()
                         ->required(),
                     TextInput::make('nomor_dasar')
                         ->label('Nomor Dasar')
-                        ->helperText('Nomor dokumen pengadaan/pengembalian, bila ada.')
-                        ->maxLength(50),
+                        /*
+                         * Diwajibkan hanya untuk sumber yang memang lahir dari
+                         * dokumen: pembelian punya nomor dokumen pengadaan dan
+                         * transfer masuk punya nomor berita acaranya. Tanpa
+                         * kewajiban ini, kolom "Nomor Dasar M/K" pada kartu
+                         * kendali terbit kosong dan transaksinya tidak dapat
+                         * ditelusuri ke bukti mana pun.
+                         *
+                         * Saldo pembuka dan pengembalian sengaja tidak
+                         * diwajibkan, sebab keduanya kerap tidak punya dokumen
+                         * — sama seperti pada kartu kendali manualnya, yang
+                         * juga membiarkan kolom itu kosong untuk stok awal.
+                         */
+                        ->required(fn (Get $get): bool => in_array(
+                            $get('sumber'),
+                            ['pembelian', 'transfer_masuk'],
+                            true,
+                        ))
+                        ->helperText(fn (Get $get): string => in_array($get('sumber'), ['pembelian', 'transfer_masuk'], true)
+                            ? 'Nomor dokumen pengadaan atau berita acara serah terima.'
+                            : 'Nomor dokumen, bila ada.')
+                        // Mengikuti lebar kolom nomor_dasar pada tabel mutasi_stok
+                        ->maxLength(60),
                     Textarea::make('keterangan')
                         ->label('Keterangan')
                         ->rows(2)
