@@ -3,10 +3,11 @@
 namespace App\Filament\Resources\Tims\Schemas;
 
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Forms\Components\Select;
 
 class TimForm
 {
@@ -14,15 +15,37 @@ class TimForm
     {
         return $schema
             ->components([
-                TextInput::make('nama_tim')
-                    ->required(),
-                Select::make('ketua_tim_id')
-                    ->label('Ketua Tim')
-                    ->relationship('ketuaTim', 'name'),
-                TextInput::make('external_id'),
-                DateTimePicker::make('synced_at'),
-                Toggle::make('status_aktif')
-                    ->required(),
+                Section::make('Data Tim')
+                    ->columns(2)
+                    ->schema([
+                        TextInput::make('nama_tim')
+                            ->label('Nama Tim')
+                            ->required()
+                            ->maxLength(150)
+                            ->columnSpanFull(),
+                        Select::make('ketua_tim_id')
+                            ->label('Ketua Tim')
+                            ->relationship('ketuaTim', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Belum ditetapkan'),
+                        Toggle::make('status_aktif')
+                            ->label('Tim Aktif')
+                            ->default(true)
+                            ->inline(false),
+                    ]),
+
+                Section::make('Sinkronisasi Data')
+                    ->description('Diisi otomatis saat sinkronisasi data unit kerja.')
+                    ->columns(2)
+                    ->collapsed()
+                    ->schema([
+                        TextInput::make('external_id')
+                            ->label('ID Eksternal')
+                            ->maxLength(50),
+                        DateTimePicker::make('synced_at')
+                            ->label('Waktu Sinkronisasi'),
+                    ]),
             ]);
     }
 }

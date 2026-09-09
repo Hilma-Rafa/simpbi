@@ -7,6 +7,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class TimsTable
@@ -14,30 +15,47 @@ class TimsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->defaultSort('nama_tim')
             ->columns([
                 TextColumn::make('nama_tim')
-                    ->searchable(),
-                TextColumn::make('ketua_tim_id')
-                    ->numeric()
+                    ->label('Nama Tim')
+                    ->searchable()
                     ->sortable(),
-                TextColumn::make('external_id')
+
+                TextColumn::make('ketuaTim.name')
+                    ->label('Ketua Tim')
+                    ->placeholder('Belum ditetapkan')
                     ->searchable(),
-                TextColumn::make('synced_at')
-                    ->dateTime()
-                    ->sortable(),
+
+                TextColumn::make('anggota_count')
+                    ->label('Anggota')
+                    ->counts('anggota')
+                    ->alignEnd()
+                    ->badge()
+                    ->color('gray'),
+
                 IconColumn::make('status_aktif')
+                    ->label('Aktif')
                     ->boolean(),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
+
+                TextColumn::make('synced_at')
+                    ->label('Tersinkron')
+                    ->dateTime('d M Y, H:i')
+                    ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('updated_at')
-                    ->dateTime()
+
+                TextColumn::make('created_at')
+                    ->label('Dibuat')
+                    ->dateTime('d M Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                TernaryFilter::make('status_aktif')
+                    ->label('Status')
+                    ->placeholder('Semua')
+                    ->trueLabel('Aktif')
+                    ->falseLabel('Nonaktif'),
             ])
             ->recordActions([
                 EditAction::make(),

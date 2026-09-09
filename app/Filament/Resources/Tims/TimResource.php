@@ -18,7 +18,17 @@ class TimResource extends Resource
 {
     protected static ?string $model = Tim::class;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
+
+    protected static string|\UnitEnum|null $navigationGroup = 'Administrasi';
+
+    protected static ?string $navigationLabel = 'Tim';
+
+    protected static ?string $modelLabel = 'Tim';
+
+    protected static ?string $pluralModelLabel = 'Tim';
+
+    protected static ?int $navigationSort = 1;
 
     protected static ?string $recordTitleAttribute = 'nama_tim';
 
