@@ -9,12 +9,19 @@
 
     <link rel="icon" href="{{ asset('images/logo-bps.png') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
-    {{-- Dua keluarga huruf saja: Plus Jakarta Sans untuk judul, Inter untuk teks
-         dan antarmuka. Keduanya grotesk modern yang bersih dan tidak dekoratif;
-         Plus Jakarta Sans dipilih karena karakternya sedikit lebih tegas pada
-         ukuran besar, sekaligus selaras dengan identitas kota tempat satuan
-         kerja ini berada. Panel aplikasi tetap sepenuhnya memakai Inter. --}}
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800|plus-jakarta-sans:600,700,800" rel="stylesheet" />
+    {{-- Tiga keluarga huruf dengan tugas yang tegas dan tidak saling menimpa:
+
+         Inter            — seluruh teks dan antarmuka, sama seperti panel aplikasi.
+         Plus Jakarta Sans — judul bagian, sedikit lebih tegas pada ukuran besar.
+         Space Grotesk    — khusus wordmark SIMPBI.
+
+         Space Grotesk dipilih untuk wordmark karena bentuk hurufnya lurus dan
+         terukur — terasa seperti penanda sistem, bukan judul tulisan — dan
+         bertahan baik ketika dibesarkan sekaligus direnggangkan. Karakter
+         teknisnya juga menyambung dengan animasi galat pada nama panjang di
+         bawahnya. Pemakaiannya sengaja dibatasi hanya pada wordmark; panel
+         aplikasi tetap sepenuhnya memakai Inter. --}}
+    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800|plus-jakarta-sans:600,700,800|space-grotesk:500,700" rel="stylesheet" />
 
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css'])
@@ -28,11 +35,130 @@
         /* ---------- Tipografi ---------- */
         :root {
             --font-display: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+            --font-wordmark: 'Space Grotesk', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
         }
 
         .font-display {
             font-family: var(--font-display);
             font-feature-settings: 'ss01' 1;
+        }
+
+        /* Wordmark selalu huruf besar dan direnggangkan. */
+        .font-wordmark {
+            font-family: var(--font-wordmark);
+            text-transform: uppercase;
+            font-feature-settings: 'ss01' 1, 'ss02' 1;
+        }
+
+        /* Perenggangan menyisakan satu ruang kosong di kanan huruf terakhir.
+           Ruang itu ikut terhitung saat baris dipusatkan, sehingga hurufnya
+           tampak bergeser ke kiri sejauh setengah renggang. Padding kiri
+           sebesar satu renggang menggeser kotak isi ke kanan sejauh setengah
+           renggang pula, tepat menghapus selisih itu. Margin kanan negatif
+           tidak dipakai karena pada elemen blok justru melebarkan kotaknya. */
+        .wordmark-hero {
+            letter-spacing: 0.12em;
+            padding-left: 0.12em;
+        }
+
+        /* Enam huruf saja tidak akan pernah memenuhi lebar layar besar hanya
+           dengan dibesarkan: pada 120px pun hurufnya hanya selebar 458px di
+           dalam wadah 1024px. Yang melebarkan adalah renggang antar huruf,
+           yang ditambah bertahap mengikuti lebar layar sehingga wordmark
+           membentang, bukan menggumpal di tengah. */
+        @media (min-width: 768px) {
+            .wordmark-hero {
+                letter-spacing: 0.26em;
+                padding-left: 0.26em;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .wordmark-hero {
+                letter-spacing: 0.38em;
+                padding-left: 0.38em;
+            }
+        }
+
+        /* ---------- Nama panjang: galat berulang ----------
+           Tiga lapisan teks yang sama ditumpuk: satu lapisan asli, dua lapisan
+           bayangan berwarna di belakangnya. Bayangan itu diam hampir sepanjang
+           waktu dan hanya bergeser sesaat, sehingga terbaca sebagai gangguan
+           sinyal yang lewat, bukan sebagai teks yang bergetar terus-menerus —
+           yang akan melelahkan dibaca dan membuat halaman terasa rusak. */
+        .glitch {
+            position: relative;
+            display: inline-block;
+            /* Mengurung berkas pindai dan lapisan bayangan di dalam kotak
+               teksnya sendiri. Tanpa ini berkas pindai melayang naik sampai
+               menutupi wordmark, dan bayangan glitch menonjol keluar baris. */
+            overflow: hidden;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .glitch::before {
+            color: #7DD3FC;
+            /* biru langit, sisi kiri */
+            animation: simpbi-glitch-kiri 7s steps(1, end) infinite;
+        }
+
+        .glitch::after {
+            color: #F59E0B;
+            /* jingga aksen, sisi kanan */
+            animation: simpbi-glitch-kanan 7s steps(1, end) infinite;
+        }
+
+        /* Dua ledakan pendek dalam tujuh detik: satu pada 82%, satu pada 90%.
+           Sisa waktunya benar-benar diam. */
+        @keyframes simpbi-glitch-kiri {
+            0%, 81.9%   { opacity: 0; transform: none; clip-path: inset(0 0 0 0); }
+            82%         { opacity: .85; transform: translate(-2px, -1px); clip-path: inset(12% 0 58% 0); }
+            83.5%       { opacity: .85; transform: translate(3px, 1px);  clip-path: inset(64% 0 12% 0); }
+            85%, 89.9%  { opacity: 0; transform: none; }
+            90%         { opacity: .8; transform: translate(-3px, 0);   clip-path: inset(38% 0 40% 0); }
+            91.5%, 100% { opacity: 0; transform: none; }
+        }
+
+        @keyframes simpbi-glitch-kanan {
+            0%, 81.9%   { opacity: 0; transform: none; clip-path: inset(0 0 0 0); }
+            82%         { opacity: .8; transform: translate(2px, 1px);  clip-path: inset(58% 0 14% 0); }
+            83.5%       { opacity: .8; transform: translate(-3px, -1px); clip-path: inset(10% 0 66% 0); }
+            85%, 89.9%  { opacity: 0; transform: none; }
+            90%         { opacity: .75; transform: translate(3px, 0);   clip-path: inset(30% 0 48% 0); }
+            91.5%, 100% { opacity: 0; transform: none; }
+        }
+
+        /* Kata yang sedang diacak skrip: warnanya berubah sesaat agar
+           pengacakannya terbaca sebagai proses, bukan salah ketik. */
+        .kata-acak {
+            color: #7DD3FC;
+            text-shadow: 0 0 12px rgba(125, 211, 252, .45);
+        }
+
+        /* Berkas pindai tipis yang melintas pelan di atas nama panjang. */
+        .glitch-pindai::after {
+            content: '';
+            position: absolute;
+            inset: -0.35em 0;
+            pointer-events: none;
+            background: linear-gradient(180deg, transparent 0%, rgba(125, 211, 252, .16) 45%, rgba(125, 211, 252, .04) 55%, transparent 100%);
+            height: 2.2em;
+            animation: simpbi-pindai 7s cubic-bezier(.5, 0, .5, 1) infinite;
+        }
+
+        @keyframes simpbi-pindai {
+            0%, 55%   { transform: translateY(-120%); opacity: 0; }
+            60%       { opacity: 1; }
+            80%       { transform: translateY(120%); opacity: 0; }
+            100%      { transform: translateY(120%); opacity: 0; }
         }
 
         /* ---------- Penampakan saat digulir ---------- */
@@ -124,62 +250,62 @@
             }
 
             .cue-arrow { animation: none; }
+
+            .glitch::before,
+            .glitch::after,
+            .glitch-pindai::after {
+                animation: none;
+                opacity: 0;
+            }
         }
     </style>
 </head>
 <body class="bg-surface text-ink antialiased" style="font-family: var(--font-sans)">
 
-    {{-- ============================ NAVBAR (pill mengambang) ============================
-         Susunannya mengalir dari kiri ke kanan: lambang, lalu menu tepat di
-         sebelahnya, ruang lentur, dan tombol aksi di ujung kanan. Menu sengaja
-         tidak dipusatkan secara matematis agar jarak antar item tetap rapat dan
-         konsisten, bukan direnggangkan hanya untuk memenuhi lebar navbar. --}}
-    <header class="fixed inset-x-0 top-0 z-40 px-4">
-        <nav id="nav"
-            class="mx-auto mt-3.5 flex h-14 max-w-5xl items-center gap-1.5 rounded-full border border-white/10 bg-navy/95 py-2 pl-2.5 pr-2 backdrop-blur-md transition-[box-shadow,background-color] duration-300 ease-[cubic-bezier(.22,.61,.36,1)]">
+    {{-- ============================ NAVBAR ============================
+         Bilah selebar layar yang menempel di tepi atas, bukan pil mengambang.
+         Bentuk ini membuat kepala halaman terbaca sebagai bagian dari sistem,
+         bukan sebagai elemen yang melayang di atasnya, dan memberi ruang bagi
+         dua tombol aksi sekaligus di ujung kanan.
 
-            {{-- Lambang --}}
-            <a href="#beranda" class="flex shrink-0 items-center gap-2.5 rounded-full pr-1.5">
-                <span class="grid h-9 w-9 place-items-center rounded-full bg-white p-1.5">
+         Tautan "Beranda" ditiadakan: lambang di kiri sudah mengembalikan
+         pengguna ke atas halaman, sehingga menyebutkannya dua kali hanya
+         menambah panjang menu tanpa menambah kegunaan. --}}
+    <header id="nav"
+        class="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-navy/85 backdrop-blur-md transition-[background-color,border-color,box-shadow] duration-300 ease-[cubic-bezier(.22,.61,.36,1)]">
+        <nav class="mx-auto flex h-16 max-w-7xl items-center px-4 sm:px-6 lg:px-8">
+
+            {{-- Lambang, sekaligus jalan pulang ke atas halaman --}}
+            <a href="#beranda" class="flex shrink-0 items-center gap-2.5">
+                <span class="grid h-8 w-8 place-items-center rounded-md bg-white p-1.5">
                     <img src="{{ asset('images/logo-bps.png') }}" alt="Logo BPS" class="h-full w-full object-contain">
                 </span>
-                <span class="font-display text-[15px] font-bold tracking-tight text-white">SIMPBI</span>
+                <span class="font-wordmark text-[15px] font-bold tracking-[0.14em] text-white">SIMPBI</span>
             </a>
 
-            <span class="hidden h-5 w-px shrink-0 bg-white/12 md:block" aria-hidden="true"></span>
-
-            {{-- Menu, langsung menempel setelah lambang --}}
-            <div class="hidden items-center gap-0.5 md:flex">
-                <a href="#beranda" data-nav="beranda"
-                    class="nav-link inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-[13.5px] font-medium text-white/65 transition-colors duration-200 hover:text-white">
-                    <svg class="h-[15px] w-[15px]" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 10.5 12 3l9 7.5M5.5 9.5V20a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1V9.5" />
-                    </svg>
-                    Beranda
-                </a>
-
+            {{-- Menu di tengah bilah --}}
+            <div class="hidden flex-1 items-center justify-center gap-8 md:flex">
                 @foreach (['Tentang' => 'tentang', 'Fitur' => 'fitur', 'Alur' => 'alur', 'Verifikasi' => 'verifikasi'] as $label => $anchor)
                     <a href="#{{ $anchor }}" data-nav="{{ $anchor }}"
-                        class="nav-link rounded-full px-3 py-2 text-[13.5px] font-medium text-white/65 transition-colors duration-200 hover:text-white">{{ $label }}</a>
+                        class="nav-link py-2 text-[13.5px] font-medium text-white/65 transition-colors duration-200 hover:text-white">{{ $label }}</a>
                 @endforeach
             </div>
 
-            {{-- Ruang lentur: satu-satunya tempat sisa lebar diserap --}}
-            <span class="flex-1" aria-hidden="true"></span>
+            {{-- Dua aksi: yang bergaris luar untuk tamu yang hanya memeriksa
+                 dokumen, yang berisi penuh untuk pengguna sistem. --}}
+            <div class="ml-auto hidden shrink-0 items-center gap-2 sm:flex">
+                <a href="#verifikasi"
+                    class="rounded-lg border border-white/20 px-4 py-2 text-[13.5px] font-semibold text-white transition-[background-color,border-color] duration-200 hover:border-white/35 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/60">
+                    Verifikasi Dokumen
+                </a>
+                <a href="{{ url('/admin') }}"
+                    class="rounded-lg bg-accent px-4 py-2 text-[13.5px] font-semibold text-navy transition-[background-color,box-shadow,transform] duration-200 hover:bg-accent/90 hover:shadow-[0_6px_18px_-6px_rgba(245,158,11,.7)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[.98]">
+                    Masuk ke Sistem
+                </a>
+            </div>
 
-            {{-- Aksi utama --}}
-            <a href="{{ url('/admin') }}"
-                class="group hidden shrink-0 items-center gap-2 rounded-full bg-accent py-1.5 pl-4 pr-1.5 text-[13.5px] font-semibold text-navy transition-[background-color,transform,box-shadow] duration-300 ease-[cubic-bezier(.22,.61,.36,1)] hover:bg-accent/90 hover:shadow-[0_6px_18px_-6px_rgba(245,158,11,.7)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent active:scale-[.98] sm:flex">
-                Masuk ke Sistem
-                <span
-                    class="grid h-7 w-7 place-items-center rounded-full bg-navy/10 transition-transform duration-300 ease-[cubic-bezier(.22,.61,.36,1)] group-hover:translate-x-0.5">
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-                </span>
-            </a>
-
-            <button id="menuBtn" class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-white transition-colors duration-200 hover:bg-white/10 md:hidden"
+            <button id="menuBtn"
+                class="ml-auto grid h-10 w-10 shrink-0 place-items-center rounded-lg text-white transition-colors duration-200 hover:bg-white/10 sm:ml-2 md:hidden"
                 aria-label="Buka menu" aria-expanded="false">
                 <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"
                     stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
@@ -196,12 +322,12 @@
                 stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
         </button>
         <nav class="flex flex-col gap-1">
-            @foreach (['Beranda' => 'beranda', 'Tentang' => 'tentang', 'Fitur' => 'fitur', 'Alur' => 'alur', 'Verifikasi' => 'verifikasi'] as $label => $anchor)
+            @foreach (['Tentang' => 'tentang', 'Fitur' => 'fitur', 'Alur' => 'alur', 'Verifikasi' => 'verifikasi'] as $label => $anchor)
                 <a href="#{{ $anchor }}" data-close
                     class="font-display border-b border-white/10 py-4 text-2xl font-semibold text-white/85 transition-colors duration-200 hover:text-white">{{ $label }}</a>
             @endforeach
             <a href="{{ url('/admin') }}"
-                class="mt-6 flex items-center justify-center gap-2 rounded-full bg-accent py-3.5 text-sm font-semibold text-navy">
+                class="mt-6 flex items-center justify-center gap-2 rounded-lg bg-accent py-3.5 text-sm font-semibold text-navy">
                 Masuk ke Sistem
             </a>
         </nav>
@@ -219,7 +345,7 @@
         $mulaiJudul = 340;
     @endphp
 
-    <section id="beranda" class="relative overflow-hidden bg-navy px-4 pb-20 pt-32 text-white md:pb-24 md:pt-40">
+    <section id="beranda" class="relative overflow-hidden bg-navy px-4 pb-0 pt-32 text-white md:pt-40">
         {{-- Cahaya lembut, tanpa gradasi berat --}}
         <div class="pointer-events-none absolute inset-0"
             style="background:
@@ -232,7 +358,7 @@
                    -webkit-mask-image:radial-gradient(75% 65% at 50% 35%,#000 35%,transparent 85%);">
         </div>
 
-        <div class="relative mx-auto max-w-3xl text-center">
+        <div class="relative mx-auto max-w-5xl text-center">
 
             {{-- Badge --}}
             <span class="hero-in inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-white/75"
@@ -241,26 +367,31 @@
                 Sistem Internal<span class="hidden sm:inline"> · BPS Kota Jakarta Barat</span>
             </span>
 
-            {{-- Nama sistem --}}
-            <h1 class="hero-in font-display mt-6 text-5xl font-extrabold leading-[1.02] tracking-[-0.03em] sm:text-6xl md:text-7xl"
+            {{-- Wordmark. Dibesarkan sampai hampir memenuhi lebar wadah supaya
+                 tepi kiri dan kanan tidak menganga, dan direnggangkan agar
+                 enam hurufnya membentang, bukan menggumpal di tengah. --}}
+            <h1 class="hero-in font-wordmark wordmark-hero mt-7 text-[3.25rem] font-bold leading-[0.95] text-white sm:text-7xl md:text-8xl lg:text-[9rem]"
                 style="--d: 150ms">
                 SIMPBI
             </h1>
 
-            {{-- Kepanjangan nama, diungkap per kata dalam dua baris --}}
-            <p class="font-display mx-auto mt-4 max-w-2xl text-[1.0625rem] font-semibold leading-snug tracking-[-0.01em] text-white/90 sm:text-xl md:text-[1.375rem]">
-                @foreach ($barisJudul as $indeksBaris => $baris)
-                    <span class="block">
+            {{-- Kepanjangan nama: bagian yang paling lebar sekaligus yang
+                 mengalami gangguan sinyal berulang. Ditulis ulang pada atribut
+                 data-text karena dua lapisan bayangan glitch membacanya dari
+                 sana. --}}
+            <p class="font-display mx-auto mt-5 max-w-4xl text-balance text-xl font-semibold leading-snug tracking-[-0.015em] text-white/90 sm:text-2xl md:text-[2rem]">
+                <span class="glitch glitch-pindai" data-text="{{ $barisJudul[0] }}" data-glitch>
+                    @foreach ($barisJudul as $indeksBaris => $baris)
                         @foreach (explode(' ', $baris) as $indeksKata => $kata)
-                            <span class="word-in"
+                            <span class="word-in" data-kata
                                 style="--d: {{ $mulaiJudul + ($indeksBaris * $jedaBaris) + ($indeksKata * $jedaKata) }}ms">{{ $kata }}</span>{{ ' ' }}
                         @endforeach
-                    </span>
-                @endforeach
+                    @endforeach
+                </span>
             </p>
 
             {{-- Penjelasan singkat --}}
-            <p class="hero-in mx-auto mt-5 max-w-xl text-[15px] leading-relaxed text-white/60" style="--d: 900ms">
+            <p class="hero-in mx-auto mt-6 max-w-2xl text-[15px] leading-relaxed text-white/60 sm:text-base" style="--d: 900ms">
                 Kelola permintaan, ketersediaan persediaan, dan distribusi barang dalam satu proses
                 yang terintegrasi dan dapat ditelusuri.
             </p>
@@ -303,6 +434,27 @@
                         stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6" /></svg>
                 </span>
             </div>
+        </div>
+
+        {{-- Pita angka selebar layar. Fungsinya menutup hero dengan garis yang
+             benar-benar menyentuh kedua tepi, sehingga bagian bawah tidak lagi
+             terasa mengambang di tengah ruang kosong. Angkanya diambil dari
+             rancangan sistem, bukan dikarang: lima peran, delapan tim kerja,
+             enam tahap persetujuan, dan dua kanal notifikasi. --}}
+        <div class="relative -mx-4 mt-16 border-t border-white/10 md:mt-20">
+            <dl class="mx-auto grid max-w-7xl grid-cols-2 divide-x divide-white/10 md:grid-cols-4">
+                @foreach ([
+                    ['5', 'Peran Pengguna'],
+                    ['8', 'Tim Kerja'],
+                    ['6', 'Tahap Persetujuan'],
+                    ['2', 'Kanal Notifikasi'],
+                ] as $i => $angka)
+                    <div class="hero-in px-4 py-6 text-center md:py-7" style="--d: {{ 1240 + $i * 70 }}ms">
+                        <dt class="font-wordmark text-2xl font-bold tracking-[0.04em] text-white sm:text-3xl">{{ $angka[0] }}</dt>
+                        <dd class="mt-1 text-[11.5px] font-medium uppercase tracking-[0.14em] text-white/50">{{ $angka[1] }}</dd>
+                    </div>
+                @endforeach
+            </dl>
         </div>
     </section>
 
@@ -574,6 +726,66 @@
         document.getElementById('menuClose').addEventListener('click', tutupMenu);
         menu.querySelectorAll('[data-close]').forEach(a => a.addEventListener('click', tutupMenu));
         document.addEventListener('keydown', e => { if (e.key === 'Escape') tutupMenu(); });
+
+        /* ---------- Pengacakan huruf pada nama panjang ----------
+           Sesekali satu kata diacak hurufnya sebentar lalu pulih huruf demi
+           huruf, seperti sinyal yang tersusun ulang. Hanya satu kata pada satu
+           waktu, dan hanya kata yang cukup panjang, supaya kalimatnya tetap
+           terbaca dan gangguan ini tidak berubah menjadi hiasan yang berisik.
+
+           Teks aslinya disimpan sebelum diubah dan selalu dikembalikan pada
+           akhir daur, sehingga isi halaman tidak pernah tertinggal dalam
+           keadaan teracak — termasuk bila tab ditinggalkan di tengah animasi. */
+        (() => {
+            const wadah = document.querySelector('[data-glitch]');
+            if (!wadah) return;
+
+            // Pembaca layar dan mesin pencari cukup membaca teks utuh sekali;
+            // pengacakan ini murni hiasan.
+            wadah.setAttribute('aria-label', wadah.dataset.text || wadah.textContent.trim());
+
+            const kata = [...wadah.querySelectorAll('[data-kata]')].filter(el => el.textContent.length >= 6);
+            if (!kata.length) return;
+
+            const kurangiGerak = window.matchMedia('(prefers-reduced-motion: reduce)');
+            const HURUF = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&/\\<>[]{}';
+            const acak = () => HURUF[Math.floor(Math.random() * HURUF.length)];
+
+            let sedangJalan = false;
+
+            const acakSatuKata = (el) => {
+                const asli = el.textContent;
+                let langkah = 0;
+                el.classList.add('kata-acak');
+
+                const jentera = setInterval(() => {
+                    langkah++;
+
+                    // Huruf pulih berurutan dari kiri; sisanya masih teracak.
+                    const pulih = Math.max(0, langkah - 4);
+                    el.textContent = asli
+                        .split('')
+                        .map((h, i) => (i < pulih || h === ' ' ? asli[i] : acak()))
+                        .join('');
+
+                    if (pulih >= asli.length) {
+                        clearInterval(jentera);
+                        el.textContent = asli;
+                        el.classList.remove('kata-acak');
+                        sedangJalan = false;
+                    }
+                }, 45);
+            };
+
+            setInterval(() => {
+                // Tab yang tidak terlihat tidak perlu dianimasikan, dan
+                // preferensi pengurangan gerak dapat berubah kapan saja.
+                if (sedangJalan || document.hidden || kurangiGerak.matches) return;
+
+                sedangJalan = true;
+                acakSatuKata(kata[Math.floor(Math.random() * kata.length)]);
+            }, 3800);
+        })();
     </script>
 </body>
 </html>
