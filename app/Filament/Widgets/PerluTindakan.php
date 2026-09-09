@@ -26,17 +26,16 @@ class PerluTindakan extends Widget
 
     protected static ?int $sort = 2;
 
-    protected int|string|array $columnSpan = [
-    'default' => 'full',
-    'lg'      => 1,
-    ];
+    protected int|string|array $columnSpan = 'full';
 
     /** Jumlah pekerjaan yang ditampilkan pada panel. */
     protected const BATAS_TAMPIL = 5;
 
     public static function canView(): bool
     {
-        return filled(auth()->user()?->role);
+        // Admin Sistem tidak memiliki alur operasional permintaan (Instruksi §39),
+        // sehingga panel approval ini tidak ditampilkan untuk Admin.
+        return in_array(auth()->user()?->role, ['kasubbag', 'ketua_tim', 'petugas_gudang', 'tim']);
     }
 
     /** Status yang membutuhkan tindakan, menurut peran pengguna. */
@@ -111,12 +110,19 @@ class PerluTindakan extends Widget
      * satu permintaan tertentu, sehingga pengguna tidak perlu mencarinya
      * kembali di dalam daftar.
      *
-     * Penyaringan memanfaatkan parameter pencarian bawaan tabel Filament.
+     * Penyaringan memakai penyaring tabel bawaan Filament. Kuncinya harus
+     * `filters` (bukan `tableFilters`) karena itulah nama parameter URL yang
+     * dikenali ListRecords, dan nama penyaringnya harus sama dengan yang
+     * didaftarkan pada PermintaanBarangResource::table().
      */
     protected function tautanKe(PermintaanBarang $permintaan): string
     {
         return PermintaanBarangResource::getUrl('index', [
-            'tableSearch' => $permintaan->kode_permintaan,
+            'filters' => [
+                'kode_permintaan' => [
+                    'value' => $permintaan->kode_permintaan,
+                ],
+            ],
         ]);
     }
 

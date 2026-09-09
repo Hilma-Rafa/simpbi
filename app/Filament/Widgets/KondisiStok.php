@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Pages\KatalogBarang;
 use App\Filament\Resources\BarangPersediaans\BarangPersediaanResource;
 use App\Models\BarangPersediaan;
 use App\Models\Kategori;
@@ -9,15 +10,19 @@ use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
 /**
- * Kondisi persediaan per kategori barang.
+ * Kondisi persediaan per kategori barang (Instruksi §44).
  *
  * Menyajikan hubungan antara stok fisik, stok yang sedang dikunci oleh
- * permintaan berjalan, dan stok yang dapat diminta. Panjang batang
- * merepresentasikan stok fisik, yang terbagi menjadi bagian tersedia dan
- * bagian terkunci, sebab keduanya merupakan bagian dari stok fisik.
+ * permintaan berjalan, dan stok yang dapat diminta. Setiap batang mewakili
+ * stok fisik kategori itu sendiri, sehingga lebar penuh selalu bernilai
+ * seratus persen dan terbagi atas bagian tersedia dan bagian terkunci.
+ * Perbandingan antar kategori tidak dilakukan pada panel ini, sebab jumlah
+ * satuan tiap kategori tidak sebanding satu sama lain.
  *
- * Rincian barang yang sedang dikunci ditampilkan hanya ketika penunjuk
- * diarahkan ke bagian terkunci, agar panel tetap ringkas.
+ * Seluruh kategori persediaan ditampilkan, termasuk yang belum memiliki
+ * stok, agar panel dapat dibaca sebagai daftar kelengkapan persediaan.
+ * Panel dibatasi tingginya dan digulir, mengikuti Instruksi §45 yang
+ * mengutamakan tata letak sederhana dan stabil.
  */
 class KondisiStok extends Widget
 {
@@ -25,13 +30,14 @@ class KondisiStok extends Widget
 
     protected static ?int $sort = 3;
 
+    // Setengah lebar pada kisi dua belas kolom dasbor (App\Filament\Pages\Dashboard)
     protected int|string|array $columnSpan = [
         'default' => 'full',
-        'lg'      => 1,
+        'lg'      => 6,
     ];
 
-    /** Jumlah kategori yang ditampilkan pada panel. */
-    protected const BATAS_TAMPIL = 5;
+    /** Jumlah barang terkunci yang dirinci pada keterangan hover. */
+    protected const BATAS_RINCIAN_HOLD = 6;
 
     public static function canView(): bool
     {
@@ -50,16 +56,16 @@ class KondisiStok extends Widget
                 ['barang as total_hold' => fn ($q) => $q->where('status_aktif', true)],
                 'stok_hold'
             )
+            ->orderBy('nama_kategori')
             ->get()
-            ->filter(fn ($k) => (int) $k->total_fisik > 0 || (int) $k->total_hold > 0)
             // Kategori yang paling terdampak penguncian berada di urutan atas,
-            // apabila tidak ada penguncian, diurutkan menurut stok fisik terbesar
-            ->sortByDesc(fn ($k) => [(int) $k->total_hold, (int) $k->total_fisik])
-            ->take(self::BATAS_TAMPIL);
+            // disusul kategori dengan stok fisik terbesar. Kategori tanpa stok
+            // tetap ditampilkan pada urutan terakhir.
+            ->sortByDesc(fn ($k) => [(int) $k->total_hold, (int) $k->total_fisik]);
 
-        $skala = max(1, $ringkasan->max(fn ($k) => (int) $k->total_fisik) ?: 1);
+        $rincianHold = $this->rincianHold();
 
-        return $ringkasan->map(function (Kategori $k) use ($skala) {
+        return $ringkasan->map(function (Kategori $k) use ($rincianHold) {
             $fisik    = (int) $k->total_fisik;
             $terkunci = min((int) $k->total_hold, $fisik);
             $tersedia = max(0, $fisik - $terkunci);
@@ -70,34 +76,71 @@ class KondisiStok extends Widget
                 'fisik'         => $fisik,
                 'terkunci'      => $terkunci,
                 'tersedia'      => $tersedia,
-                'lebarTersedia' => round($tersedia / $skala * 100, 1),
-                'lebarTerkunci' => round($terkunci / $skala * 100, 1),
-                'daftarHold'    => $terkunci > 0 ? $this->barangTerkunci($k->id) : collect(),
-                'tautan'        => BarangPersediaanResource::getUrl('index', [
-                    'tableFilters' => ['kategori_id' => ['value' => $k->id]],
-                ]),
+                // Batang selalu mewakili stok fisik kategori yang bersangkutan
+                'lebarTersedia' => $fisik > 0 ? round($tersedia / $fisik * 100, 1) : 0,
+                'lebarTerkunci' => $fisik > 0 ? round($terkunci / $fisik * 100, 1) : 0,
+                'daftarHold'    => $rincianHold->get($k->id, collect()),
+                'tautan'        => $this->tautanKategori($k->id),
             ];
         })->values();
     }
 
-    /** Daftar barang yang sedang dikunci pada suatu kategori. */
-    protected function barangTerkunci(int $kategoriId): Collection
+    /**
+     * Rincian barang yang sedang dikunci, dikelompokkan menurut kategori.
+     *
+     * Diambil sekali untuk seluruh kategori agar panel tidak menimbulkan
+     * kueri berulang sebanyak jumlah kategori yang ditampilkan.
+     */
+    protected function rincianHold(): Collection
     {
         return BarangPersediaan::query()
-            ->where('kategori_id', $kategoriId)
             ->where('status_aktif', true)
             ->where('stok_hold', '>', 0)
             ->orderByDesc('stok_hold')
-            ->limit(6)
-            ->get(['nama_barang', 'satuan', 'stok_hold'])
-            ->map(fn ($b) => [
-                'nama'   => $b->nama_barang,
-                'jumlah' => $b->stok_hold . ' ' . $b->satuan,
-            ]);
+            ->get(['kategori_id', 'nama_barang', 'satuan', 'stok_hold'])
+            ->groupBy('kategori_id')
+            ->map(fn (Collection $barang) => $barang
+                ->take(self::BATAS_RINCIAN_HOLD)
+                ->map(fn ($b) => [
+                    'nama'   => $b->nama_barang,
+                    'jumlah' => $b->stok_hold . ' ' . $b->satuan,
+                ])
+                ->values());
+    }
+
+    /**
+     * Tautan daftar barang dengan penyaring kategori telah diterapkan.
+     *
+     * Pengguna yang berhak membuka Katalog Barang diarahkan ke sana, sebab
+     * di halaman itulah barang dapat langsung diminta. Peran pengelola
+     * diarahkan ke daftar Barang Persediaan yang setara.
+     */
+    protected function tautanKategori(?int $kategoriId = null): string
+    {
+        $penyaring = $kategoriId === null
+            ? []
+            // Nama parameter mengikuti pengikatan URL bawaan Filament, yaitu
+            // "filters", bukan nama properti Livewire-nya.
+            : ['filters' => ['kategori_id' => ['value' => $kategoriId]]];
+
+        return KatalogBarang::canAccess()
+            ? KatalogBarang::getUrl($penyaring)
+            : BarangPersediaanResource::getUrl('index', $penyaring);
     }
 
     public function getTautanSemuaProperty(): string
     {
-        return BarangPersediaanResource::getUrl('index');
+        return $this->tautanKategori();
+    }
+
+    /** Ringkasan satu baris pada kaki panel. */
+    public function getRingkasProperty(): array
+    {
+        return [
+            'kategori'       => Kategori::where('tipe', 'persediaan')->count(),
+            'barangTerkunci' => BarangPersediaan::where('status_aktif', true)
+                ->where('stok_hold', '>', 0)
+                ->count(),
+        ];
     }
 }

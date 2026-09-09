@@ -3,26 +3,31 @@
     $total     = $this->total;
 @endphp
 
-<x-filament-widgets::widget>
-    <x-filament::section>
+<x-filament-widgets::widget class="w-full">
+    <x-filament::section class="w-full">
 
-        {{-- ---------- KEPALA PANEL ---------- --}}
-        <x-slot name="heading">Perlu Tindakan Anda</x-slot>
-
-        <x-slot name="description">
-            Pekerjaan yang membutuhkan tindakan Anda saat ini
+        {{-- HEADER PANEL --}}
+        <x-slot name="heading">
+            <a
+                href="{{ $this->tautanSemua }}"
+                class="transition hover:text-primary-600 dark:hover:text-primary-400"
+            >
+                Perlu Tindakan Anda
+            </a>
         </x-slot>
 
         @if ($total > 0)
-            <x-slot name="headerEnd">
-                <a href="{{ $this->tautanSemua }}"
-                   class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400">
-                    Lihat semua &rarr;
+            <x-slot name="afterHeader">
+                <a
+                    href="{{ $this->tautanSemua }}"
+                    class="text-sm font-medium text-primary-600 transition hover:text-primary-700 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
+                >
+                    Lihat semua →
                 </a>
             </x-slot>
         @endif
 
-        {{-- ---------- DAFTAR PEKERJAAN ---------- --}}
+        {{-- DAFTAR PEKERJAAN --}}
         @forelse ($pekerjaan as $p)
             @php
                 $warnaWaktu = match ($p['urgensi']) {
@@ -33,72 +38,113 @@
                 };
             @endphp
 
-            <div @class([
-                'flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between',
-                'border-t border-gray-100 dark:border-gray-800' => ! $loop->first,
-            ])>
+            <div
+                @class([
+                    'flex w-full flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between',
+                    'border-t border-gray-100 dark:border-gray-800' => ! $loop->first,
+                ])
+            >
 
-                {{-- Kiri: identitas permintaan --}}
+                {{-- INFORMASI PERMINTAAN --}}
                 <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-baseline gap-x-2">
-                        <span class="text-sm font-semibold text-gray-900 dark:text-white">
+
+                    {{-- Kode + Tim + Jumlah Item --}}
+                    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span class="text-sm font-semibold text-gray-950 dark:text-white">
                             {{ $p['kode'] }}
                         </span>
+
                         <span class="text-sm text-gray-500 dark:text-gray-400">
-                            {{ $p['tim'] }} &middot; {{ $p['item'] }} item
+                            {{ $p['tim'] }}
+                        </span>
+
+                        <span class="text-gray-300 dark:text-gray-600">
+                            ·
+                        </span>
+
+                        <span class="text-sm text-gray-500 dark:text-gray-400">
+                            {{ $p['item'] }} item
                         </span>
                     </div>
 
-                    <div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+                    {{-- Tahap + Waktu --}}
+                    <div class="mt-2 flex flex-wrap items-center gap-x-10 gap-y-1.5">
+
                         <span class="inline-flex items-center gap-1.5 text-sm text-gray-700 dark:text-gray-300">
                             <x-filament::icon
                                 :icon="$p['ikonTahap']"
-                                class="h-4 w-4 text-gray-400" />
-                            {{ $p['tahap'] }}
+                                class="h-4 w-4 text-gray-400 dark:text-gray-500"
+                            />
+
+                            <span>
+                                {{ $p['tahap'] }}
+                            </span>
                         </span>
 
-                        <span @class(['inline-flex items-center gap-1.5 text-sm font-medium', $warnaWaktu])>
-                            <x-filament::icon icon="heroicon-m-clock" class="h-4 w-4" />
-                            {{ $p['sisa'] }}
+                        <span
+                            @class([
+                                'inline-flex items-center gap-1.5 text-sm font-medium',
+                                $warnaWaktu,
+                            ])
+                        >
+                            <x-filament::icon
+                                icon="heroicon-m-clock"
+                                class="h-4 w-4"
+                            />
+
+                            <span>
+                                {{ $p['sisa'] }}
+                            </span>
                         </span>
                     </div>
                 </div>
 
-                {{-- Kanan: tombol tindakan --}}
-                <div class="shrink-0">
+                {{-- TOMBOL TINDAKAN --}}
+                <div class="shrink-0 sm:pl-4">
                     <x-filament::button
                         tag="a"
                         :href="$p['tautan']"
                         size="sm"
                         icon="heroicon-m-arrow-right"
-                        icon-position="after">
+                        icon-position="after"
+                    >
                         {{ $p['aksi'] }}
                     </x-filament::button>
                 </div>
 
             </div>
+
         @empty
 
-            {{-- ---------- KEADAAN KOSONG ---------- --}}
-            <div class="py-6 text-center">
+            {{-- EMPTY STATE --}}
+            <div class="py-8 text-center">
+
                 <x-filament::icon
                     icon="heroicon-o-check-circle"
-                    class="mx-auto h-8 w-8 text-success-500" />
-                <p class="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                    class="mx-auto h-9 w-9 text-success-500"
+                />
+
+                <p class="mt-3 text-sm font-semibold text-gray-900 dark:text-white">
                     Tidak ada tindakan yang perlu dilakukan
                 </p>
-                <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                     Seluruh pekerjaan Anda saat ini sudah tertangani.
                 </p>
+
             </div>
 
         @endforelse
 
-        {{-- ---------- KETERANGAN JUMLAH ---------- --}}
+        {{-- KETERANGAN JUMLAH --}}
         @if ($total > $pekerjaan->count())
-            <p class="border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                Menampilkan {{ $pekerjaan->count() }} dari {{ $total }} pekerjaan.
-            </p>
+            <div class="border-t border-gray-100 pt-3 dark:border-gray-800">
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    Menampilkan {{ $pekerjaan->count() }}
+                    dari {{ $total }}
+                    pekerjaan.
+                </p>
+            </div>
         @endif
 
     </x-filament::section>
