@@ -110,6 +110,10 @@ trait MengeksporRiwayat
                 ->whereNotNull('disahkan_at')
                 ->orderByDesc('disahkan_at'),
 
+            'notifikasi' => \App\Models\Notifikasi::query()
+                ->with('user')
+                ->orderByDesc('created_at'),
+
             default => \App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource::getEloquentQuery()
                 ->whereIn('status', PermintaanBarang::STATUS_RIWAYAT)
                 ->withCount('detail')
@@ -168,6 +172,27 @@ trait MengeksporRiwayat
                     $r->nomor_dasar,
                     $r->petugas?->name,
                     $r->keterangan,
+                ],
+            ],
+
+            'notifikasi' => [
+                ['Waktu', 'Penerima', 'Nomor', 'Judul', 'Pesan', 'Jenis', 'Kanal', 'Status Kirim', 'Dikirim', 'Keterangan Gagal'],
+                fn (Model $r) => [
+                    $r->created_at?->format('d-m-Y H:i'),
+                    $r->user?->name,
+                    $r->user?->no_hp,
+                    $r->judul,
+                    $r->pesan,
+                    ucfirst($r->tipe),
+                    $r->channel === 'whatsapp' ? 'WhatsApp' : 'Dalam Aplikasi',
+                    match ($r->status_kirim) {
+                        'terkirim' => 'Terkirim',
+                        'gagal'    => 'Gagal',
+                        'pending'  => 'Menunggu',
+                        default    => null,
+                    },
+                    $r->dikirim_at?->format('d-m-Y H:i'),
+                    $r->error_message,
                 ],
             ],
 

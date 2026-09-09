@@ -4,10 +4,15 @@ namespace App\Filament\Pages;
 
 use App\Filament\Resources\BastMutasiAsets\BastMutasiAsetResource;
 use App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource;
+use App\Jobs\KirimPesanWhatsApp;
 use App\Models\MutasiStok;
+use App\Models\Notifikasi;
 use App\Models\PermintaanBarang;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -18,6 +23,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Url;
 
 /**
@@ -103,6 +109,20 @@ class Riwayat extends Page implements HasTable
                 'ringkas' => 'Mutasi Aset',
                 'peran'   => ['kasubbag', 'petugas_gudang', 'ketua_tim'],
             ],
+            /*
+             * Riwayat pengiriman notifikasi hanya untuk Admin Sistem.
+             * Isinya bukan informasi operasional melainkan catatan teknis
+             * pengiriman — kanal, status, dan alasan kegagalan — yang
+             * penanganannya berupa pemeriksaan gerbang WhatsApp dan pengiriman
+             * ulang, dan itu kewenangan Admin. Peran lain cukup menerima
+             * notifikasinya lewat lonceng.
+             */
+            'notifikasi' => [
+                'label'   => 'Riwayat Pengiriman Notifikasi',
+                'ikon'    => 'heroicon-m-bell-alert',
+                'ringkas' => 'Notifikasi',
+                'peran'   => ['admin'],
+            ],
         ];
 
         return collect($semua)
@@ -151,8 +171,172 @@ class Riwayat extends Page implements HasTable
         return match ($this->jenisAktif()) {
             'mutasi_stok' => $this->tabelMutasiStok($table),
             'mutasi_aset' => $this->tabelMutasiAset($table),
+            'notifikasi'  => $this->tabelNotifikasi($table),
             default       => $this->tabelPermintaan($table),
         };
+    }
+
+    /**
+     * Riwayat pengiriman notifikasi seluruh kanal.
+     *
+     * Tanpa tampilan ini, kegagalan pengiriman WhatsApp hanya tersimpan di
+     * basis data dan tidak diketahui siapa pun: notifikasinya tidak sampai,
+     * sementara sistem tampak baik-baik saja. Kolom status dan alasan kegagalan
+     * ditampilkan berdampingan agar penyebabnya — sesi gerbang terputus, nomor
+     * belum diisi, kunci API ditolak — langsung terbaca dan dapat ditindaklanjuti.
+     */
+    protected function tabelNotifikasi(Table $table): Table
+    {
+        return $table
+            ->query(fn () => Notifikasi::query()->with('user'))
+            ->deferFilters(false)
+            ->defaultSort('created_at', 'desc')
+            ->columns([
+                TextColumn::make('created_at')->label('Waktu')->dateTime('d-m-Y H:i')->sortable(),
+
+                TextColumn::make('user.name')
+                    ->label('Penerima')
+                    ->searchable()
+                    ->description(fn ($record) => $record->user?->no_hp ?: 'tanpa nomor'),
+
+                TextColumn::make('judul')
+                    ->label('Notifikasi')
+                    ->searchable()
+                    ->wrap()
+                    ->description(fn ($record) => Str::limit($record->pesan, 80)),
+
+                TextColumn::make('channel')
+                    ->label('Kanal')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state) => $state === 'whatsapp' ? 'WhatsApp' : 'Dalam Aplikasi')
+                    ->color(fn (string $state) => $state === 'whatsapp' ? 'success' : 'gray'),
+
+                TextColumn::make('status_kirim')
+                    ->label('Status Kirim')
+                    ->badge()
+                    // Baris dalam aplikasi tidak melalui gerbang mana pun,
+                    // sehingga status kirimnya memang kosong dan bukan kegagalan.
+                    ->placeholder('—')
+                    ->formatStateUsing(fn (?string $state) => match ($state) {
+                        'terkirim' => 'Terkirim',
+                        'gagal'    => 'Gagal',
+                        'pending'  => 'Menunggu',
+                        default    => '—',
+                    })
+                    ->color(fn (?string $state) => match ($state) {
+                        'terkirim' => 'success',
+                        'gagal'    => 'danger',
+                        'pending'  => 'warning',
+                        default    => 'gray',
+                    })
+                    ->description(fn ($record) => $record->status_kirim === 'gagal'
+                        ? Str::limit($record->error_message, 90)
+                        : null),
+
+                TextColumn::make('dikirim_at')
+                    ->label('Dikirim')
+                    ->dateTime('d-m-Y H:i')
+                    ->placeholder('—')
+                    ->toggleable(),
+
+                TextColumn::make('dibaca_at')
+                    ->label('Dibaca')
+                    ->dateTime('d-m-Y H:i')
+                    ->placeholder('Belum')
+                    ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                SelectFilter::make('channel')
+                    ->label('Kanal')
+                    ->options(['in_app' => 'Dalam Aplikasi', 'whatsapp' => 'WhatsApp']),
+
+                SelectFilter::make('status_kirim')
+                    ->label('Status Kirim')
+                    ->options(['pending' => 'Menunggu', 'terkirim' => 'Terkirim', 'gagal' => 'Gagal']),
+
+                SelectFilter::make('tipe')
+                    ->label('Jenis Kejadian')
+                    ->options(['permintaan' => 'Permintaan', 'mutasi' => 'Mutasi Aset', 'stok' => 'Stok']),
+
+                $this->penyaringPeriode('created_at', 'Waktu Terbit'),
+            ])
+            ->recordActions([
+                Action::make('kirimUlang')
+                    ->label('Kirim Ulang')
+                    ->icon('heroicon-m-arrow-path')
+                    ->color('warning')
+                    ->outlined()
+                    ->requiresConfirmation()
+                    ->modalHeading('Kirim ulang notifikasi WhatsApp')
+                    ->modalDescription('Pesan akan dikembalikan ke antrean dan dikirim ulang ke nomor penerima. Pastikan gerbang WhatsApp sudah tersambung.')
+                    ->modalSubmitActionLabel('Kirim Ulang')
+                    ->visible(fn ($record) => static::dapatDikirimUlang($record))
+                    ->action(function ($record) {
+                        static::kirimUlang($record);
+
+                        Notification::make()
+                            ->title('Notifikasi dikembalikan ke antrean')
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->toolbarActions([
+                BulkAction::make('kirimUlangTerpilih')
+                    ->label('Kirim Ulang yang Gagal')
+                    ->icon('heroicon-m-arrow-path')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading('Kirim ulang notifikasi yang gagal')
+                    ->modalDescription('Hanya baris berkanal WhatsApp yang berstatus gagal yang akan dikirim ulang; baris lain dilewati.')
+                    ->deselectRecordsAfterCompletion()
+                    ->action(function ($records) {
+                        // Penyaringan dilakukan di sini, bukan dengan
+                        // menyembunyikan aksinya, agar pengguna dapat menyapu
+                        // pilihan tanpa harus memilah sendiri baris mana yang
+                        // memang dapat dikirim ulang.
+                        $jumlah = collect($records)
+                            ->filter(fn ($record) => static::dapatDikirimUlang($record))
+                            ->each(fn ($record) => static::kirimUlang($record))
+                            ->count();
+
+                        Notification::make()
+                            ->title($jumlah > 0
+                                ? "{$jumlah} notifikasi dikembalikan ke antrean"
+                                : 'Tidak ada baris yang dapat dikirim ulang')
+                            ->color($jumlah > 0 ? 'success' : 'warning')
+                            ->send();
+                    }),
+            ]);
+    }
+
+    /**
+     * Hanya pesan WhatsApp yang gagal yang boleh diulang.
+     *
+     * Notifikasi dalam aplikasi tidak pernah dikirim ke mana-mana sehingga
+     * tidak ada yang perlu diulang, sedangkan pesan yang sudah terkirim tidak
+     * boleh diulang agar penerima tidak menerima pesan yang sama dua kali.
+     */
+    protected static function dapatDikirimUlang(Notifikasi $notifikasi): bool
+    {
+        return $notifikasi->channel === 'whatsapp' && $notifikasi->status_kirim === 'gagal';
+    }
+
+    /**
+     * Mengembalikan satu notifikasi ke antrean.
+     *
+     * Status dikembalikan ke menunggu dan alasan kegagalan sebelumnya dihapus,
+     * sebab job pengiriman hanya menggarap baris berstatus menunggu — aturan
+     * yang sama yang mencegah percobaan ulang mengirim pesan ganda.
+     */
+    protected static function kirimUlang(Notifikasi $notifikasi): void
+    {
+        $notifikasi->update([
+            'status_kirim'  => 'pending',
+            'error_message' => null,
+            'dikirim_at'    => null,
+        ]);
+
+        KirimPesanWhatsApp::dispatch($notifikasi->id)->afterCommit();
     }
 
     /** Permintaan barang yang sudah mencapai status akhir. */
