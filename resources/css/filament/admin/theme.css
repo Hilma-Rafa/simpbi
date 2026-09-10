@@ -846,3 +846,36 @@
 .fi-ta-row:hover .fi-ta-cell {
     background-color: var(--gray-50);
 }
+
+/* ================= Kartu yang sedang dimuat =================
+ *
+ * Panel dasbor dimuat menyusul (lazy), dan selama itu Filament memasang
+ * kartu kosong setinggi panel yang akan datang. Kartu putih polos itu sulit
+ * dibedakan dari panel yang gagal memuat, sehingga diberi sapuan terang yang
+ * bergerak perlahan — tanda yang lazim dipahami sebagai "sedang dimuat" dan
+ * lebih tenang daripada pemutar bundar, karena bentuknya sudah menyerupai
+ * panel yang akan menggantikannya.
+ */
+@keyframes simpbi-sapuan {
+    from { background-position: -150% 0; }
+    to   { background-position: 250% 0; }
+}
+
+.fi-loading-section {
+    background-image: linear-gradient(
+        100deg,
+        transparent 20%,
+        rgb(11 42 91 / 0.05) 40%,
+        rgb(11 42 91 / 0.05) 60%,
+        transparent 80%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: simpbi-sapuan 1.6s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fi-loading-section {
+        animation: none;
+    }
+}
