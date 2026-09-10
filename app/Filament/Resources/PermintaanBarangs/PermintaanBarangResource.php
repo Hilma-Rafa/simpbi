@@ -821,8 +821,14 @@ class PermintaanBarangResource extends Resource
             ));
     }
 
-    /** Mengambil batas waktu tahapan dari tabel pengaturan. */
-    protected static function batasJam(string $kunci, int $bawaan = 24): int
+    /**
+     * Mengambil batas waktu tahapan dari tabel pengaturan.
+     *
+     * Nilai cadangan delapan jam kerja setara satu hari kerja penuh, sama
+     * dengan nilai yang ditanam migrasi, supaya baris pengaturan yang hilang
+     * tidak diam-diam memperpanjang batas menjadi tiga hari kerja.
+     */
+    protected static function batasJam(string $kunci, int $bawaan = 8): int
     {
         return (int) (DB::table('pengaturan')->where('kunci', $kunci)->value('nilai') ?? $bawaan);
     }

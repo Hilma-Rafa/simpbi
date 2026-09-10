@@ -245,9 +245,12 @@ class KatalogBarang extends Page implements HasTable
                     array_map(fn ($i) => $i['jumlah'], $keranjang)
                 );
 
+                // Cadangan delapan jam kerja disamakan dengan nilai bawaan
+                // migrasi, agar baris pengaturan yang hilang tidak memperpanjang
+                // batas tahapan tanpa disadari.
                 $batasJam = (int) (DB::table('pengaturan')
                     ->where('kunci', $adalahKetua ? 'batas_verifikasi_jam' : 'batas_ketua_jam')
-                    ->value('nilai') ?? 24);
+                    ->value('nilai') ?? 8);
 
                 $permintaan = PermintaanBarang::create([
                     'kode_permintaan'      => $this->buatKode(),

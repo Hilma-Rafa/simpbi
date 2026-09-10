@@ -55,13 +55,19 @@ class Pengaturan extends Page implements HasSchemas
      */
     public ?array $data = [];
 
-    /** Kunci pengaturan sistem beserta labelnya, sesuai isi tabel pengaturan. */
+    /**
+     * Kunci pengaturan sistem beserta labelnya, sesuai isi tabel pengaturan.
+     *
+     * Satuannya jam kerja, bukan jam dinding — delapan berarti satu hari kerja
+     * penuh. Satuan itu disebutkan pada label supaya Administrator tidak
+     * mengira nilai 24 berarti sehari semalam, padahal artinya tiga hari kerja.
+     */
     protected const KUNCI_SISTEM = [
-        'batas_ketua_jam'       => 'Batas persetujuan Ketua Tim (jam)',
-        'batas_verifikasi_jam'  => 'Batas verifikasi stok fisik (jam)',
-        'batas_kasubbag_jam'    => 'Batas persetujuan akhir Kasubbag (jam)',
-        'batas_penyiapan_jam'   => 'Batas penyiapan barang (jam)',
-        'batas_pengambilan_jam' => 'Batas pengambilan oleh pemohon (jam)',
+        'batas_ketua_jam'       => 'Batas persetujuan Ketua Tim (jam kerja)',
+        'batas_verifikasi_jam'  => 'Batas verifikasi stok fisik (jam kerja)',
+        'batas_kasubbag_jam'    => 'Batas persetujuan akhir Kasubbag (jam kerja)',
+        'batas_penyiapan_jam'   => 'Batas penyiapan barang (jam kerja)',
+        'batas_pengambilan_jam' => 'Batas pengambilan oleh pemohon (jam kerja)',
     ];
 
     public static function bolehMengaturSistem(): bool
@@ -165,7 +171,8 @@ class Pengaturan extends Page implements HasSchemas
                                 ->minValue(1)
                                 ->maxValue(720)
                                 ->required()
-                                ->suffix('jam'))
+                                ->suffix('jam kerja')
+                                ->helperText('8 jam kerja = 1 hari kerja (08.00-16.00, hari kerja saja)'))
                             ->values()
                             ->all(),
 
