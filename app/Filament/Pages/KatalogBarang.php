@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\BarangPersediaan;
 use App\Models\PermintaanBarang;
+use App\Support\JamKerja;
 use App\Models\RiwayatPersetujuan;
 use App\Services\NotifikasiService;
 use App\Services\StokService;
@@ -256,7 +257,7 @@ class KatalogBarang extends Page implements HasTable
                     'nip_pemohon'          => $data['nip_pemohon'] ?: null,
                     'keterangan_keperluan' => $data['keperluan'] ?: null,
                     'status'               => $adalahKetua ? 'menunggu_verifikasi' : 'menunggu_ketua',
-                    'hold_expired_at'      => now()->addHours($batasJam),
+                    'hold_expired_at'      => JamKerja::batas($batasJam),
                 ]);
 
                 foreach ($keranjang as $barangId => $item) {

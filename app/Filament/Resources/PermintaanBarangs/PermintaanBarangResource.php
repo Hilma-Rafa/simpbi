@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PermintaanBarangs;
 use App\Filament\Resources\PermintaanBarangs\Pages;
 use App\Filament\Support\KeadaanKosong;
 use App\Models\PermintaanBarang;
+use App\Support\JamKerja;
 use App\Models\RiwayatPersetujuan;
 use App\Services\StokService;
 use App\Services\DokumenPermintaanService;
@@ -493,7 +494,7 @@ class PermintaanBarangResource extends Resource
         DB::transaction(function () use ($record, $catatan) {
             $record->update([
                 'status'          => 'menunggu_verifikasi',
-                'hold_expired_at' => now()->addHours(static::batasJam('batas_verifikasi_jam')),
+                'hold_expired_at' => JamKerja::batas(static::batasJam('batas_verifikasi_jam')),
             ]);
 
             static::catatRiwayat($record, 'ketua_tim', 'setuju', $catatan);
@@ -551,7 +552,7 @@ class PermintaanBarangResource extends Resource
 
             $record->update([
                 'status'          => 'menunggu_kasubbag',
-                'hold_expired_at' => now()->addHours(static::batasJam('batas_kasubbag_jam')),
+                'hold_expired_at' => JamKerja::batas(static::batasJam('batas_kasubbag_jam')),
             ]);
 
             static::catatRiwayat($record, 'verifikasi', 'selesai', $data['keterangan'] ?? null);
@@ -586,7 +587,7 @@ class PermintaanBarangResource extends Resource
 
             $record->update([
                 'status'          => 'siap_diproses',
-                'hold_expired_at' => now()->addHours(static::batasJam('batas_penyiapan_jam')),
+                'hold_expired_at' => JamKerja::batas(static::batasJam('batas_penyiapan_jam')),
             ]);
 
             static::catatRiwayat($record, 'kasubbag', 'setuju', $data['catatan'] ?? null);
@@ -632,7 +633,7 @@ class PermintaanBarangResource extends Resource
         DB::transaction(function () use ($record) {
             $record->update([
                 'status'          => 'siap_diambil',
-                'hold_expired_at' => now()->addHours(static::batasJam('batas_pengambilan_jam')),
+                'hold_expired_at' => JamKerja::batas(static::batasJam('batas_pengambilan_jam')),
             ]);
 
             static::catatRiwayat($record, 'penyiapan', 'selesai', 'Barang telah disiapkan.');
