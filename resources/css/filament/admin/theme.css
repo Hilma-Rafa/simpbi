@@ -760,3 +760,67 @@
         animation: none;
     }
 }
+
+/* ================= Hierarki dasbor =================
+ *
+ * Sebelumnya keempat kartu ringkasan tampil dengan bobot yang sama persis:
+ * angkanya sama besar, sama hitam, dan sama tebal, baik ketika bernilai nol
+ * maupun ketika menunjukkan sembilan puluh satu barang yang tidak dapat
+ * diminta. Akibatnya angka nol — yang justru berarti "tidak ada yang perlu
+ * dikerjakan" — ikut menarik perhatian, dan pengguna harus membaca keempat
+ * kartu satu per satu untuk tahu mana yang penting.
+ *
+ * Warna keadaan sudah ditetapkan pada masing-masing widget Ringkasan lewat
+ * Stat::color(), tetapi Filament hanya memakainya untuk keterangan di bawah
+ * angka. Aturan di bawah meneruskan keadaan itu ke angkanya, sehingga kartu
+ * yang menuntut tindakan terbaca lebih dulu tanpa satu pun warna baru
+ * ditambahkan (Instruksi §25).
+ */
+
+/* Tidak ada pekerjaan — keterangan tanpa warna, atau berwarna success.
+ * Angkanya diredupkan supaya kartu ini menepi dari perhatian. */
+.fi-wi-stats-overview-stat:not(:has(.fi-wi-stats-overview-stat-description.fi-color))
+    .fi-wi-stats-overview-stat-value,
+.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-success)
+    .fi-wi-stats-overview-stat-value {
+    /* gray-500, bukan yang lebih muda: angka ini tetap teks yang harus
+     * terbaca, jadi peredupannya dibatasi sampai rasio kontras AA. */
+    color: var(--gray-500);
+}
+
+/* Menunggu tindakan, dan tidak dapat dilayani — angka memakai warna
+ * keadaannya sendiri, ditambah garis tipis di tepi kiri kartu sebagai
+ * penanda yang terbaca bahkan dari sudut mata. */
+.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-warning)
+    .fi-wi-stats-overview-stat-value {
+    color: var(--warning-600);
+}
+
+.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-danger)
+    .fi-wi-stats-overview-stat-value {
+    color: var(--danger-600);
+}
+
+.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-warning) {
+    --tw-inset-shadow: inset 3px 0 0 0 var(--warning-500);
+}
+
+.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-danger) {
+    --tw-inset-shadow: inset 3px 0 0 0 var(--danger-500);
+}
+
+/* ---- Panel pekerjaan sebagai panel utama ----
+ * Satu panel dibuat lebih berat daripada sisanya, yaitu panel yang memuat
+ * pekerjaan pengguna. Bobotnya dinaikkan lewat ukuran judul dan garis navy
+ * di tepi kiri — bukan dengan mewarnai seluruh kartu, yang justru dilarang
+ * Instruksi §25 dan akan membuat dasbor ramai.
+ */
+.simpbi-panel-utama {
+    --tw-inset-shadow: inset 3px 0 0 0 var(--color-navy, #0B2A5B);
+    --tw-shadow: 0 1px 2px 0 rgb(11 42 91 / 0.06), 0 14px 34px -20px rgb(11 42 91 / 0.35);
+}
+
+.simpbi-panel-utama .fi-section-header-heading {
+    font-size: 1.0625rem;
+    color: var(--color-navy, #0B2A5B);
+}

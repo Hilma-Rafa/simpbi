@@ -3,17 +3,35 @@
     $total     = $this->total;
 @endphp
 
+{{--
+    Panel ini sengaja dibuat lebih berat daripada panel lain di dasbor: isinya
+    pekerjaan yang menunggu pengguna, bukan informasi yang boleh dilewati.
+    Kelas simpbi-panel-utama-lah yang menaikkan bobotnya pada tema.
+--}}
 <x-filament-widgets::widget class="w-full">
-    <x-filament::section class="w-full">
+    <x-filament::section class="simpbi-panel-utama w-full">
 
         {{-- HEADER PANEL --}}
         <x-slot name="heading">
-            <a
-                href="{{ $this->tautanSemua }}"
-                class="transition hover:text-primary-600 dark:hover:text-primary-400"
-            >
-                Perlu Tindakan Anda
-            </a>
+            <span class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <a
+                    href="{{ $this->tautanSemua }}"
+                    class="transition hover:text-primary-600 dark:hover:text-primary-400"
+                >
+                    Perlu Tindakan Anda
+                </a>
+
+                {{--
+                    Jumlah pekerjaan ditulis sebagai lencana, bukan sebagai
+                    angka besar tersendiri, agar terbaca sebagai keterangan
+                    judul dan tidak bersaing dengan daftar pekerjaannya.
+                --}}
+                @if ($total > 0)
+                    <span class="rounded-md bg-[var(--warning-50)] px-2 py-0.5 text-xs font-semibold text-[var(--warning-700)]">
+                        {{ $total }} menunggu
+                    </span>
+                @endif
+            </span>
         </x-slot>
 
         {{-- DAFTAR PEKERJAAN --}}
