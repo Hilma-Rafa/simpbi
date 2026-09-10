@@ -32,7 +32,7 @@ class AsetTetapSeeder extends Seeder
 
         $tim = DB::table('tim')->pluck('id', 'nama_tim');
 
-        // [nama aset, kondisi, unit kerja penempatan]
+        // [nama aset, kondisi, tim kerja penempatan]
         $aset = [
             ['Laptop Lenovo ThinkPad E14',        'baik',         'Statistik Sosial'],
             ['Laptop HP EliteBook 840',           'baik',         'Statistik Sosial'],

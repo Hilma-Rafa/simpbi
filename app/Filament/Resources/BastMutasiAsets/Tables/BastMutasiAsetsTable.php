@@ -84,7 +84,7 @@ class BastMutasiAsetsTable
                     ->icon('heroicon-m-hand-thumb-up')
                     ->color('info')
                     ->requiresConfirmation()
-                    ->modalDescription('Konfirmasikan bahwa aset telah diterima oleh unit kerja Anda.')
+                    ->modalDescription('Konfirmasikan bahwa aset telah diterima oleh tim kerja Anda.')
                     ->visible(fn (BastMutasiAset $r): bool => $r->status === 'menunggu_konfirmasi'
                         && auth()->user()?->role === 'ketua_tim'
                         && auth()->user()?->tim_id === $r->tim_tujuan_id)

@@ -36,7 +36,7 @@ class TimForm
                     ]),
 
                 Section::make('Sinkronisasi Data')
-                    ->description('Diisi otomatis saat sinkronisasi data unit kerja.')
+                    ->description('Diisi otomatis saat sinkronisasi data tim kerja.')
                     ->columns(2)
                     ->collapsed()
                     ->schema([

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
  * Batas waktu setiap tahapan disimpan pada tabel pengaturan dan dicatat
  * pada atribut hold_expired_at. Apabila suatu tahapan tidak ditindaklanjuti
  * sampai batas waktu tersebut, kunci stok dilepaskan agar barang dapat
- * kembali diminta oleh unit kerja lain, dan permintaan ditandai kedaluwarsa.
+ * kembali diminta oleh tim kerja lain, dan permintaan ditandai kedaluwarsa.
  */
 class LepaskanHoldKedaluwarsa extends Command
 {

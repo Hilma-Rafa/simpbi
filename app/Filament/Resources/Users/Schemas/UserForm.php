@@ -71,7 +71,7 @@ class UserForm
                             ->native(false)
                             ->live(),
                         Select::make('tim_id')
-                            ->label('Unit Kerja / Tim')
+                            ->label('Tim Kerja')
                             ->relationship('tim', 'nama_tim')
                             ->searchable()
                             ->preload()

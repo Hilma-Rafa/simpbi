@@ -43,7 +43,7 @@ class UsersTable
                     ->color(fn (string $state): string => self::ROLE_COLORS[$state] ?? 'gray')
                     ->sortable(),
                 TextColumn::make('tim.nama_tim')
-                    ->label('Unit Kerja')
+                    ->label('Tim Kerja')
                     ->placeholder('—')
                     ->searchable()
                     ->toggleable(),

@@ -95,8 +95,8 @@
             <tr><th style="width:34%">Nomor Urut Pendaftaran (NUP)</th><td>{{ $bast->aset?->nup }}</td></tr>
             <tr><th>Nama Aset</th><td>{{ $bast->aset?->nama_aset }}</td></tr>
             <tr><th>Kategori</th><td>{{ $bast->aset?->kategori?->nama_kategori ?? '-' }}</td></tr>
-            <tr><th>Unit Kerja Asal</th><td>{{ $bast->timAsal?->nama_tim ?? '-' }}</td></tr>
-            <tr><th>Unit Kerja Tujuan</th><td>{{ $bast->timTujuan?->nama_tim ?? '-' }}</td></tr>
+            <tr><th>Tim Kerja Asal</th><td>{{ $bast->timAsal?->nama_tim ?? '-' }}</td></tr>
+            <tr><th>Tim Kerja Tujuan</th><td>{{ $bast->timTujuan?->nama_tim ?? '-' }}</td></tr>
             <tr><th>Alasan Mutasi</th><td>{{ $bast->alasan_mutasi }}</td></tr>
         </table>
 

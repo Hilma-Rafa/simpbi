@@ -38,12 +38,12 @@ class BastMutasiAsetForm
                             })
                             ->columnSpanFull(),
                         Select::make('tim_asal_id')
-                            ->label('Unit Kerja Asal')
+                            ->label('Tim Kerja Asal')
                             ->relationship('timAsal', 'nama_tim')
                             ->required()
                             ->helperText('Terisi otomatis dari penempatan aset saat ini.'),
                         Select::make('tim_tujuan_id')
-                            ->label('Unit Kerja Tujuan')
+                            ->label('Tim Kerja Tujuan')
                             ->relationship('timTujuan', 'nama_tim')
                             ->required()
                             ->different('tim_asal_id'),

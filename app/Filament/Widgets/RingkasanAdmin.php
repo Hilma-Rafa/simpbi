@@ -39,7 +39,7 @@ class RingkasanAdmin extends StatsOverviewWidget
                 ->color('primary'),
 
             Stat::make('Tim Kerja Aktif', $timAktif)
-                ->description('Unit kerja yang terdaftar')
+                ->description('Tim kerja yang terdaftar')
                 ->descriptionIcon('heroicon-m-user-group')
                 ->color('primary'),
 

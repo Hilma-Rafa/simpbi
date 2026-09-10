@@ -13,7 +13,7 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-    /** Unit kerja tempat pengguna bernaung (null untuk peran non-tim). */
+    /** Tim kerja tempat pengguna bernaung (null untuk peran non-tim). */
     public function tim(): BelongsTo
     {
         return $this->belongsTo(Tim::class);
