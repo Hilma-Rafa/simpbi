@@ -1,7 +1,54 @@
 @php
     use App\Models\PermintaanBarang;
 
+    $riwayat   = $record->persetujuan->sortBy('waktu');
+    $terakhir  = $riwayat->last();
+    $waktuAkhir = $terakhir?->waktu ?? $record->updated_at;
+
+    // Alasan hanya ditampilkan bila tahap terakhir berupa penolakan
+    $alasan = ($terakhir && $terakhir->keputusan === 'tolak') ? $terakhir->catatan : null;
+
+    $namaTahap = [
+        'pengajuan'  => 'Permintaan Diajukan',
+        'ketua_tim'  => 'Persetujuan Ketua Tim',
+        'verifikasi' => 'Verifikasi Ketersediaan Fisik',
+        'kasubbag'   => 'Persetujuan Kasubbag Umum',
+        'penyiapan'  => 'Penyiapan Barang',
+        'konfirmasi' => 'Konfirmasi Penerimaan',
+        'pengesahan' => 'Pengesahan Akhir',
+    ];
+
+    // Penyebutan pendek untuk dipakai di dalam kalimat label status, karena
+    // nama tahap versi panjang membuat judulnya terbaca berbelit.
+    $namaTahapSingkat = [
+        'pengajuan'  => 'Pengajuan',
+        'ketua_tim'  => 'Persetujuan Ketua Tim',
+        'verifikasi' => 'Verifikasi Gudang',
+        'kasubbag'   => 'Persetujuan Kasubbag',
+        'penyiapan'  => 'Penyiapan Barang',
+        'konfirmasi' => 'Pengambilan Barang',
+        'pengesahan' => 'Pengesahan',
+    ];
+
     $status = $record->status;
+
+    // Pada permintaan kedaluwarsa, baris riwayat terakhir adalah baris yang
+    // ditulis sapuan sistem, dan tahapnya menandai di titik mana permintaan
+    // berhenti. Statusnya sendiri hanya berbunyi "kedaluwarsa", sehingga tanpa
+    // tahap ini pengguna tidak tahu siapa yang seharusnya menindaklanjuti.
+    $tahapTerhenti = $status === 'kedaluwarsa' ? $terakhir?->tahap : null;
+
+    // Waktu pada baris tersebut sengaja dicatat sebagai saat batas jatuh,
+    // bukan saat sapuan berjalan, sehingga dapat langsung ditampilkan.
+    $batasTerlewat = $status === 'kedaluwarsa' ? $terakhir?->waktu : null;
+
+    // Tahap sesudah titik berhenti ditampilkan redup pada linimasa. Tanpa itu
+    // linimasa permintaan kedaluwarsa berhenti begitu saja dan tidak terlihat
+    // bahwa masih ada tahapan yang seharusnya dilalui.
+    $urutanTahap = ['pengajuan', 'ketua_tim', 'verifikasi', 'kasubbag', 'penyiapan', 'konfirmasi', 'pengesahan'];
+
+    $posisiTerhenti     = $tahapTerhenti ? array_search($tahapTerhenti, $urutanTahap, true) : false;
+    $tahapTidakTercapai = $posisiTerhenti === false ? [] : array_slice($urutanTahap, $posisiTerhenti + 1);
 
     $meta = match ($status) {
         'selesai' => [
@@ -25,7 +72,9 @@
             'ikon'  => 'heroicon-o-exclamation-triangle',
         ],
         'kedaluwarsa' => [
-            'label' => 'KEDALUWARSA',
+            'label' => $tahapTerhenti
+                ? 'KEDALUWARSA PADA ' . strtoupper($namaTahapSingkat[$tahapTerhenti] ?? $tahapTerhenti)
+                : 'KEDALUWARSA',
             'nada'  => 'gray',
             'ikon'  => 'heroicon-o-clock',
         ],
@@ -49,22 +98,6 @@
         'gray'    => ['bg' => 'bg-gray-50 dark:bg-gray-800/60',        'br' => 'border-gray-400',     'tx' => 'text-gray-700 dark:text-gray-300',        'ic' => 'text-gray-500'],
     ][$meta['nada']];
 
-    $riwayat   = $record->persetujuan->sortBy('waktu');
-    $terakhir  = $riwayat->last();
-    $waktuAkhir = $terakhir?->waktu ?? $record->updated_at;
-
-    // Alasan hanya ditampilkan bila tahap terakhir berupa penolakan
-    $alasan = ($terakhir && $terakhir->keputusan === 'tolak') ? $terakhir->catatan : null;
-
-    $namaTahap = [
-        'pengajuan'  => 'Permintaan Diajukan',
-        'ketua_tim'  => 'Persetujuan Ketua Tim',
-        'verifikasi' => 'Verifikasi Ketersediaan Fisik',
-        'kasubbag'   => 'Persetujuan Kasubbag Umum',
-        'penyiapan'  => 'Penyiapan Barang',
-        'konfirmasi' => 'Konfirmasi Penerimaan',
-        'pengesahan' => 'Pengesahan Akhir',
-    ];
 @endphp
 
 <div class="space-y-6">
@@ -81,14 +114,26 @@
                     {{ $meta['label'] }}
                 </p>
 
-                <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-                    Status terakhir: {{ $waktuAkhir?->translatedFormat('d F Y, H:i') ?? '—' }}
-                </p>
-
-                @if ($alasan)
-                    <p class="mt-3 text-sm text-gray-700 dark:text-gray-300">
-                        <span class="font-semibold">Alasan penolakan:</span> {{ $alasan }}
+                @if ($status === 'kedaluwarsa')
+                    {{-- Baris riwayat kedaluwarsa ditulis sistem, bukan penolakan
+                         oleh seseorang, sehingga catatannya tidak ditampilkan
+                         sebagai "alasan penolakan" seperti pada status ditolak. --}}
+                    <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+                        Terhenti {{ $batasTerlewat?->translatedFormat('d F Y, H:i') ?? '—' }}
                     </p>
+                    <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+                        Kunci stok dilepaskan otomatis, barang kembali tersedia untuk tim lain
+                    </p>
+                @else
+                    <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
+                        Status terakhir: {{ $waktuAkhir?->translatedFormat('d F Y, H:i') ?? '—' }}
+                    </p>
+
+                    @if ($alasan)
+                        <p class="mt-3 text-sm text-gray-700 dark:text-gray-300">
+                            <span class="font-semibold">Alasan penolakan:</span> {{ $alasan }}
+                        </p>
+                    @endif
                 @endif
 
                 @if ($record->hold_expired_at && ! in_array($status, ['selesai', 'ditolak_ketua', 'ditolak_kasubbag', 'bermasalah', 'kedaluwarsa']))
@@ -240,17 +285,28 @@
         <ol class="space-y-4">
             @forelse ($riwayat as $r)
                 @php
-                    $nadaTahap = match ($r->keputusan) {
-                        'setuju', 'selesai' => ['bg' => 'bg-success-500', 'ikon' => 'heroicon-m-check'],
-                        'tolak'             => ['bg' => 'bg-danger-500',  'ikon' => 'heroicon-m-x-mark'],
-                        default             => ['bg' => 'bg-warning-500', 'ikon' => 'heroicon-m-clock'],
-                    };
-                    $tekstKeputusan = match ($r->keputusan) {
-                        'setuju'  => 'Disetujui',
-                        'tolak'   => 'Ditolak',
-                        'selesai' => 'Selesai',
-                        default   => $r->keputusan,
-                    };
+                    // Baris terakhir permintaan kedaluwarsa disimpan dengan
+                    // keputusan "tolak" agar konsisten dengan skema riwayat,
+                    // tetapi menampilkannya sebagai "Ditolak" keliru: tidak ada
+                    // yang menolak, tahapannya hanya lewat waktu.
+                    $adalahBatasLewat = $status === 'kedaluwarsa' && $loop->last;
+
+                    $nadaTahap = $adalahBatasLewat
+                        ? ['bg' => 'bg-gray-400 dark:bg-gray-600', 'ikon' => 'heroicon-m-clock']
+                        : match ($r->keputusan) {
+                            'setuju', 'selesai' => ['bg' => 'bg-success-500', 'ikon' => 'heroicon-m-check'],
+                            'tolak'             => ['bg' => 'bg-danger-500',  'ikon' => 'heroicon-m-x-mark'],
+                            default             => ['bg' => 'bg-warning-500', 'ikon' => 'heroicon-m-clock'],
+                        };
+
+                    $tekstKeputusan = $adalahBatasLewat
+                        ? 'Lewat batas waktu'
+                        : match ($r->keputusan) {
+                            'setuju'  => 'Disetujui',
+                            'tolak'   => 'Ditolak',
+                            'selesai' => 'Selesai',
+                            default   => $r->keputusan,
+                        };
                 @endphp
 
                 <li class="flex gap-3">
@@ -258,7 +314,7 @@
                         <span @class(['flex h-6 w-6 shrink-0 items-center justify-center rounded-full', $nadaTahap['bg']])>
                             <x-filament::icon :icon="$nadaTahap['ikon']" class="h-3.5 w-3.5 text-white" />
                         </span>
-                        @unless ($loop->last)
+                        @unless ($loop->last && empty($tahapTidakTercapai))
                             <span class="mt-1 w-px flex-1 bg-gray-200 dark:bg-gray-700"></span>
                         @endunless
                     </div>
@@ -268,8 +324,12 @@
                             {{ $namaTahap[$r->tahap] ?? $r->tahap }}
                         </p>
                         <p class="mt-0.5 text-xs text-gray-500">
-                            {{ $r->pelaksana?->name ?? '—' }}
-                            &middot; {{ $r->waktu?->translatedFormat('d F Y, H:i') }}
+                            {{-- Pelaksana dilewati pada baris batas waktu: yang
+                                 mencatatnya sistem, bukan orang. --}}
+                            @unless ($adalahBatasLewat)
+                                {{ $r->pelaksana?->name ?? '—' }} &middot;
+                            @endunless
+                            {{ $r->waktu?->translatedFormat('d F Y, H:i') }}
                             &middot; {{ $tekstKeputusan }}
                         </p>
                         @if ($r->catatan)
@@ -280,6 +340,29 @@
             @empty
                 <li class="text-sm text-gray-500">Belum ada riwayat proses.</li>
             @endforelse
+
+            @foreach ($tahapTidakTercapai as $i => $tahap)
+                <li class="flex gap-3">
+                    <div class="flex flex-col items-center">
+                        {{-- Kotak penanda dibuat selebar lingkaran tahap yang sudah
+                             dilalui agar seluruh judul tahap berbaris rata; hanya
+                             titiknya yang dikecilkan sebagai tanda belum tercapai. --}}
+                        <span class="flex h-6 w-6 shrink-0 items-center justify-center">
+                            <span class="h-1.5 w-1.5 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                        </span>
+                        @unless ($loop->last)
+                            <span class="mt-1 w-px flex-1 bg-gray-200 dark:bg-gray-700"></span>
+                        @endunless
+                    </div>
+
+                    <div class="min-w-0 flex-1 pb-1">
+                        <p class="text-sm text-gray-400 dark:text-gray-500">
+                            {{ $namaTahap[$tahap] ?? $tahap }}
+                        </p>
+                        <p class="mt-0.5 text-xs text-gray-400 dark:text-gray-600">Tidak sampai tahap ini</p>
+                    </div>
+                </li>
+            @endforeach
         </ol>
     </div>
 

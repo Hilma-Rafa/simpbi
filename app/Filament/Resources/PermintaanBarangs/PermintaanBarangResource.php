@@ -25,6 +25,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use BackedEnum;
 
@@ -205,12 +206,15 @@ class PermintaanBarangResource extends Resource
                             : $query;
                     }),
             ])
-            // Rincian dibuka dengan mengklik barisnya, menggantikan tombol
-            // "Detail" yang sebelumnya ada pada setiap baris. Filament memberi
-            // baris penunjuk tangan dan sorotan ketika ditunjuk, dan klik pada
-            // tombol aksi tidak ikut membuka halaman rincian.
-            ->recordUrl(fn ($record) => static::getUrl('detail', ['record' => $record]))
+            // Rincian dibuka sebagai dialog di atas daftar, bukan dengan
+            // berpindah halaman (Instruksi §41). Berpindah halaman memutus
+            // konteks: pengguna kehilangan posisi gulir, penyaring, dan halaman
+            // tabel yang sedang dilihat, padahal rincian biasanya dibuka
+            // sebentar untuk memeriksa satu permintaan lalu ditutup lagi.
+            ->recordAction('detail')
             ->recordActions([
+
+                static::aksiDetail(),
 
                 // ---------- TAHAP 1 : PERSETUJUAN KETUA TIM ----------
 
@@ -773,6 +777,49 @@ class PermintaanBarangResource extends Resource
     // =====================================================================
     // PEMBANTU
     // =====================================================================
+
+    /**
+     * Aksi pembuka dialog rincian permintaan.
+     *
+     * Dipakai bersama oleh daftar Permintaan Barang dan halaman Riwayat lewat
+     * ->recordAction('detail'), supaya keduanya membuka rincian dengan cara
+     * yang sama dan isinya tidak perlu ditulis dua kali.
+     *
+     * Tampil sebagai tombol ikon, bukan tombol berteks: rincian adalah aksi
+     * pendamping, sedangkan tombol berteks pada baris yang sama disediakan
+     * untuk keputusan tahapan seperti Setujui dan Tolak. Tombolnya tetap
+     * diadakan meski seluruh barisnya sudah dapat diklik, sebab aksi yang
+     * disembunyikan tidak dapat dipicu oleh ->recordAction() — Filament
+     * menolak memasang aksi yang tidak terlihat — dan Instruksi §41 memang
+     * meminta satu tombol Detail.
+     */
+    public static function aksiDetail(): Action
+    {
+        return Action::make('detail')
+            ->label('Detail')
+            ->icon('heroicon-m-eye')
+            ->iconButton()
+            ->color('gray')
+            ->tooltip('Lihat rincian permintaan')
+            ->modalHeading(fn (PermintaanBarang $record) => 'Permintaan ' . $record->kode_permintaan)
+            // Lebar sedang, bukan layar penuh: rincian ini dibaca sekilas
+            // dan dialog selebar layar justru menyulitkan kembali ke daftar.
+            ->modalWidth(Width::TwoExtraLarge)
+            // Rincian hanya dibaca, sehingga dialog cukup punya satu tombol tutup.
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Tutup')
+            ->modalContent(fn (PermintaanBarang $record) => view(
+                'filament.partials.detail-permintaan',
+                // Relasi dimuat di sini, bukan pada kueri tabel, agar daftar
+                // tidak menanggung kueri rincian untuk baris yang tidak dibuka.
+                ['record' => $record->load([
+                    'tim',
+                    'detail.barang',
+                    'ketidaksesuaian',
+                    'persetujuan.pelaksana',
+                ])],
+            ));
+    }
 
     /** Mengambil batas waktu tahapan dari tabel pengaturan. */
     protected static function batasJam(string $kunci, int $bawaan = 24): int

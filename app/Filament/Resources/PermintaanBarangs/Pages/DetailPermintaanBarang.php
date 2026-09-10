@@ -11,12 +11,13 @@ use Filament\Support\Enums\IconPosition;
 /**
  * Halaman rincian satu permintaan barang (Instruksi §41).
  *
- * Menggantikan tombol "Detail" pada setiap baris tabel: baris permintaan kini
- * dapat diklik dan mengarah ke halaman ini. Isinya memakai kembali partial
- * filament.partials.detail-permintaan yang sebelumnya ditampilkan di dalam
- * dialog, sehingga informasi yang disajikan tidak berubah — status, informasi
- * permintaan, daftar barang, ketidaksesuaian, dan riwayat proses dalam satu
- * tampilan, tanpa dipecah menjadi beberapa tab.
+ * Dari dalam aplikasi, rincian dibuka sebagai dialog di atas daftar sesuai
+ * Instruksi §41. Halaman ini dipertahankan untuk tautan yang datang dari luar
+ * daftar dan tidak dapat membuka dialog: pranala pada pesan WhatsApp dan pada
+ * lonceng notifikasi. Keduanya memakai partial yang sama,
+ * filament.partials.detail-permintaan, sehingga isi yang dibaca pengguna
+ * persis sama lewat jalur mana pun — status, informasi permintaan, daftar
+ * barang, ketidaksesuaian, dan riwayat proses dalam satu tampilan.
  *
  * Kewenangan mengikuti PermintaanBarangResource, termasuk pembatasan tim pada
  * getEloquentQuery(), sehingga Tim dan Ketua Tim tidak dapat membuka permintaan

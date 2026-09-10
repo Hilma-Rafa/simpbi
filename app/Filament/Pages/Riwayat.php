@@ -347,7 +347,12 @@ class Riwayat extends Page implements HasTable
                 ->whereIn('status', PermintaanBarang::STATUS_RIWAYAT))
             ->deferFilters(false)
             ->defaultSort('created_at', 'desc')
-            ->recordUrl(fn ($record) => PermintaanBarangResource::getUrl('detail', ['record' => $record]))
+            // Rincian dibuka sebagai dialog, sama seperti pada daftar
+            // Permintaan Barang, agar cara membuka rincian tidak berbeda
+            // antara permintaan yang masih berjalan dan yang sudah menjadi
+            // riwayat. Aksinya dipinjam dari resource agar isinya satu sumber.
+            ->recordAction('detail')
+            ->recordActions([PermintaanBarangResource::aksiDetail()])
             ->columns([
                 TextColumn::make('kode_permintaan')->label('Kode')->searchable()->sortable(),
                 TextColumn::make('tim.nama_tim')->label('Tim Pemohon')->searchable()->sortable(),
