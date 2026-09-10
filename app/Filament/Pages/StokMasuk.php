@@ -7,6 +7,7 @@ use App\Models\MutasiStok;
 use App\Services\StokService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -18,6 +19,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 
 /**
  * Pencatatan stok masuk barang persediaan (UC-07).
@@ -129,6 +131,9 @@ class StokMasuk extends Page implements HasTable
                             ->orderBy('nama_barang')
                             ->pluck('nama_barang', 'id'))
                         ->searchable()
+                        // Batas tanggal dokumen bergantung pada barang yang
+                        // dipilih, sehingga pilihannya harus langsung terkirim
+                        ->live()
                         ->required(),
                     TextInput::make('jumlah')
                         ->label('Jumlah')
@@ -166,6 +171,41 @@ class StokMasuk extends Page implements HasTable
                             : 'Nomor dokumen, bila ada.')
                         // Mengikuti lebar kolom nomor_dasar pada tabel mutasi_stok
                         ->maxLength(60),
+                    /*
+                     * Tanggal dokumen, bukan tanggal pencatatan.
+                     *
+                     * Kolom "Tanggal M/K" pada kartu kendali menunjuk tanggal
+                     * faktur atau berita acaranya, sedangkan dokumen kerap baru
+                     * sampai ke gudang beberapa hari kemudian. Sebelumnya kartu
+                     * selalu memakai tanggal input, sehingga hasil cetak sistem
+                     * tidak dapat disandingkan dengan arsip dokumen aslinya.
+                     */
+                    DatePicker::make('tanggal')
+                        ->label('Tanggal Dokumen')
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->default(now())
+                        ->required()
+                        // Transaksi tidak dapat dicatat mendahului kejadiannya
+                        ->maxDate(now())
+                        /*
+                         * Tidak boleh mendahului transaksi terakhir barang itu.
+                         * Kolom "Sisa" dicetak apa adanya dari saldo yang
+                         * terekam saat transaksi dijalankan, sementara kartunya
+                         * diurutkan menurut tanggal; tanggal yang melompat ke
+                         * belakang akan memisahkan kedua urutan itu sehingga
+                         * kolom Sisa terbaca naik-turun tanpa sebab.
+                         */
+                        ->minDate(fn (Get $get): ?string => self::batasTanggal($get('barang_id')))
+                        ->helperText(function (Get $get): string {
+                            $batas = self::batasTanggal($get('barang_id'));
+
+                            return $batas
+                                ? 'Tanggal pada faktur atau berita acara. Barang ini terakhir bermutasi '
+                                    . Carbon::parse($batas)->translatedFormat('j F Y')
+                                    . ', jadi tanggalnya tidak dapat lebih awal daripada itu.'
+                                : 'Tanggal pada faktur atau berita acara, bukan tanggal pencatatan.';
+                        }),
                     Textarea::make('keterangan')
                         ->label('Keterangan')
                         ->rows(2)
@@ -179,6 +219,7 @@ class StokMasuk extends Page implements HasTable
                         nomorDasar: $data['nomor_dasar'] ?? null,
                         keterangan: $data['keterangan'] ?? null,
                         petugasId: auth()->id(),
+                        tanggal: $data['tanggal'] ?? null,
                     );
 
                     Notification::make()
@@ -187,5 +228,19 @@ class StokMasuk extends Page implements HasTable
                         ->send();
                 }),
         ];
+    }
+
+    /**
+     * Tanggal paling awal yang boleh dipakai untuk suatu barang.
+     *
+     * Nilainya diambil dari StokService, bukan dihitung ulang di sini, supaya
+     * batas yang ditawarkan formulir tidak mungkin berbeda dengan batas yang
+     * ditegakkan ketika transaksinya disimpan.
+     */
+    protected static function batasTanggal(mixed $barangId): ?string
+    {
+        return $barangId
+            ? StokService::tanggalMutasiTerakhir((int) $barangId)
+            : null;
     }
 }

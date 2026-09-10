@@ -123,6 +123,90 @@ class StokMasukTest extends TestCase
         $this->assertSame(25, $barang->refresh()->stok_fisik);
     }
 
+    public function test_tanggal_dokumen_dipakai_pada_kartu_kendali(): void
+    {
+        // Faktur kerap baru sampai ke gudang beberapa hari setelah tanggalnya,
+        // dan kartu kendali harus menunjuk tanggal dokumennya, bukan tanggal
+        // barisnya diketik.
+        $this->actingAs($this->buatPengguna('petugas_gudang'));
+        $barang = $this->buatBarang(stokFisik: 5);
+
+        $this->catat([
+            'barang_id'   => $barang->id,
+            'jumlah'      => 10,
+            'sumber'      => 'pembelian',
+            'nomor_dasar' => '34/F/HI/VIII/2026',
+            'tanggal'     => now()->subDays(6)->toDateString(),
+        ])->assertHasNoActionErrors();
+
+        $this->assertSame(
+            now()->subDays(6)->toDateString(),
+            MutasiStok::sole()->tanggal->toDateString(),
+            'Kartu kendali harus memakai tanggal dokumen, bukan tanggal pencatatan.',
+        );
+    }
+
+    public function test_tanggal_tidak_boleh_mendahului_transaksi_terakhir(): void
+    {
+        // Kolom "Sisa" dicetak apa adanya dari saldo yang terekam saat
+        // transaksi dijalankan, sedangkan kartunya diurutkan menurut tanggal.
+        // Tanggal yang melompat ke belakang membuat kedua urutan itu berpisah.
+        $this->actingAs($this->buatPengguna('petugas_gudang'));
+        $barang = $this->buatBarang(stokFisik: 5);
+
+        $this->catat([
+            'barang_id'   => $barang->id,
+            'jumlah'      => 10,
+            'sumber'      => 'pembelian',
+            'nomor_dasar' => '34/F/HI/VIII/2026',
+            'tanggal'     => now()->subDays(3)->toDateString(),
+        ])->assertHasNoActionErrors();
+
+        $this->catat([
+            'barang_id'   => $barang->id,
+            'jumlah'      => 4,
+            'sumber'      => 'pembelian',
+            'nomor_dasar' => '35/F/HI/VIII/2026',
+            'tanggal'     => now()->subDays(10)->toDateString(),
+        ])->assertHasActionErrors(['tanggal']);
+
+        $this->assertSame(1, MutasiStok::count(), 'Transaksi bertanggal mundur tidak boleh tercatat.');
+        $this->assertSame(15, $barang->refresh()->stok_fisik, 'Stok tidak boleh bertambah bila borangnya ditolak.');
+    }
+
+    public function test_layanan_menolak_tanggal_yang_mendahului_transaksi_terakhir(): void
+    {
+        // Penjagaan yang sama ditegakkan di dalam layanan, bukan hanya pada
+        // borang, supaya pemanggil lain di kemudian hari tidak dapat
+        // melewatinya tanpa sengaja.
+        $petugas = $this->buatPengguna('petugas_gudang');
+        $barang = $this->buatBarang(stokFisik: 5);
+
+        $stok = app(\App\Services\StokService::class);
+
+        $stok->tambah(
+            barangId: $barang->id,
+            jumlah: 10,
+            sumber: 'pembelian',
+            nomorDasar: '34/F/HI/VIII/2026',
+            keterangan: null,
+            petugasId: $petugas->id,
+            tanggal: now()->subDays(3)->toDateString(),
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $stok->tambah(
+            barangId: $barang->id,
+            jumlah: 4,
+            sumber: 'pembelian',
+            nomorDasar: '35/F/HI/VIII/2026',
+            keterangan: null,
+            petugasId: $petugas->id,
+            tanggal: now()->subDays(10)->toDateString(),
+        );
+    }
+
     public function test_nomor_dasar_yang_terlalu_panjang_ditolak(): void
     {
         // Batasnya mengikuti lebar kolom nomor_dasar pada tabel mutasi_stok

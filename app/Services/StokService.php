@@ -5,7 +5,9 @@ namespace App\Services;
 use App\Models\BarangPersediaan;
 use App\Models\MutasiStok;
 use App\Models\PermintaanBarang;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 
 /**
  * Layanan pengelolaan stok barang persediaan.
@@ -144,18 +146,39 @@ class StokService
 
     /**
      * Mencatat penambahan stok dari pengadaan atau pengembalian.
+     *
+     * $tanggal adalah tanggal dokumennya, bukan tanggal pencatatan: kolom
+     * "Tanggal M/K" pada kartu kendali menunjuk tanggal faktur atau berita
+     * acara, dan faktur kerap baru sampai ke gudang beberapa hari kemudian.
+     * Bila tidak diisi, tanggal hari ini yang dipakai.
+     *
+     * Tanggalnya tidak boleh mendahului transaksi terakhir barang tersebut.
+     * Kolom "Sisa" pada kartu kendali dicetak apa adanya dari saldo_sesudah,
+     * yaitu saldo pada saat transaksi dijalankan, sedangkan kartunya diurutkan
+     * menurut tanggal; membiarkan tanggal melompat ke belakang akan membuat
+     * kedua urutan itu berpisah dan kolom Sisa terbaca naik-turun tanpa sebab.
      */
-    public function tambah(int $barangId, int $jumlah, string $sumber, ?string $nomorDasar, ?string $keterangan, int $petugasId): void
+    public function tambah(int $barangId, int $jumlah, string $sumber, ?string $nomorDasar, ?string $keterangan, int $petugasId, ?string $tanggal = null): void
     {
-        DB::transaction(function () use ($barangId, $jumlah, $sumber, $nomorDasar, $keterangan, $petugasId) {
+        $tanggal = $tanggal ?: now()->toDateString();
+
+        DB::transaction(function () use ($barangId, $jumlah, $sumber, $nomorDasar, $keterangan, $petugasId, $tanggal) {
             $barang = BarangPersediaan::lockForUpdate()->findOrFail($barangId);
+
+            $terakhir = static::tanggalMutasiTerakhir($barangId);
+
+            if ($terakhir !== null && $tanggal < $terakhir) {
+                throw new InvalidArgumentException(
+                    'Tanggal dokumen tidak boleh mendahului transaksi terakhir barang ini (' . $terakhir . ').'
+                );
+            }
 
             $saldoSesudah = $barang->stok_fisik + $jumlah;
             $barang->update(['stok_fisik' => $saldoSesudah]);
 
             MutasiStok::create([
                 'barang_id'     => $barang->id,
-                'tanggal'       => now()->toDateString(),
+                'tanggal'       => $tanggal,
                 'jenis'         => 'masuk',
                 'jumlah'        => $jumlah,
                 'saldo_sesudah' => $saldoSesudah,
@@ -165,5 +188,23 @@ class StokService
                 'petugas_id'    => $petugasId,
             ]);
         });
+    }
+
+    /**
+     * Tanggal transaksi terakhir suatu barang pada buku besar mutasi.
+     *
+     * Dipakai bersama oleh layanan ini dan formulir Stok Masuk, supaya batas
+     * tanggal yang ditawarkan kepada pengguna sama persis dengan batas yang
+     * ditegakkan ketika transaksinya disimpan.
+     *
+     * @return string|null Tanggal Y-m-d, atau null bila barang belum pernah bermutasi.
+     */
+    public static function tanggalMutasiTerakhir(int $barangId): ?string
+    {
+        $tanggal = MutasiStok::query()
+            ->where('barang_id', $barangId)
+            ->max('tanggal');
+
+        return $tanggal ? Carbon::parse($tanggal)->toDateString() : null;
     }
 }
