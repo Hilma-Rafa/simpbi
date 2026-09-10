@@ -3,7 +3,9 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource;
+use App\Filament\Widgets\Concerns\JudulPanelBertaut;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
 
 /**
  * Status Permintaan Tim Saya (Instruksi §37).
@@ -21,6 +23,8 @@ use Filament\Widgets\ChartWidget;
  */
 class StatusPermintaanTim extends ChartWidget
 {
+    use JudulPanelBertaut;
+
     protected static ?int $sort = 5;
 
     protected int|string|array $columnSpan = [
@@ -76,9 +80,17 @@ class StatusPermintaanTim extends ChartWidget
         return in_array(auth()->user()?->role, ['tim', 'ketua_tim']);
     }
 
-    public function getHeading(): ?string
+    /**
+     * Judul sekaligus tautan ke daftar Permintaan Barang. Tanpa penyaring
+     * status, sebab daftar itu sendiri sudah dibatasi pada permintaan tim
+     * pengguna oleh PermintaanBarangResource::getEloquentQuery().
+     */
+    public function getHeading(): string|Htmlable|null
     {
-        return 'Status Permintaan Tim Saya';
+        return $this->judulBertaut(
+            'Status Permintaan Tim Saya',
+            PermintaanBarangResource::getUrl('index'),
+        );
     }
 
     public function getDescription(): ?string
@@ -148,10 +160,10 @@ class StatusPermintaanTim extends ChartWidget
     protected function getOptions(): array
     {
         return [
-            // Chart.js memakai perbandingan 2:1 untuk batang, sehingga kanvasnya
-            // lebih pendek daripada bagan donat yang memakai 1:1. Disamakan agar
-            // tinggi kartunya sama dengan Pola Permintaan di sebelahnya.
-            'aspectRatio' => 1,
+            // Tinggi kanvas datang dari CSS (--simpbi-tinggi-bagan), bukan dari
+            // perbandingan sisi, supaya bagan ini berakhir pada garis yang sama
+            // dengan bagan pasangannya yang kolomnya lebih lebar.
+            'maintainAspectRatio' => false,
             'plugins' => [
                 'legend' => ['display' => false],
             ],

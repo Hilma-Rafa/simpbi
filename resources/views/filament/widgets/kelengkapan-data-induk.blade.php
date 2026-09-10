@@ -4,7 +4,17 @@
 
 <x-filament-widgets::widget>
     <x-filament::section>
-        <x-slot name="heading">Kelengkapan Data Induk</x-slot>
+        {{--
+            Judul disorot warna namun sengaja bukan tautan: panel ini merangkum
+            tiga data induk yang berbeda (Pengguna, Barang Persediaan, Tim
+            Kerja), sehingga tidak ada satu halaman yang mewakilinya. Kursor
+            dibiarkan bawaan supaya tidak menjanjikan tautan yang tidak ada.
+        --}}
+        <x-slot name="heading">
+            <span class="transition hover:text-primary-600 dark:hover:text-primary-400">
+                Kelengkapan Data Induk
+            </span>
+        </x-slot>
 
         <x-slot name="description">
             Data induk yang masih perlu dilengkapi

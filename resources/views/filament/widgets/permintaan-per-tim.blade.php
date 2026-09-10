@@ -6,7 +6,13 @@
 <x-filament-widgets::widget>
     <x-filament::section>
 
-        <x-slot name="heading">Permintaan per Tim Kerja</x-slot>
+        {{-- Judul menjadi tautan ke daftar permintaan tanpa penyaring tim. --}}
+        <x-slot name="heading">
+            <a href="{{ $this->tautanSemua }}"
+               class="transition hover:text-primary-600 dark:hover:text-primary-400">
+                Permintaan per Tim Kerja
+            </a>
+        </x-slot>
 
         <x-slot name="description">
             Jumlah permintaan per tim kerja

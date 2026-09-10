@@ -6,23 +6,25 @@
 <x-filament-widgets::widget>
     <x-filament::section>
 
-        <x-slot name="heading">Kondisi Stok per Kategori</x-slot>
+        {{-- Judul menjadi tautan ke daftar barang tanpa penyaring kategori. --}}
+        <x-slot name="heading">
+            <a href="{{ $this->tautanSemua }}"
+               class="transition hover:text-primary-600 dark:hover:text-primary-400">
+                Kondisi Stok per Kategori
+            </a>
+        </x-slot>
 
         <x-slot name="description">
             Tersedia dan terkunci per kategori
         </x-slot>
 
         {{--
-            Tinggi kendali kepala disamakan dengan panel di sebelahnya agar
-            kedua panel berakhir pada garis yang sama.
+            Ruang kosong setinggi kendali kepala panel di sebelahnya, yang
+            memuat pemilih periode. Tanpa ini kepala kedua panel berbeda
+            tinggi, sehingga isinya tidak lagi sejajar.
         --}}
         <x-slot name="afterHeader">
-            <div class="flex h-9 w-44 items-center justify-end">
-                <a href="{{ $this->tautanSemua }}"
-                   class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400">
-                    Lihat semua &rarr;
-                </a>
-            </div>
+            <div class="h-9 w-44"></div>
         </x-slot>
 
         {{--

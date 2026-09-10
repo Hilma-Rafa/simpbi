@@ -3,7 +3,9 @@
 namespace App\Filament\Widgets;
 
 use App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource;
+use App\Filament\Widgets\Concerns\JudulPanelBertaut;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -23,6 +25,8 @@ use Illuminate\Support\Collection;
  */
 class PolaPermintaan extends ChartWidget
 {
+    use JudulPanelBertaut;
+
     protected static ?int $sort = 6;
 
     protected int|string|array $columnSpan = [
@@ -57,9 +61,18 @@ class PolaPermintaan extends ChartWidget
         );
     }
 
-    public function getHeading(): ?string
+    /**
+     * Judul sekaligus tautan ke daftar Permintaan Barang, sehingga pengguna
+     * dapat berpindah dari pola yang terlihat menuju permintaan yang
+     * membentuknya. Daftar tidak disaring, sebab bagan ini menampilkan
+     * seluruh periode terpilih, bukan satu titik tertentu.
+     */
+    public function getHeading(): string|Htmlable|null
     {
-        return 'Pola Permintaan';
+        return $this->judulBertaut(
+            'Pola Permintaan',
+            PermintaanBarangResource::getUrl('index'),
+        );
     }
 
     public function getDescription(): ?string
@@ -213,6 +226,10 @@ class PolaPermintaan extends ChartWidget
     protected function getOptions(): array
     {
         return [
+            // Tinggi kanvas datang dari CSS (--simpbi-tinggi-bagan), bukan dari
+            // perbandingan sisi, supaya bagan ini berakhir pada garis yang sama
+            // dengan bagan pasangannya yang kolomnya lebih lebar.
+            'maintainAspectRatio' => false,
             'plugins' => [
                 'legend' => ['display' => false],
             ],

@@ -2,8 +2,11 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\AsetTetaps\AsetTetapResource;
+use App\Filament\Widgets\Concerns\JudulPanelBertaut;
 use App\Models\AsetTetap;
 use Filament\Widgets\ChartWidget;
+use Illuminate\Contracts\Support\Htmlable;
 
 /**
  * Kondisi aset tetap yang dikelola.
@@ -24,6 +27,8 @@ use Filament\Widgets\ChartWidget;
  */
 class KondisiAsetTetap extends ChartWidget
 {
+    use JudulPanelBertaut;
+
     protected static ?int $sort = 5;
 
     protected int|string|array $columnSpan = [
@@ -62,9 +67,17 @@ class KondisiAsetTetap extends ChartWidget
         return in_array(auth()->user()?->role, ['admin', 'kasubbag']);
     }
 
-    public function getHeading(): ?string
+    /**
+     * Judul sekaligus tautan ke daftar Aset Tetap. Hak akses daftar itu sama
+     * dengan hak lihat panel ini, sehingga tautan tidak pernah mengarah ke
+     * halaman yang tertutup bagi penggunanya.
+     */
+    public function getHeading(): string|Htmlable|null
     {
-        return 'Kondisi Aset Tetap';
+        return $this->judulBertaut(
+            'Kondisi Aset Tetap',
+            AsetTetapResource::getUrl('index'),
+        );
     }
 
     public function getDescription(): ?string
@@ -134,6 +147,10 @@ class KondisiAsetTetap extends ChartWidget
     protected function getOptions(): array
     {
         return [
+            // Tinggi kanvas datang dari CSS (--simpbi-tinggi-bagan), bukan dari
+            // perbandingan sisi, supaya bagan ini berakhir pada garis yang sama
+            // dengan bagan pasangannya yang kolomnya lebih lebar.
+            'maintainAspectRatio' => false,
             // Bagian tengah dikosongkan sehingga berbentuk donat
             'cutout'  => '68%',
             'plugins' => [

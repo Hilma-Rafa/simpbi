@@ -5,17 +5,16 @@
 
 <x-filament-widgets::widget>
     <x-filament::section>
-        <x-slot name="heading">Barang Perlu Perhatian</x-slot>
+        {{-- Judul menjadi tautan ke daftar Barang Persediaan. --}}
+        <x-slot name="heading">
+            <a href="{{ $this->tautanSemua }}"
+               class="transition hover:text-primary-600 dark:hover:text-primary-400">
+                Barang Perlu Perhatian
+            </a>
+        </x-slot>
 
         <x-slot name="description">
             Stok tersedia terendah dan barang yang mendekati stok minimum
-        </x-slot>
-
-        <x-slot name="afterHeader">
-            <a href="{{ $this->tautanSemua }}"
-               class="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400">
-                Lihat semua &rarr;
-            </a>
         </x-slot>
 
         {{-- Stok tersedia terendah --}}

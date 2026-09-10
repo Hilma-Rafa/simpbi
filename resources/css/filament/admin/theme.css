@@ -536,3 +536,34 @@
 .dark .fi-simpbi-panel-scroll {
     scrollbar-color: var(--gray-600) transparent;
 }
+
+/* ============== Tinggi panel bagan (Instruksi §45) ==============
+ * Sepasang bagan pada satu baris kisi — Pola Permintaan dengan Kondisi Aset
+ * Tetap bagi Admin dan Kasubbag, atau dengan Status Permintaan Tim Saya bagi
+ * Tim dan Ketua Tim — harus berakhir pada garis yang sama.
+ *
+ * Tanpa aturan ini tinggi kanvas dihitung Chart.js dari lebar kolomnya
+ * masing-masing dikali perbandingan sisi bagan. Karena kolomnya tidak sama
+ * lebar (delapan berbanding empat), bagan pada kolom sempit berhenti lebih
+ * tinggi daripada tetangganya dan menyisakan ruang kosong di bawahnya,
+ * sehingga kedua panel terbaca tidak sama tinggi meski kartunya sama.
+ *
+ * Kanvas karena itu diberi tinggi tetap yang sama, dan pada masing-masing
+ * widget maintainAspectRatio dimatikan agar Chart.js mengikuti tinggi ini
+ * alih-alih menghitungnya sendiri.
+ */
+:root {
+    /* Senilai $maxHeight tiap widget bagan, yaitu 260px */
+    --simpbi-tinggi-bagan: 16.25rem;
+}
+
+.fi-wi-chart .fi-wi-chart-frame {
+    height: var(--simpbi-tinggi-bagan);
+}
+
+/* Kartu mengisi penuh tinggi baris kisi, sehingga pasangan panel tetap sama
+ * tinggi walaupun salah satunya sedang menampilkan keadaan kosong yang lebih
+ * pendek daripada bagan. */
+.fi-wi-chart .fi-section {
+    height: 100%;
+}

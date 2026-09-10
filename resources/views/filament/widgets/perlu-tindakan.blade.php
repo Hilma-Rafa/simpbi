@@ -16,17 +16,6 @@
             </a>
         </x-slot>
 
-        @if ($total > 0)
-            <x-slot name="afterHeader">
-                <a
-                    href="{{ $this->tautanSemua }}"
-                    class="text-sm font-medium text-primary-600 transition hover:text-primary-700 hover:underline dark:text-primary-400 dark:hover:text-primary-300"
-                >
-                    Lihat semua →
-                </a>
-            </x-slot>
-        @endif
-
         {{-- DAFTAR PEKERJAAN --}}
         @forelse ($pekerjaan as $p)
             @php
