@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\BarangPersediaans\Tables;
 
+use App\Filament\Support\KeadaanKosong;
 use App\Models\BarangPersediaan;
 use App\Services\EksporRiwayatService;
 use Filament\Actions\Action;
@@ -25,6 +26,18 @@ class BarangPersediaansTable
     {
         return $table
             ->defaultSort('nama_barang')
+            /**
+             * Kalimat keadaan kosong dibedakan: daftar yang memang belum
+             * berisi memerlukan ajakan mengisi, sedangkan pencarian yang tidak
+             * menemukan apa pun memerlukan jalan keluar dari penyaringnya.
+             */
+            ->emptyStateIcon('heroicon-o-archive-box')
+            ->emptyStateHeading(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Tidak ada barang yang cocok'
+                : 'Katalog persediaan masih kosong')
+            ->emptyStateDescription(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Coba longgarkan penyaringnya, atau periksa kembali ejaan kata yang dicari.'
+                : 'Tambahkan barang beserta satuan dan stok minimumnya, agar tim kerja dapat mengajukan permintaan.')
             ->columns([
                 TextColumn::make('nama_barang')
                     ->label('Nama Barang')
@@ -53,15 +66,23 @@ class BarangPersediaansTable
                     ->alignEnd()
                     ->color(fn ($state) => $state > 0 ? 'warning' : 'gray'),
 
+                /**
+                 * Stok tersedia hanya dijadikan lencana ketika angkanya memang
+                 * menuntut tindakan, yaitu habis atau sudah menyentuh stok
+                 * minimum. Sebelumnya setiap baris berlencana, termasuk baris
+                 * yang baik-baik saja, sehingga sekolom penuh warna dan mata
+                 * tidak lagi dapat menemukan baris yang bermasalah.
+                 */
                 TextColumn::make('stok_tersedia')
                     ->label('Tersedia')
                     ->state(fn ($record) => $record->stok_fisik - $record->stok_hold)
-                    ->badge()
                     ->alignEnd()
+                    ->badge(fn ($state, $record) => $state <= 0
+                        || ($record->stok_minimum > 0 && $state <= $record->stok_minimum))
                     ->color(fn ($state, $record) => match (true) {
                         $state <= 0                                                  => 'danger',
                         $record->stok_minimum > 0 && $state <= $record->stok_minimum => 'warning',
-                        default                                                      => 'success',
+                        default                                                      => null,
                     }),
 
                 TextColumn::make('stok_minimum')
@@ -71,9 +92,16 @@ class BarangPersediaansTable
                     ->alignEnd()
                     ->toggleable(),
 
+                /**
+                 * Barang aktif adalah keadaan biasa, jadi tandanya dibuat
+                 * netral; yang berwarna hanya barang nonaktif, sebab itulah
+                 * pengecualian yang perlu ditemukan pembaca (Instruksi §25).
+                 */
                 IconColumn::make('status_aktif')
                     ->label('Aktif')
-                    ->boolean(),
+                    ->boolean()
+                    ->trueColor('gray')
+                    ->falseColor('danger'),
             ])
             ->filters([
                 SelectFilter::make('kategori_id')

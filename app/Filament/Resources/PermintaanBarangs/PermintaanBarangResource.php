@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\PermintaanBarangs;
 
 use App\Filament\Resources\PermintaanBarangs\Pages;
+use App\Filament\Support\KeadaanKosong;
 use App\Models\PermintaanBarang;
 use App\Models\RiwayatPersetujuan;
 use App\Services\StokService;
@@ -83,6 +84,14 @@ class PermintaanBarangResource extends Resource
             // bertanda penyaring dari dasbor tampak tidak bekerja.
             ->deferFilters(false)
             ->defaultSort('created_at', 'desc')
+            /** Lihat catatan yang sama pada tabel Barang Persediaan. */
+            ->emptyStateIcon('heroicon-o-clipboard-document-list')
+            ->emptyStateHeading(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Tidak ada permintaan yang cocok'
+                : 'Belum ada permintaan barang')
+            ->emptyStateDescription(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Coba longgarkan penyaringnya, atau periksa kembali ejaan kata yang dicari.'
+                : 'Permintaan yang diajukan tim kerja akan muncul di sini, lengkap dengan tahap yang sedang berjalan.')
             ->columns([
                 TextColumn::make('kode_permintaan')
                     ->label('Kode')

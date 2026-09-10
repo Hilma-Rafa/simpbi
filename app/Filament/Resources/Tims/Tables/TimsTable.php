@@ -27,16 +27,22 @@ class TimsTable
                     ->placeholder('Belum ditetapkan')
                     ->searchable(),
 
+                /**
+                 * Jumlah anggota ditulis sebagai angka biasa, bukan lencana:
+                 * angka yang dibungkus pil sulit dibandingkan antar baris
+                 * karena lebar pilnya ikut berubah mengikuti isinya.
+                 */
                 TextColumn::make('anggota_count')
                     ->label('Anggota')
                     ->counts('anggota')
-                    ->alignEnd()
-                    ->badge()
-                    ->color('gray'),
+                    ->alignEnd(),
 
+                /** Lihat catatan yang sama pada tabel Barang Persediaan. */
                 IconColumn::make('status_aktif')
                     ->label('Aktif')
-                    ->boolean(),
+                    ->boolean()
+                    ->trueColor('gray')
+                    ->falseColor('danger'),
 
                 TextColumn::make('synced_at')
                     ->label('Tersinkron')

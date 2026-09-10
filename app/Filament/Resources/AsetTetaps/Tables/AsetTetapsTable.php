@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\AsetTetaps\Tables;
 
+use App\Filament\Support\KeadaanKosong;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -29,6 +30,14 @@ class AsetTetapsTable
     {
         return $table
             ->defaultSort('nama_aset')
+            /** Lihat catatan yang sama pada tabel Barang Persediaan. */
+            ->emptyStateIcon('heroicon-o-cube')
+            ->emptyStateHeading(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Tidak ada aset yang cocok'
+                : 'Belum ada aset tetap tercatat')
+            ->emptyStateDescription(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Coba longgarkan penyaringnya, atau periksa kembali ejaan kata yang dicari.'
+                : 'Aset yang dikelola Sub-Bagian Umum akan tampil di sini beserta kondisi dan tim kerja tempatnya ditempatkan.')
             ->columns([
                 TextColumn::make('nama_aset')
                     ->label('Nama Aset')
@@ -47,15 +56,25 @@ class AsetTetapsTable
                     ->placeholder('Belum ditempatkan')
                     ->toggleable(),
 
+                /**
+                 * Aset berkondisi baik merupakan mayoritas, sehingga bila
+                 * setiap baris dilencanai hijau warnanya berhenti berarti.
+                 * Lencana karena itu disediakan hanya untuk aset yang rusak.
+                 */
                 TextColumn::make('kondisi')
                     ->label('Kondisi')
-                    ->badge()
                     ->formatStateUsing(fn (string $state): string => self::KONDISI_LABEL[$state] ?? $state)
-                    ->color(fn (string $state): string => self::KONDISI_COLOR[$state] ?? 'gray'),
+                    ->badge(fn (string $state): bool => $state !== 'baik')
+                    ->color(fn (string $state): ?string => $state === 'baik'
+                        ? null
+                        : (self::KONDISI_COLOR[$state] ?? 'gray')),
 
+                /** Lihat catatan yang sama pada tabel Barang Persediaan. */
                 IconColumn::make('status_aktif')
                     ->label('Aktif')
-                    ->boolean(),
+                    ->boolean()
+                    ->trueColor('gray')
+                    ->falseColor('danger'),
 
                 TextColumn::make('sumber_data')
                     ->label('Sumber Data')

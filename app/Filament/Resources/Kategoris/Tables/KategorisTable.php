@@ -34,11 +34,17 @@ class KategorisTable
                     ->searchable()
                     ->toggleable(),
 
+                /**
+                 * Tipe kategori bukan keadaan yang menuntut perhatian,
+                 * melainkan penggolongan. Jingga karena itu dilepas: pada
+                 * Instruksi 25 jingga berarti perlu perhatian, dan memakainya
+                 * untuk penggolongan membuat maknanya luntur di seluruh sistem.
+                 */
                 TextColumn::make('tipe')
                     ->label('Tipe')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => self::TIPE_LABEL[$state] ?? $state)
-                    ->color(fn (string $state): string => $state === 'aset_tetap' ? 'warning' : 'info'),
+                    ->color(fn (string $state): string => $state === 'aset_tetap' ? 'gray' : 'info'),
 
                 TextColumn::make('created_at')
                     ->label('Dibuat')

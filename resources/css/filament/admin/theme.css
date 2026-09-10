@@ -824,3 +824,25 @@
     font-size: 1.0625rem;
     color: var(--color-navy, #0B2A5B);
 }
+
+/* ================= Kepadatan tabel =================
+ *
+ * Filament memberi setiap sel bantalan tegak 16px, yang membuat satu baris
+ * berisi nama barang dan kodenya setinggi delapan puluh piksel lebih. Pada
+ * daftar sepanjang katalog persediaan, kepadatan itu memaksa pengguna
+ * menggulir jauh untuk membandingkan angka yang sebenarnya pendek, dan
+ * membuat daftar terbaca sebagai tumpukan kotak alih-alih sebagai daftar.
+ *
+ * Bantalannya dirapatkan menjadi 10px. Instruksi §26 memang menyebut
+ * tampilan di dalam sistem lebih padat daripada halaman muka.
+ */
+.fi-ta-cell .fi-ta-text,
+.fi-ta-cell .fi-ta-icon {
+    padding-block: 0.625rem;
+}
+
+/* Baris disorot ketika kursor melewatinya, supaya mata tidak kehilangan
+ * jejak baris ketika membaca ke kanan sampai kolom terakhir. */
+.fi-ta-row:hover .fi-ta-cell {
+    background-color: var(--gray-50);
+}

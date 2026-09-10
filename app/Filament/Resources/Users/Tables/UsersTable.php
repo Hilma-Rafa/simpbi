@@ -47,9 +47,12 @@ class UsersTable
                     ->placeholder('—')
                     ->searchable()
                     ->toggleable(),
+                /** Lihat catatan yang sama pada tabel Barang Persediaan. */
                 IconColumn::make('status_aktif')
                     ->label('Aktif')
-                    ->boolean(),
+                    ->boolean()
+                    ->trueColor('gray')
+                    ->falseColor('danger'),
                 TextColumn::make('created_at')
                     ->label('Dibuat')
                     ->dateTime('d M Y')
