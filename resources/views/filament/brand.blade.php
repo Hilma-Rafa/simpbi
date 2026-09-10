@@ -10,6 +10,10 @@
     pengguna sebelum dan sesudah masuk tetap sama.
 
     Nama sistem disembunyikan ketika sisi kiri dirapatkan, agar tidak terpotong.
+
+    Warnanya terang karena bilah atas panel kini bernavy seperti bilah halaman
+    muka; nama sistem memakai huruf wordmark dengan jarak huruf yang sama,
+    sehingga lambang yang dilihat sebelum dan sesudah masuk benar-benar sama.
 --}}
 <div class="flex h-full items-center gap-2.5" x-data>
     <img
@@ -19,16 +23,16 @@
     />
 
     <span
-        class="h-6 w-px shrink-0 bg-gray-200 dark:bg-gray-700"
+        class="h-6 w-px shrink-0 bg-white/25"
         x-show="$store.sidebar?.isOpen ?? true"
         aria-hidden="true"
     ></span>
 
     <span class="leading-tight" x-show="$store.sidebar?.isOpen ?? true">
-        <span class="block text-base font-bold tracking-tight text-navy dark:text-white">
+        <span class="simpbi-wordmark block text-[0.9375rem] font-bold text-white">
             SIMPBI
         </span>
-        <span class="block whitespace-nowrap text-[0.65rem] font-medium text-gray-500 dark:text-gray-400">
+        <span class="block whitespace-nowrap text-[0.65rem] font-medium text-white/55">
             BPS Kota Jakarta Barat
         </span>
     </span>

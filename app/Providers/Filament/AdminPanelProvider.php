@@ -52,6 +52,13 @@ class AdminPanelProvider extends PanelProvider
             ])
             // Typography (Instruksi §26): Inter, system-ui, sans-serif.
             ->font('Inter')
+            // Huruf judul dan wordmark halaman muka ikut dimuat, supaya
+            // tampilan sesudah masuk mengalir dari halaman sebelum masuk
+            // dan bukan terasa seperti aplikasi yang berbeda.
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::HEAD_END,
+                fn (): string => view('filament.fonts')->render(),
+            )
             ->sidebarCollapsibleOnDesktop()
             // Kelompok menu (Instruksi §58).
             ->navigationGroups([

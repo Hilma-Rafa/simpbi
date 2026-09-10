@@ -567,3 +567,196 @@
 .fi-wi-chart .fi-section {
     height: 100%;
 }
+
+/* ================= Kerangka panel mengikuti halaman muka =================
+ *
+ * Sebelum ini, tampilan sesudah masuk memakai kerangka bawaan Filament: sisi
+ * kiri dan bilah atas serba putih, judul memakai huruf teks, dan kartu hanya
+ * dibedakan garis tipis dari latar yang hampir seputih kartunya. Akibatnya
+ * identitas yang sudah dibangun pada halaman muka — navy pekat, wordmark
+ * berjarak huruf lebar, judul Plus Jakarta Sans — hilang begitu pengguna
+ * masuk, dan layar kerja terbaca sebagai kisi kotak tanpa karakter.
+ *
+ * Blok ini memindahkan bahasa rupa halaman muka ke dalam panel: kerangka
+ * navigasi bernavy, judul memakai huruf tampilan, dan kartu diberi kedalaman
+ * bernuansa navy. Palet, radius, dan skala huruf tetap yang ditetapkan
+ * Instruksi §25–§27; tidak ada warna baru yang diperkenalkan di sini.
+ */
+:root {
+    --simpbi-huruf-judul: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --simpbi-huruf-wordmark: 'Space Grotesk', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+    /* Navy identitas (Instruksi §25) untuk bilah atas, dan satu tingkat lebih
+     * pekat untuk sisi kiri agar kedua permukaan navy tetap terbedakan tanpa
+     * memerlukan garis tebal di antaranya. */
+    --simpbi-navy-bilah: #0B2A5B;
+    --simpbi-navy-sisi: #0A2450;
+
+    /* Garis dan sorot di atas permukaan navy dinyatakan sebagai putih tembus
+     * pandang, bukan warna tetap, supaya tetap serasi bila navy-nya berubah. */
+    --simpbi-garis-terang: rgb(255 255 255 / 0.10);
+    --simpbi-teks-terang: rgb(255 255 255 / 0.72);
+    --simpbi-teks-redup: rgb(255 255 255 / 0.45);
+}
+
+/* ---- Bilah atas ---- */
+.fi-topbar {
+    background-color: var(--simpbi-navy-bilah);
+    /* Filament memasang garis bawah abu-abu lewat ring; pada navy garis itu
+     * tampak sebagai goresan kotor, jadi diganti putih tembus pandang. */
+    --tw-ring-color: var(--simpbi-garis-terang);
+    --tw-shadow: 0 1px 2px 0 rgb(11 42 91 / 0.35);
+}
+
+.fi-topbar .fi-icon-btn,
+.fi-topbar .fi-dropdown-trigger > button {
+    color: var(--simpbi-teks-terang);
+}
+
+.fi-topbar .fi-icon-btn:hover,
+.fi-topbar .fi-icon-btn:focus-visible {
+    color: #fff;
+    background-color: rgb(255 255 255 / 0.10);
+}
+
+/* Kolom pencarian: mengikuti gaya tombol pada bilah halaman muka, yaitu
+ * permukaan putih tipis dengan garis putih, bukan kotak putih pekat. */
+.fi-topbar .fi-global-search-field .fi-input-wrp,
+.fi-topbar .fi-global-search-field .fi-input-wrp:has(input:focus) {
+    background-color: rgb(255 255 255 / 0.08);
+    --tw-ring-color: rgb(255 255 255 / 0.18);
+}
+
+.fi-topbar .fi-global-search-field input {
+    color: #fff;
+}
+
+.fi-topbar .fi-global-search-field input::placeholder,
+.fi-topbar .fi-global-search-field .fi-icon {
+    color: var(--simpbi-teks-redup);
+}
+
+/* Lingkaran akun diberi cincin tipis supaya tidak lebur ke dalam navy. */
+.fi-topbar .fi-user-menu-trigger {
+    border-radius: 9999px;
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.22);
+}
+
+/* Wordmark pada bilah atas: putih, dan berjarak huruf seperti halaman muka. */
+.fi-topbar .fi-logo .simpbi-wordmark {
+    font-family: var(--simpbi-huruf-wordmark);
+    letter-spacing: 0.14em;
+}
+
+/* ---- Sisi kiri ---- */
+.fi-sidebar,
+.fi-sidebar-nav,
+.fi-sidebar-header {
+    background-color: var(--simpbi-navy-sisi);
+}
+
+.fi-sidebar-header {
+    --tw-ring-color: var(--simpbi-garis-terang);
+}
+
+.fi-sidebar-item-btn,
+.fi-sidebar-item-label,
+.fi-sidebar-group-btn {
+    color: var(--simpbi-teks-terang);
+}
+
+.fi-sidebar-item-btn .fi-icon,
+.fi-sidebar-group-btn .fi-icon {
+    color: var(--simpbi-teks-redup);
+}
+
+.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:hover,
+.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:focus-visible {
+    background-color: rgb(255 255 255 / 0.08);
+    color: #fff;
+}
+
+/* Menu yang sedang dibuka ditandai permukaan biru aksi (Instruksi §25),
+ * bukan abu-abu muda bawaan Filament yang tidak terbaca di atas navy. */
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+    background-color: var(--color-brand, #1557A6);
+}
+
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-label,
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-icon {
+    color: #fff;
+}
+
+/* Label kelompok menu memakai gaya "eyebrow" halaman muka: huruf kecil,
+ * kapital, berjarak lebar — sehingga terbaca sebagai penanda bagian, bukan
+ * sebagai menu yang bisa diklik. */
+.fi-sidebar-group-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--simpbi-teks-redup);
+}
+
+/* Batang gulir sisi kiri disamarkan agar tidak memotong permukaan navy. */
+.fi-sidebar-nav {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+
+/* ---- Judul halaman dan kartu ---- */
+.fi-header-heading {
+    font-family: var(--simpbi-huruf-judul);
+    letter-spacing: -0.02em;
+    color: var(--color-navy, #0B2A5B);
+}
+
+.fi-section-header-heading {
+    font-family: var(--simpbi-huruf-judul);
+    letter-spacing: -0.01em;
+}
+
+/* Kartu memakai radius dan bayangan yang sama dengan kartu halaman muka.
+ * Bayangannya diberi rona navy, bukan hitam netral, supaya bayangan terbaca
+ * sebagai bagian dari palet dan bukan sebagai kabut abu-abu. */
+.fi-section,
+.fi-ta-ctn {
+    border-radius: 14px;
+    --tw-shadow: 0 1px 2px 0 rgb(11 42 91 / 0.04), 0 10px 28px -18px rgb(11 42 91 / 0.28);
+}
+
+/* Angka pada tabel memakai lebar digit tetap sehingga kolom stok tersusun
+ * lurus antar baris dan mudah dibandingkan sekilas. */
+.fi-ta-cell,
+.fi-ta-text-item-label {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---- Gerak masuk panel dasbor ----
+ * Panel muncul naik sedikit dan memudar masuk, berurutan dari kiri atas.
+ * Tujuannya bukan pertunjukan: urutan itu menuntun mata membaca dasbor mulai
+ * dari ringkasan menuju rincian. Durasi ditahan pendek agar tidak menghambat
+ * pengguna yang sudah tahu tujuannya.
+ */
+@keyframes simpbi-panel-masuk {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+.fi-wi > .fi-wi-widget {
+    animation: simpbi-panel-masuk 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.fi-wi > .fi-wi-widget:nth-child(2) { animation-delay: 60ms; }
+.fi-wi > .fi-wi-widget:nth-child(3) { animation-delay: 120ms; }
+.fi-wi > .fi-wi-widget:nth-child(n + 4) { animation-delay: 180ms; }
+
+/* Pengguna yang meminta gerak dikurangi tetap mendapat tampilan yang sama,
+ * hanya tanpa perpindahan (Instruksi §45: tata letak stabil). */
+@media (prefers-reduced-motion: reduce) {
+    .fi-wi > .fi-wi-widget {
+        animation: none;
+    }
+}
