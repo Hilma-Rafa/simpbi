@@ -8,8 +8,15 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-// Pemeriksaan batas waktu tahapan permintaan barang
-Schedule::command('permintaan:lepas-hold')
-    ->hourly()
-    ->weekdays()
-    ->between('08:00', '16:00');
+// Pemeriksaan batas waktu tahapan permintaan barang.
+//
+// Jalur utama penegakan kedaluwarsa adalah middleware SapuPermintaanKedaluwarsa,
+// yang berjalan setiap kali panel dibuka. Penjadwal ini menjadi cadangan untuk
+// keadaan tidak ada pengguna yang membuka aplikasi, misalnya di luar jam kerja,
+// supaya kunci stok tidak menggantung semalaman.
+//
+// Pembatasan weekdays()/between() dilepaskan: batas waktu tahapan dihitung
+// sebagai jam kerja, sehingga tidak perlu lagi dibatasi kedua kalinya saat
+// penegakan. Membatasinya justru membuat permintaan yang lewat batas Jumat
+// sore baru ditandai kedaluwarsa Senin pagi.
+Schedule::command('permintaan:lepas-hold')->everyTenMinutes();
