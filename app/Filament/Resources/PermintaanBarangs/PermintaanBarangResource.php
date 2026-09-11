@@ -5,6 +5,7 @@ namespace App\Filament\Resources\PermintaanBarangs;
 use App\Filament\Resources\PermintaanBarangs\Pages;
 use App\Filament\Support\KeadaanKosong;
 use App\Models\PermintaanBarang;
+use App\Models\Tim;
 use App\Support\JamKerja;
 use App\Models\RiwayatPersetujuan;
 use App\Services\StokService;
@@ -100,12 +101,25 @@ class PermintaanBarangResource extends Resource
                     ->searchable()
                     ->sortable(),
 
+                // Akronim resmi dipakai bila tim memilikinya, supaya kolom ini
+                // tidak melebarkan tabel sampai kolom Batas Waktu terdorong ke
+                // luar layar. Pencarian tetap mengenai kolom aslinya, sehingga
+                // mengetik "Pertambangan" tetap menemukan tim PEK.
                 TextColumn::make('tim.nama_tim')
                     ->label('Tim Pemohon')
+                    ->formatStateUsing(fn ($state) => Tim::ringkas($state))
+                    ->tooltip(fn ($state) => Tim::ringkas($state) === $state ? null : $state)
                     ->searchable(),
 
+                // Pemohon disembunyikan secara bawaan. Namanya sudah tampil
+                // pada dialog rincian, sedangkan di tabel kolom ini hanya
+                // menambah lebar tanpa membantu pembacaan sekilas — pembaca
+                // daftar mencari kode, tahap, dan batas waktu lebih dulu.
+                // Pengguna yang membutuhkannya tetap dapat memunculkannya
+                // kembali lewat tombol pengatur kolom.
                 TextColumn::make('nama_pemohon')
-                    ->label('Pemohon'),
+                    ->label('Pemohon')
+                    ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('detail_count')
                     ->label('Jumlah Item')
@@ -118,7 +132,10 @@ class PermintaanBarangResource extends Resource
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->formatStateUsing(fn ($state) => PermintaanBarang::STATUS[$state] ?? $state)
+                    // Label pendek agar tabel muat satu layar; penyebutan
+                    // resmi tetap dapat dibaca lewat tetikus.
+                    ->formatStateUsing(fn ($state) => PermintaanBarang::labelRingkas($state))
+                    ->tooltip(fn ($state) => PermintaanBarang::STATUS[$state] ?? null)
                     ->color(fn ($state) => match ($state) {
                         'selesai'                           => 'success',
                         'ditolak_ketua', 'ditolak_kasubbag' => 'danger',

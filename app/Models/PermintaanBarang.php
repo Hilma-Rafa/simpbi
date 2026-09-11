@@ -31,6 +31,37 @@ class PermintaanBarang extends Model
     ];
 
     /**
+     * Label pendek untuk badge status pada tabel.
+     *
+     * Label panjang pada STATUS tetap dipakai di tempat yang memang menuntut
+     * penyebutan resmi: berkas ekspor, pilihan penyaring, dan kepala dialog
+     * rincian. Di dalam tabel label itu justru merugikan — "Menunggu
+     * Persetujuan Ketua Tim" sepanjang tiga puluh karakter memaksa seluruh
+     * tabel melebar sampai muncul penggulung mendatar, sehingga kolom Batas
+     * Waktu terpotong di layar biasa.
+     *
+     * Yang dibuang hanya kata "Persetujuan" dan "Verifikasi", karena tahap
+     * siapa yang sedang menahan permintaan sudah cukup ditunjukkan oleh nama
+     * jabatannya. Status yang memang sudah pendek tidak diubah, supaya kedua
+     * daftar menyebut hal yang sama dengan kata yang sama.
+     */
+    public const STATUS_RINGKAS = [
+        'menunggu_ketua'      => 'Menunggu Ketua Tim',
+        'menunggu_verifikasi' => 'Menunggu Gudang',
+        'menunggu_kasubbag'   => 'Menunggu Kasubbag',
+    ];
+
+    /**
+     * Label status sebagaimana ditampilkan pada badge tabel.
+     */
+    public static function labelRingkas(?string $status): string
+    {
+        return static::STATUS_RINGKAS[$status]
+            ?? static::STATUS[$status]
+            ?? (string) $status;
+    }
+
+    /**
      * Status akhir yang menjadikan permintaan sebagai histori.
      *
      * Permintaan pada status ini sudah berhenti berjalan pada alur enam tahap,
