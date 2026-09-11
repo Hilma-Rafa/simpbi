@@ -879,3 +879,25 @@
         animation: none;
     }
 }
+
+/* ================= Kontras teks badge kelabu =================
+ *
+ * Badge berwarna sudah ditangani App\Support\BadgeKontrasTinggi, yang menaikkan
+ * ambang kontras Filament dari 4,5 menjadi 6,0 sehingga setiap warna bergeser
+ * satu shade lebih gelap. Badge kelabu tidak ikut terangkat di sana: Filament
+ * memperlakukan 'gray' sebagai warna bawaan (HasDefaultGrayColor), melewati
+ * peta warna sama sekali, dan menuliskan `text-gray-600` langsung di CSS
+ * komponennya.
+ *
+ * Tanpa aturan di bawah, badge peran "Administrator" dan status "Bermasalah"
+ * akan terbaca lebih tipis daripada badge di sebelahnya — perbedaan yang tidak
+ * berarti apa-apa bagi pengguna, tetapi terlihat sebagai ketidakrapian.
+ */
+.fi-badge:not(.fi-color) {
+    color: var(--gray-700);
+}
+
+.dark .fi-badge:not(.fi-color) {
+    /* Pada latar gelap "lebih kontras" berarti lebih muda, bukan lebih gelap. */
+    color: var(--gray-100);
+}

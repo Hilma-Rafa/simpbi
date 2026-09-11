@@ -42,7 +42,37 @@ class AdminPanelProvider extends PanelProvider
             // Palet resmi sesuai Instruksi §25: Navy = identitas, Blue = aksi utama,
             // Orange = accent. Warna semantik mengikuti tabel design token.
             ->colors([
-                'primary' => Color::hex('#1557A6'),
+                // AKAR MASALAH TOMBOL YANG TERLALU MUDA
+                // Color::hex() hanya mengambil *rona* dari hex yang diberikan,
+                // lalu membangun tangga terang bawaan Tailwind di atas rona
+                // itu. Nilai #1557A6 sendiri tidak pernah muncul di tangga
+                // hasilnya: shade 600 — yang dipakai Filament sebagai latar
+                // tombol utama — jatuh di oklch(0.598 …), jauh lebih muda dan
+                // lebih menyala daripada biru merek yang berada di oklch(0.463 …).
+                // Akibatnya tombol "Buat Barang Persediaan" dan kawan-kawannya
+                // tampil biru terang, tidak sewarna dengan merek pada halaman
+                // muka dan kop surat.
+                //
+                // Karena itu tangganya ditulis sendiri, bukan dibangkitkan.
+                // Shade 600 dikunci tepat pada #1557A6 sehingga tombol utama
+                // memakai biru merek apa adanya, dan shade 900 dikunci pada
+                // #0B2A5B sehingga ujung gelap tangga ini mendarat pada navy
+                // institusi — bukan pada biru asing yang kebetulan segelap itu.
+                // Rona dijaga tetap di seluruh tangga; yang berubah hanya
+                // terang dan kepekatannya (Instruksi §25).
+                'primary' => [
+                    50  => 'oklch(0.9720 0.0120 256.08)',
+                    100 => 'oklch(0.9350 0.0280 256.08)',
+                    200 => 'oklch(0.8700 0.0580 256.08)',
+                    300 => 'oklch(0.7750 0.0920 256.08)',
+                    400 => 'oklch(0.6600 0.1250 256.08)',
+                    500 => 'oklch(0.5450 0.1430 256.08)',
+                    600 => 'oklch(0.4629 0.1424 256.08)', // #1557A6
+                    700 => 'oklch(0.3980 0.1260 257.00)',
+                    800 => 'oklch(0.3450 0.1100 258.00)',
+                    900 => 'oklch(0.2948 0.0953 259.53)', // #0B2A5B
+                    950 => 'oklch(0.2220 0.0720 260.00)',
+                ],
                 'navy' => Color::hex('#0B2A5B'),
                 'accent' => Color::hex('#F59E0B'),
                 'success' => Color::hex('#16A34A'),

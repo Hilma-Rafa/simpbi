@@ -6,9 +6,11 @@ use App\Services\WhatsApp\PengirimCatat;
 use App\Services\WhatsApp\PengirimFonnte;
 use App\Services\WhatsApp\PengirimOpenWa;
 use App\Services\WhatsApp\PengirimWhatsApp;
+use App\Support\BadgeKontrasTinggi;
 use Filament\Notifications\Livewire\Notifications;
 use Filament\Support\Enums\Alignment;
 use Filament\Support\Enums\VerticalAlignment;
+use Filament\Support\View\Components\BadgeComponent;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -31,6 +33,15 @@ class AppServiceProvider extends ServiceProvider
                 default  => new PengirimCatat(),
             };
         });
+
+        /*
+         * Filament menentukan warna teks badge lewat komponen yang diambil
+         * dari container (ColorManager::getComponentClasses), sehingga satu
+         * pengikatan di sini cukup untuk menaikkan kontras seluruh badge —
+         * status permintaan, peran pengguna, sampai badge pada TagsInput —
+         * tanpa perlu menimpa warnanya satu per satu lewat CSS.
+         */
+        $this->app->bind(BadgeComponent::class, BadgeKontrasTinggi::class);
     }
 
     /**
