@@ -142,8 +142,12 @@ class PermintaanBarangResource extends Resource
                     ->tooltip(fn ($state) => PermintaanBarang::STATUS[$state] ?? null)
                     ->color(fn ($state) => match ($state) {
                         'selesai'                           => 'success',
-                        'ditolak_ketua', 'ditolak_kasubbag' => 'danger',
-                        'bermasalah', 'kedaluwarsa'         => 'gray',
+                        // "Bermasalah" memakai warna yang sama dengan halaman
+                        // Riwayat dan dengan KPI pada dasbor Petugas Gudang.
+                        // Sebelumnya kelabu di sini dan merah di sana, padahal
+                        // statusnya satu dan sama-sama menuntut perhatian.
+                        'ditolak_ketua', 'ditolak_kasubbag', 'bermasalah' => 'danger',
+                        'kedaluwarsa'                       => 'gray',
                         'siap_diambil'                      => 'info',
                         'menunggu_pengesahan'               => 'info',
                         default                             => 'warning',

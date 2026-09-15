@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\BarangPersediaans\Pages;
 
 use App\Filament\Resources\BarangPersediaans\BarangPersediaanResource;
-use Filament\Actions\DeleteAction;
+use App\Filament\Support\AksiHapusTerlindung;
 use Filament\Resources\Pages\EditRecord;
 
 class EditBarangPersediaan extends EditRecord
@@ -13,7 +13,7 @@ class EditBarangPersediaan extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            AksiHapusTerlindung::tunggal(BarangPersediaanResource::ALASAN_TAK_DAPAT_DIHAPUS),
         ];
     }
 }

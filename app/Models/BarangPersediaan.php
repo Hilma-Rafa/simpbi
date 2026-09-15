@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\DilindungiRiwayat;
 use Illuminate\Database\Eloquent\Model;
 
 class BarangPersediaan extends Model
 {
+    use DilindungiRiwayat;
+
     protected $table = 'barang_persediaan';
     protected $guarded = [];
 
@@ -17,6 +20,25 @@ class BarangPersediaan extends Model
     public function mutasi()
     {
         return $this->hasMany(MutasiStok::class, 'barang_id');
+    }
+
+    /**
+     * Barang yang sudah pernah bergerak tidak boleh dihapus.
+     *
+     * Kunci asing `mutasi_stok.barang_id` memakai penghapusan berantai,
+     * sehingga menghapus barangnya ikut menghapus seluruh buku besar
+     * mutasinya — padahal buku besar itulah satu-satunya sumber Kartu Kendali,
+     * dokumen yang menjadi keluaran utama sistem ini dan bahan rekonsiliasi
+     * Sub-Bagian Umum. Kehilangannya tidak dapat dipulihkan kecuali dari
+     * cadangan.
+     *
+     * Barang yang tidak dipakai lagi dinonaktifkan lewat kolom `status_aktif`,
+     * bukan dihapus, sehingga riwayatnya tetap utuh dan kartunya tetap dapat
+     * diterbitkan untuk periode-periode sebelumnya.
+     */
+    public function punyaRiwayat(): bool
+    {
+        return $this->mutasi()->exists();
     }
 
     /**

@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\DilindungiRiwayat;
 use Illuminate\Database\Eloquent\Model;
 
 class Tim extends Model
 {
+    use DilindungiRiwayat;
+
     protected $table = 'tim';
     protected $guarded = [];
 
@@ -37,6 +40,25 @@ class Tim extends Model
         return preg_match('/\(([^()]+)\)\s*$/u', $namaTim, $cocok) === 1
             ? trim($cocok[1])
             : $namaTim;
+    }
+
+    /**
+     * Tim yang sudah dipakai catatan lain tidak boleh dihapus.
+     *
+     * Empat kunci asing merujuk `tim` dengan penolakan penghapusan: tim pemohon
+     * pada permintaan, tim asal dan tim tujuan pada BAST, serta tim pada
+     * riwayat penempatan aset. Tim yang sudah tidak berlaku lagi dinonaktifkan
+     * lewat `status_aktif`.
+     *
+     * Keanggotaan pengguna dan penempatan aset tidak ikut dihitung: keduanya
+     * memakai kunci asing yang mengosongkan diri, bukan menolak.
+     */
+    public function punyaRiwayat(): bool
+    {
+        return PermintaanBarang::where('tim_pemohon_id', $this->id)->exists()
+            || BastMutasiAset::where('tim_asal_id', $this->id)
+                ->orWhere('tim_tujuan_id', $this->id)->exists()
+            || RiwayatPenempatanAset::where('tim_id', $this->id)->exists();
     }
 
     public function ketuaTim()

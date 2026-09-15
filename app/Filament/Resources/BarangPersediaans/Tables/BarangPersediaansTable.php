@@ -2,13 +2,14 @@
 
 namespace App\Filament\Resources\BarangPersediaans\Tables;
 
+use App\Filament\Resources\BarangPersediaans\BarangPersediaanResource;
+use App\Filament\Support\AksiHapusTerlindung;
 use App\Filament\Support\KeadaanKosong;
 use App\Models\BarangPersediaan;
 use App\Services\EksporRiwayatService;
 use App\Services\KartuKendaliService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
@@ -178,7 +179,7 @@ class BarangPersediaansTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    AksiHapusTerlindung::massal(BarangPersediaanResource::ALASAN_TAK_DAPAT_DIHAPUS),
                 ]),
             ]);
     }

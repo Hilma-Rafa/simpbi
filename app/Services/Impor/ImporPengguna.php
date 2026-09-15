@@ -40,7 +40,8 @@ class ImporPengguna
                 judul: 'Username',
                 wajib: true,
                 contoh: 'wanda.pribadi',
-                catatan: 'Nama akun untuk masuk, harus unik. Inilah yang dipakai mencocokkan '
+                catatan: 'Nama akun yang harus unik. Bukan kredensial untuk masuk — yang '
+                    . 'dipakai masuk adalah Email. Username menjadi penanda yang mencocokkan '
                     . 'baris dengan akun yang sudah ada, sehingga jangan diubah setelah dibagikan.',
             ),
             Kolom::buat(
@@ -68,8 +69,10 @@ class ImporPengguna
             Kolom::buat(
                 kunci: 'email',
                 judul: 'Email',
+                wajib: true,
                 contoh: 'wanda.pribadi@bps.go.id',
-                catatan: 'Alamat surel kedinasan. Harus unik bila diisi.',
+                catatan: 'Alamat surel kedinasan, harus unik. Inilah kredensial untuk masuk ke '
+                    . 'sistem, sehingga akun tanpa surel tidak akan pernah dapat digunakan.',
             ),
             Kolom::buat(
                 kunci: 'nip',
@@ -175,7 +178,22 @@ class ImporPengguna
 
             $email = $ambil('email');
 
-            if ($email !== '' && ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            /*
+             * Email wajib, sebab halaman masuk memakainya sebagai kredensial.
+             * Sebelumnya kolom ini boleh kosong dan barisnya tetap diterima —
+             * akun yang terbentuk darinya tersimpan rapi tetapi tidak akan
+             * pernah dapat masuk, tanpa satu pun keterangan mengapa.
+             */
+            if ($email === '') {
+                $hasil->catatGalat(
+                    $b['nomor'],
+                    'Kolom Email kosong. Email wajib diisi karena dipakai untuk masuk ke sistem.'
+                );
+
+                continue;
+            }
+
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $hasil->catatGalat($b['nomor'], 'Email "' . $email . '" tidak berbentuk alamat surel.');
 
                 continue;
@@ -185,7 +203,7 @@ class ImporPengguna
                 ->where('username', '!=', $username)
                 ->exists();
 
-            if ($email !== '' && $bentrok) {
+            if ($bentrok) {
                 $hasil->catatGalat($b['nomor'], 'Email "' . $email . '" sudah dipakai akun lain.');
 
                 continue;
@@ -195,7 +213,7 @@ class ImporPengguna
                 'name'         => $nama,
                 'role'         => $peran,
                 'tim_id'       => $tim?->id,
-                'email'        => $email ?: null,
+                'email'        => $email,
                 'nip'          => $ambil('nip') ?: null,
                 // Nomor diseragamkan di sini juga, sama seperti ketika diketik
                 // lewat halaman Pengaturan, supaya gerbang WhatsApp tidak

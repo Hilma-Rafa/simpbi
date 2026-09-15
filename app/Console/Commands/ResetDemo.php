@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
 use App\Support\Cadangan;
 use Database\Seeders\SaldoAwalKartuKendaliSeeder;
 use Illuminate\Console\Command;
@@ -82,14 +83,44 @@ class ResetDemo extends Command
         $this->components->task("Menyapu {$disapu} berkas dokumen dan tanda tangan", fn (): bool => true);
 
         $this->newLine();
-        $this->components->twoColumnDetail('Akun bawaan', 'admin · kasubbag · gudang · ketua01 · tim01');
-        $this->components->twoColumnDetail('Kata sandi', 'password');
         $this->components->twoColumnDetail('Saldo awal kartu kendali', $saldo);
         $this->newLine();
+
+        $this->daftarAkun();
 
         $this->components->info('Reset demo selesai. Basis data siap dipakai untuk pengujian.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Menampilkan akun yang benar-benar ada sesudah seeder berjalan.
+     *
+     * Dibaca dari basis data, bukan ditulis sebagai daftar tetap, karena daftar
+     * tetap akan basi tanpa ada yang menyadarinya: `KetuaTimSeeder` menimpa
+     * surel akun Ketua Tim dengan surel pegawai yang sebenarnya bila berkas
+     * sumbernya tersedia, sehingga alamat masuknya berubah mengikuti data.
+     *
+     * Yang ditampilkan adalah **surel**, sebab itulah kredensial pada halaman
+     * masuk — bukan username, yang hanya menjadi kunci alami saat impor.
+     */
+    protected function daftarAkun(): void
+    {
+        $peran = ['admin' => 'Admin Sistem', 'kasubbag' => 'Kasubbag Umum',
+            'petugas_gudang' => 'Petugas Gudang', 'ketua_tim' => 'Ketua Tim', 'tim' => 'Tim'];
+
+        $this->components->twoColumnDetail('<fg=gray>Masuk memakai SUREL</>', '<fg=gray>kata sandi: password</>');
+
+        foreach ($peran as $kunci => $label) {
+            $akun = User::where('role', $kunci)->orderBy('id')->first();
+
+            $this->components->twoColumnDetail(
+                $label,
+                $akun?->email ?: '<fg=yellow>tidak ada akun untuk peran ini</>',
+            );
+        }
+
+        $this->newLine();
     }
 
     /**

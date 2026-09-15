@@ -218,7 +218,7 @@
                     <img src="{{ $qrFootnote }}" alt="Kode verifikasi keaslian">
                 </td>
                 <td class="ck-teks">
-                    <p>* Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik yang diterbitkan oleh Sistem Informasi Manajemen Permintaan Barang dan Inventaris.</p>
+                    <p>* Dokumen ini telah disahkan secara elektronik melalui Sistem Informasi Manajemen Permintaan Barang dan Inventaris.</p>
                     <p>* Pindai kode QR di samping untuk memeriksa keaslian dokumen</p>
                 </td>
                 {{-- Kolom penyisa: menampung sisa lebar halaman supaya tata

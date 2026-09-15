@@ -32,6 +32,12 @@ class TimResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'nama_tim';
 
+    /** Keterangan yang dibaca pengguna ketika penghapusan ditolak. */
+    public const ALASAN_TAK_DAPAT_DIHAPUS =
+        'Tim kerja yang sudah pernah mengajukan permintaan atau tercantum pada BAST mutasi aset '
+        . 'tidak dapat dihapus, sebab namanya melekat pada dokumen yang sudah terbit. Nonaktifkan '
+        . 'timnya lewat Status Aktif agar tidak lagi dapat dipilih, sementara riwayatnya tetap utuh.';
+
     public static function canAccess(): bool
     {
         return in_array(auth()->user()?->role, ['admin', 'kasubbag']);

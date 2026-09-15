@@ -6,7 +6,8 @@ use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Filament\Support\AksiImpor;
 use App\Services\Impor\ImporPengguna;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use App\Filament\Support\AksiHapusTerlindung;
+use App\Filament\Resources\Users\UserResource;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -84,7 +85,7 @@ class UsersTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    AksiHapusTerlindung::massal(UserResource::ALASAN_TAK_DAPAT_DIHAPUS),
                 ]),
             ]);
     }

@@ -36,6 +36,13 @@ class UserResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    /** Keterangan yang dibaca pengguna ketika penghapusan ditolak. */
+    public const ALASAN_TAK_DAPAT_DIHAPUS =
+        'Pengguna yang sudah pernah mengajukan permintaan, menjalankan tahapan persetujuan, '
+        . 'mencatat mutasi stok, atau membuat BAST tidak dapat dihapus, sebab namanya melekat pada '
+        . 'dokumen yang sudah terbit. Nonaktifkan akunnya lewat Status Aktif agar tidak lagi dapat '
+        . 'masuk, sementara jejaknya pada dokumen tetap utuh.';
+
     public static function canAccess(): bool
     {
         return auth()->user()?->role === 'admin';

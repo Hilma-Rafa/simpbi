@@ -249,6 +249,28 @@ class DokumenBuktiTest extends TestCase
         );
     }
 
+    /**
+     * Catatan kaki tidak boleh mengaku memakai sertifikat elektronik.
+     *
+     * SIMPBI tidak menerbitkan sertifikat elektronik dan tidak tersambung ke
+     * penyelenggara sertifikasi mana pun; yang ada adalah token acak dan
+     * halaman verifikasi. Kalimat lama karena itu mengklaim lebih daripada yang
+     * benar-benar dikerjakan sistem, pada dokumen yang beredar ke luar.
+     */
+    public function test_catatan_kaki_tidak_mengklaim_sertifikat_elektronik(): void
+    {
+        [$permintaan] = $this->permintaanTuntas();
+
+        $tampilan = view('pdf.bukti-permintaan', $this->semuaTampilan($permintaan)[0])->render();
+
+        $this->assertStringContainsString(
+            'telah disahkan secara elektronik melalui Sistem Informasi Manajemen Permintaan Barang dan Inventaris',
+            $tampilan,
+        );
+        $this->assertStringNotContainsString('sertifikat elektronik', $tampilan);
+        $this->assertStringNotContainsString('BSrE', $tampilan);
+    }
+
     /** Membaca kembali alamat yang tersandi di dalam gambar kode QR. */
     private function bacaKodeQr(string $dataUri): string
     {

@@ -5,7 +5,8 @@ namespace App\Filament\Resources\Tims\Tables;
 use App\Filament\Support\AksiImpor;
 use App\Services\Impor\ImporTimKerja;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
+use App\Filament\Support\AksiHapusTerlindung;
+use App\Filament\Resources\Tims\TimResource;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -78,7 +79,7 @@ class TimsTable
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    AksiHapusTerlindung::massal(TimResource::ALASAN_TAK_DAPAT_DIHAPUS),
                 ]),
             ]);
     }

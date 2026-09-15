@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Concerns\DilindungiRiwayat;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Filament\Models\Contracts\FilamentUser;
@@ -12,6 +13,8 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements FilamentUser
 {
+    use DilindungiRiwayat;
+
     /**
      * Kewenangan membuka panel SIMPBI.
      *
@@ -34,6 +37,29 @@ class User extends Authenticatable implements FilamentUser
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
+
+    /**
+     * Pengguna yang sudah pernah bertindak tidak boleh dihapus.
+     *
+     * Lima kunci asing merujuk `users` dengan penolakan penghapusan: pengaju
+     * permintaan, pelaksana tahapan persetujuan, petugas pada buku besar stok,
+     * pembuat BAST, dan petugas yang mencatat ketidaksesuaian. Menghapusnya
+     * hanya menghasilkan galat basis data mentah di layar, sementara maksud
+     * sebenarnya — pegawai itu tidak lagi memakai sistem — sudah dilayani kolom
+     * `status_aktif`.
+     *
+     * Notifikasi sengaja tidak ikut dihitung: kunci asingnya berantai, jadi
+     * notifikasi memang ikut terhapus bersama akunnya dan itu tidak menghapus
+     * jejak apa pun pada dokumen.
+     */
+    public function punyaRiwayat(): bool
+    {
+        return PermintaanBarang::where('pengaju_id', $this->id)->exists()
+            || RiwayatPersetujuan::where('pelaksana_id', $this->id)->exists()
+            || MutasiStok::where('petugas_id', $this->id)->exists()
+            || BastMutasiAset::where('dibuat_oleh_id', $this->id)->exists()
+            || KetidaksesuaianBarang::where('petugas_id', $this->id)->exists();
+    }
 
     /** Tim kerja tempat pengguna bernaung (null untuk peran non-tim). */
     public function tim(): BelongsTo

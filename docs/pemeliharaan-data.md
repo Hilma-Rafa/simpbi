@@ -174,8 +174,29 @@ pun dibaca, dan **tidak dapat dilewati** — termasuk oleh `--paksa`.
 | Permintaan, persetujuan, ketidaksesuaian, notifikasi, antrean | kosong |
 | Dokumen dan tanda tangan | kosong |
 
-Akun bawaan: `admin`, `kasubbag`, `gudang`, `ketua01`, `tim01` — kata sandi
-`password`.
+**Masuk memakai surel, bukan username.** Halaman masuk SIMPBI meminta Alamat
+Email; username hanya dipakai sebagai kunci alami saat impor data pengguna.
+
+Akun bawaan sesudah seeder, seluruhnya berkata sandi `password`:
+
+| Peran | Surel |
+|---|---|
+| Admin Sistem | `admin@bps.go.id` |
+| Kasubbag Umum | `kasubbag@bps.go.id` |
+| Petugas Gudang | `gudang@bps.go.id` |
+| Tim | `tim01@bps.go.id` |
+| Ketua Tim | mengikuti data pegawai — lihat catatan di bawah |
+
+Surel akun Ketua Tim **tidak tetap**. `PenggunaSeeder` membuatnya sebagai
+`ketua01@bps.go.id`, lalu `KetuaTimSeeder` menimpanya dengan surel pegawai yang
+sebenarnya apabila `database/data/nomor-wa-ketua-tim.xlsx` tersedia — pada
+pemasangan ini menjadi `wanda.pribadi@bps.go.id`. Berkas itu sengaja tidak ikut
+repositori karena memuat nomor telepon pegawai, sehingga pada pemasangan yang
+baru saja di-clone surelnya tetap `ketua01@bps.go.id`.
+
+Karena itu `simpbi:reset-demo` **menampilkan surel yang sebenarnya** sesudah
+seeder selesai, dibaca langsung dari basis data. Ikuti keluaran perintahnya,
+bukan daftar di atas, bila keduanya berbeda.
 
 **Yang hilang:** data yang pernah diimpor atau diketik lewat antarmuka dan tidak
 ada di seeder, serta pengaturan batas jam dan WhatsApp yang kembali ke nilai

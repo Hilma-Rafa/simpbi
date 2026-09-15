@@ -87,7 +87,7 @@ class ImporPenggunaTest extends TestCase
 
         $this->impor([
             self::TAJUK,
-            ['wanda.pribadi', 'Wanda Pribadi', 'Ketua Tim', 'Statistik Sosial', '', '', '', 'Ya'],
+            ['wanda.pribadi', 'Wanda Pribadi', 'Ketua Tim', 'Statistik Sosial', 'wanda.pribadi@bps.go.id', '', '', 'Ya'],
         ]);
 
         $this->assertSame(
@@ -100,8 +100,8 @@ class ImporPenggunaTest extends TestCase
     {
         $hasil = $this->impor([
             self::TAJUK,
-            ['gudang1', 'Petugas Satu', 'Petugas Gudang', '', '', '', '', 'Ya'],
-            ['gudang2', 'Petugas Dua', 'petugas_gudang', '', '', '', '', 'Ya'],
+            ['gudang1', 'Petugas Satu', 'Petugas Gudang', '', 'gudang1@bps.go.id', '', '', 'Ya'],
+            ['gudang2', 'Petugas Dua', 'petugas_gudang', '', 'gudang2@bps.go.id', '', '', 'Ya'],
         ]);
 
         $this->assertSame(2, $hasil->ditambah);
@@ -127,6 +127,7 @@ class ImporPenggunaTest extends TestCase
         $pengguna = User::create([
             'username'          => 'wanda.pribadi',
             'name'              => 'Wanda',
+            'email'             => 'wanda.pribadi@bps.go.id',
             'role'              => 'tim',
             'tim_id'            => $tim->id,
             'password'          => 'SandiPilihanSendiri1',
@@ -136,7 +137,7 @@ class ImporPenggunaTest extends TestCase
 
         $hasil = $this->impor([
             self::TAJUK,
-            ['wanda.pribadi', 'Wanda Pribadi', 'Ketua Tim', 'Statistik Sosial', '', '', '', 'Ya'],
+            ['wanda.pribadi', 'Wanda Pribadi', 'Ketua Tim', 'Statistik Sosial', 'wanda.pribadi@bps.go.id', '', '', 'Ya'],
         ]);
 
         $pengguna->refresh();
@@ -201,6 +202,53 @@ class ImporPenggunaTest extends TestCase
 
         $this->assertNull(User::where('username', 'orang.baru')->first());
         $this->assertStringContainsString('sudah dipakai akun lain', $hasil->galat[0]);
+    }
+
+    /**
+     * Email wajib, sebab halaman masuk memakainya sebagai kredensial.
+     *
+     * Sebelumnya kolom ini boleh kosong dan barisnya tetap diterima. Akun yang
+     * lahir darinya tersimpan rapi, tampak sah pada daftar pengguna, dan tidak
+     * akan pernah dapat masuk — tanpa satu pun keterangan mengapa.
+     */
+    public function test_baris_tanpa_email_ditolak_karena_email_dipakai_untuk_masuk(): void
+    {
+        $hasil = $this->impor([
+            self::TAJUK,
+            ['tanpa.email', 'Tanpa Email', 'Admin Sistem', '', '', '', '', 'Ya'],
+        ]);
+
+        $this->assertNull(
+            User::where('username', 'tanpa.email')->first(),
+            'Akun yang tidak akan pernah bisa masuk tidak boleh terbentuk.',
+        );
+        $this->assertStringContainsString('Email', $hasil->galat[0]);
+        $this->assertStringContainsString('masuk ke sistem', $hasil->galat[0]);
+    }
+
+    public function test_email_yang_bukan_alamat_surel_ditolak(): void
+    {
+        $hasil = $this->impor([
+            self::TAJUK,
+            ['email.rusak', 'Email Rusak', 'Admin Sistem', '', 'bukan-surel', '', '', 'Ya'],
+        ]);
+
+        $this->assertNull(User::where('username', 'email.rusak')->first());
+        $this->assertStringContainsString('tidak berbentuk alamat surel', $hasil->galat[0]);
+    }
+
+    public function test_email_yang_sah_tetap_diterima(): void
+    {
+        $hasil = $this->impor([
+            self::TAJUK,
+            ['email.sah', 'Email Sah', 'Admin Sistem', '', 'email.sah@bps.go.id', '', '', 'Ya'],
+        ]);
+
+        $this->assertSame([], $hasil->galat);
+        $this->assertSame(
+            'email.sah@bps.go.id',
+            User::where('username', 'email.sah')->value('email'),
+        );
     }
 
     // =====================================================================

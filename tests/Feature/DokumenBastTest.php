@@ -153,6 +153,24 @@ class DokumenBastTest extends TestCase
         $this->assertStringContainsString('Ketua Tim ' . $bast->timTujuan->nama_tim, $tampilan);
     }
 
+    /**
+     * Catatan kaki BAST pun tidak boleh mengaku memakai sertifikat elektronik.
+     *
+     * Alasannya sama dengan bukti permintaan: yang ada token acak dan halaman
+     * verifikasi, bukan sertifikat yang diterbitkan siapa pun.
+     */
+    public function test_catatan_kaki_tidak_mengklaim_sertifikat_elektronik(): void
+    {
+        $tampilan = view('pdf.bast-mutasi', $this->dataTampilan($this->bastDisahkan()))->render();
+
+        $this->assertStringContainsString(
+            'telah disahkan secara elektronik melalui Sistem Informasi Manajemen Permintaan Barang dan Inventaris',
+            $tampilan,
+        );
+        $this->assertStringNotContainsString('sertifikat elektronik', $tampilan);
+        $this->assertStringNotContainsString('BSrE', $tampilan);
+    }
+
     /** BAST yang belum disahkan terbit tanpa kode, sebagaimana sebelumnya. */
     public function test_bast_belum_disahkan_terbit_tanpa_kode(): void
     {

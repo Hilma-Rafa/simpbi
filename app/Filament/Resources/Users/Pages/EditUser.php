@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
-use Filament\Actions\DeleteAction;
+use App\Filament\Support\AksiHapusTerlindung;
 use Filament\Resources\Pages\EditRecord;
 
 class EditUser extends EditRecord
@@ -13,7 +13,7 @@ class EditUser extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            AksiHapusTerlindung::tunggal(UserResource::ALASAN_TAK_DAPAT_DIHAPUS),
         ];
     }
 }

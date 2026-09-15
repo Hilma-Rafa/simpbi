@@ -32,6 +32,19 @@ class BarangPersediaanResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'nama_barang';
 
+    /**
+     * Keterangan yang dibaca pengguna ketika penghapusan ditolak.
+     *
+     * Ditaruh di sini, bukan di dalam masing-masing aksi, supaya halaman sunting
+     * dan aksi massal pada tabel tidak pernah menerangkan hal yang berbeda untuk
+     * penolakan yang sama.
+     */
+    public const ALASAN_TAK_DAPAT_DIHAPUS =
+        'Barang yang sudah memiliki riwayat mutasi stok tidak dapat dihapus, sebab riwayat itulah '
+        . 'sumber Kartu Kendali dan akan ikut terhapus bersamanya. Nonaktifkan barangnya lewat '
+        . 'Status Aktif agar tidak lagi muncul pada katalog permintaan, sementara kartunya tetap '
+        . 'dapat diterbitkan.';
+
     public static function canAccess(): bool
     {
         return in_array(auth()->user()?->role, ['admin', 'kasubbag']);

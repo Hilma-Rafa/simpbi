@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Tims\Pages;
 
 use App\Filament\Resources\Tims\TimResource;
-use Filament\Actions\DeleteAction;
+use App\Filament\Support\AksiHapusTerlindung;
 use Filament\Resources\Pages\EditRecord;
 
 class EditTim extends EditRecord
@@ -13,7 +13,7 @@ class EditTim extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            AksiHapusTerlindung::tunggal(TimResource::ALASAN_TAK_DAPAT_DIHAPUS),
         ];
     }
 }
