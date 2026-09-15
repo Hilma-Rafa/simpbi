@@ -9,6 +9,7 @@ use App\Models\Notifikasi;
 use App\Models\PermintaanBarang;
 use App\Models\User;
 use App\Support\NomorWhatsApp;
+use App\Support\PengalihanWhatsApp;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -101,10 +102,22 @@ class NotifikasiService
 
         $urutan = 0;
 
+        // Dibaca sekali di luar perulangan: keadaannya tidak mungkin berubah
+        // di tengah penerbitan satu kejadian, dan membacanya per penerima
+        // berarti satu kueri tambahan untuk tiap orang.
+        $dialihkan = PengalihanWhatsApp::menyala();
+
         foreach (collect($penerima)->filter()->unique('id') as $pengguna) {
             // Pengguna tanpa nomor tidak dibuatkan baris sama sekali, supaya
             // riwayat pengiriman tidak dipenuhi kegagalan yang sudah pasti.
-            if (! NomorWhatsApp::normalkan($pengguna->no_hp)) {
+            //
+            // Kecuali ketika pengalihan menyala. Tujuan pengiriman saat itu
+            // bukan nomor penggunanya, sehingga akun yang memang belum
+            // bernomor pun tetap menghasilkan pesan. Tanpa pengecualian ini
+            // peragaan tampak separuh rusak: tahap Kasubbag dan Petugas Gudang
+            // tidak memunculkan pesan apa pun, bukan karena alurnya salah,
+            // melainkan karena akun peragaannya belum diisi nomor.
+            if (! $dialihkan && ! NomorWhatsApp::normalkan($pengguna->no_hp)) {
                 continue;
             }
 

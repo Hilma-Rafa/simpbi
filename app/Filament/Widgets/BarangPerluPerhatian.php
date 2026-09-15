@@ -2,7 +2,7 @@
 
 namespace App\Filament\Widgets;
 
-use App\Filament\Resources\BarangPersediaans\BarangPersediaanResource;
+use App\Filament\Pages\KartuKendali;
 use App\Models\BarangPersediaan;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
@@ -67,8 +67,21 @@ class BarangPerluPerhatian extends Widget
             ]);
     }
 
+    /**
+     * Tujuan tautan pada judul panel.
+     *
+     * Bukan daftar Barang Persediaan, meski itulah isi panelnya. Sumber daya
+     * tersebut hanya terbuka bagi Admin dan Kasubbag, sedangkan panel ini
+     * hanya tampil bagi Petugas Gudang — sehingga satu-satunya peran yang
+     * melihatnya adalah satu-satunya peran yang ditolak 403 ketika mengkliknya.
+     *
+     * Kartu Kendali dipilih sebagai gantinya: halaman itu terbuka bagi Petugas
+     * Gudang dan memuat seluruh barang beserta stok awal, pemasukan,
+     * pengeluaran, dan sisanya — keterangan yang justru dicari orang yang baru
+     * saja melihat sebuah barang menipis.
+     */
     public function getTautanSemuaProperty(): string
     {
-        return BarangPersediaanResource::getUrl('index');
+        return KartuKendali::getUrl();
     }
 }

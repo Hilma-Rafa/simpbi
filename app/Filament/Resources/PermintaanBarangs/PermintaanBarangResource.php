@@ -4,6 +4,10 @@ namespace App\Filament\Resources\PermintaanBarangs;
 
 use App\Filament\Resources\PermintaanBarangs\Pages;
 use App\Filament\Support\KeadaanKosong;
+use App\Filament\Forms\Components\KanvasTandaTangan;
+use App\Models\User;
+use App\Support\TandaTangan;
+use Illuminate\Support\HtmlString;
 use App\Models\PermintaanBarang;
 use App\Models\Tim;
 use App\Support\JamKerja;
@@ -414,7 +418,30 @@ class PermintaanBarangResource extends Resource
                     ->modalDescription('Tandai bahwa barang telah disiapkan dan dapat diambil oleh unit pemohon.')
                     ->modalSubmitActionLabel('Tandai Siap Diambil')
                     ->modalCancelActionLabel('Batal')
-                    ->action(fn ($record) => static::tandaiSiapDiambil($record)),
+                    // Disempitkan agar lebar dialog mengikuti kotak tanda
+                    // tangan. Pada lebar bawaan, kotaknya duduk di kiri dan
+                    // menyisakan separuh dialog kosong di sebelah kanan.
+                    ->modalWidth(Width::Medium)
+                    ->schema([
+                        /*
+                         * Tanda tangan dibubuhkan pada saat penyiapan, bukan
+                         * saat dokumen terbit, sebab inilah momen Petugas
+                         * Gudang menyatakan barangnya benar-benar sudah
+                         * disiapkan. Kolomnya wajib hanya bagi yang belum
+                         * pernah menyimpan; yang sudah punya langsung melihat
+                         * tanda tangannya sendiri dan boleh melanjutkan tanpa
+                         * menggores apa pun.
+                         */
+                        KanvasTandaTangan::make('tanda_tangan')
+                            ->label('Tanda Tangan Petugas Gudang')
+                            ->tandaTanganTersimpan(fn (): ?string => TandaTangan::dataUri(auth()->user()))
+                            ->required(fn (): bool => ! TandaTangan::tersedia(auth()->user()))
+                            ->helperText(fn (): string => TandaTangan::tersedia(auth()->user())
+                                ? 'Tanda tangan tersimpan akan dibubuhkan pada dokumen bukti. Tekan "Gambar Ulang" bila hendak menggantinya.'
+                                : 'Bubuhkan tanda tangan Anda. Cukup sekali — berikutnya akan dipakai ulang secara otomatis.')
+                            ->columnSpanFull(),
+                    ])
+                    ->action(fn (array $data, $record) => static::tandaiSiapDiambil($record, $data)),
 
                 // ---------- TAHAP 5 : KONFIRMASI PENERIMAAN ----------
 
@@ -425,6 +452,14 @@ class PermintaanBarangResource extends Resource
                     ->button()
                     ->visible(fn ($record) => in_array(auth()->user()->role, ['tim', 'ketua_tim'])
                         && $record->status === 'siap_diambil')
+                    // Lebarnya disamakan dengan dialog penyiapan barang.
+                    // Kanvas tanda tangan mengisi lebar dialognya, sehingga
+                    // dialog yang lebih lebar menghasilkan kanvas yang lebih
+                    // besar — dan goresan yang sama menempati bagian yang lebih
+                    // kecil daripadanya. Akibatnya tanda tangan Ketua Tim
+                    // tercetak jauh lebih kecil daripada Petugas Gudang pada
+                    // surat yang sama.
+                    ->modalWidth(Width::Medium)
                     ->modalHeading('Konfirmasi Penerimaan Barang')
                     ->modalDescription('Konfirmasi penerimaan akan mengurangi stok fisik barang dan mencatat transaksi pada kartu kendali persediaan.')
                     ->modalSubmitActionLabel('Konfirmasi')
@@ -454,6 +489,43 @@ class PermintaanBarangResource extends Resource
                             ])
                             ->required()
                             ->visible(fn ($get) => $get('sesuai') === 'tidak'),
+
+                        /*
+                         * Dokumen bukti selalu terbit atas nama Ketua Tim,
+                         * meski penerimaan boleh dikonfirmasi anggota timnya.
+                         * Karena itu kanvas hanya muncul bagi Ketua Tim sendiri
+                         * — anggota tim tidak boleh menggambarkan tanda tangan
+                         * atasannya, dan yang dipakai adalah tanda tangan Ketua
+                         * Tim yang sudah tersimpan.
+                         */
+                        KanvasTandaTangan::make('tanda_tangan')
+                            ->label('Tanda Tangan Ketua Tim')
+                            ->tandaTanganTersimpan(fn (): ?string => TandaTangan::dataUri(auth()->user()))
+                            ->visible(fn (): bool => auth()->user()->role === 'ketua_tim')
+                            ->required(fn (): bool => auth()->user()->role === 'ketua_tim'
+                                && ! TandaTangan::tersedia(auth()->user()))
+                            ->helperText('Dibubuhkan pada dokumen bukti permintaan sebagai pihak yang menerima barang.')
+                            ->columnSpanFull(),
+
+                        /*
+                         * Anggota tim yang mengkonfirmasi tidak dimintai tanda
+                         * tangan, tetapi ia perlu tahu sejak awal bila dokumen
+                         * tidak akan dapat terbit — daripada mengisi seluruh
+                         * formulir lalu ditolak pada saat menekan tombol.
+                         */
+                        Placeholder::make('ketuaBelumBertandaTangan')
+                            ->hiddenLabel()
+                            ->visible(fn ($record): bool => auth()->user()->role !== 'ketua_tim'
+                                && ! TandaTangan::tersedia(static::ketuaTimPemohon($record)))
+                            ->content(fn ($record) => new HtmlString(
+                                '<p class="text-sm text-danger-600 dark:text-danger-400">'
+                                . 'Dokumen bukti permintaan terbit atas nama Ketua Tim, sedangkan '
+                                . e(static::ketuaTimPemohon($record)?->name ?? 'Ketua Tim ' . ($record->tim?->nama_tim ?? ''))
+                                . ' belum menyimpan tanda tangan. Mintalah beliau membubuhkannya sekali '
+                                . 'melalui Pengaturan &rarr; Akun Saya, atau biarkan beliau sendiri yang '
+                                . 'mengkonfirmasi penerimaan ini.'
+                                . '</p>'
+                            )),
                     ])
                     ->action(fn (array $data, $record) => static::konfirmasiPenerimaan($record, $data)),
 
@@ -649,8 +721,83 @@ class PermintaanBarangResource extends Resource
     }
 
     /** Menandai barang telah disiapkan dan siap diambil (BPMN P.2.S8). */
-    protected static function tandaiSiapDiambil(PermintaanBarang $record): void
+    /**
+     * Ketua Tim dari unit pemohon sebuah permintaan.
+     *
+     * Dokumen bukti selalu terbit atas nama Ketua Tim, sehingga tanda tangan
+     * penerima diambil dari orang ini — bukan dari siapa pun yang kebetulan
+     * menekan tombol konfirmasi.
+     */
+    protected static function ketuaTimPemohon(?PermintaanBarang $record): ?User
     {
+        return $record?->tim?->ketuaTim;
+    }
+
+    /**
+     * Menyimpan goresan baru bila ada, lalu memastikan penanda tangan memang
+     * punya tanda tangan yang dapat dibubuhkan.
+     *
+     * Mengembalikan false bila tahapan tidak boleh dilanjutkan. Keadaan itu
+     * hanya tercapai lewat satu jalan: anggota tim mengkonfirmasi penerimaan
+     * sementara Ketua Timnya belum pernah menyimpan tanda tangan. Untuk
+     * penanda tangan yang hadir sendiri, kolom kanvasnya sudah wajib diisi
+     * sehingga formulirnya tidak akan pernah sampai ke titik ini dalam
+     * keadaan kosong — pemeriksaan di sini adalah lapis kedua, bukan satu-
+     * satunya.
+     */
+    protected static function bubuhkanTandaTangan(
+        ?User $penandaTangan,
+        array $data,
+        ?PermintaanBarang $record = null,
+    ): bool {
+        if (filled($data['tanda_tangan'] ?? null) && $penandaTangan?->is(auth()->user())) {
+            /*
+             * Kiriman yang tidak dapat dibaca tidak boleh berakhir sebagai
+             * halaman galat. Isinya datang dari kanvas di peramban, sehingga
+             * kegagalannya adalah keadaan yang wajar terjadi — bukan kerusakan
+             * sistem — dan yang dibutuhkan pengguna adalah keterangan apa yang
+             * harus ia lakukan, bukan jejak tumpukan.
+             */
+            try {
+                TandaTangan::simpan($penandaTangan, $data['tanda_tangan']);
+            } catch (\InvalidArgumentException $e) {
+                Notification::make()
+                    ->title('Tanda tangan tidak terbaca')
+                    ->body('Goresan tidak tersimpan dengan benar. Coba bersihkan kotaknya, '
+                        . 'lalu bubuhkan ulang tanda tangan Anda.')
+                    ->danger()
+                    ->persistent()
+                    ->send();
+
+                return false;
+            }
+        }
+
+        if (TandaTangan::tersedia($penandaTangan)) {
+            return true;
+        }
+
+        Notification::make()
+            ->title('Tanda tangan belum tersedia')
+            ->body($penandaTangan
+                ? $penandaTangan->name . ' belum menyimpan tanda tangan, sehingga dokumen bukti '
+                    . 'tidak akan dapat diterbitkan. Mintalah beliau membubuhkannya melalui '
+                    . 'Pengaturan → Akun Saya.'
+                : 'Unit ' . ($record?->tim?->nama_tim ?? 'pemohon') . ' belum memiliki Ketua Tim, '
+                    . 'sehingga tidak ada yang dapat menandatangani penerimaan barang.')
+            ->danger()
+            ->persistent()
+            ->send();
+
+        return false;
+    }
+
+    protected static function tandaiSiapDiambil(PermintaanBarang $record, array $data = []): void
+    {
+        if (! static::bubuhkanTandaTangan(auth()->user(), $data)) {
+            return;
+        }
+
         DB::transaction(function () use ($record) {
             $record->update([
                 'status'          => 'siap_diambil',
@@ -682,6 +829,22 @@ class PermintaanBarangResource extends Resource
     {
         $sesuai       = ($data['sesuai'] ?? 'ya') === 'ya';
         $dapatDiatasi = ($data['dapat_diatasi'] ?? '1') === '1';
+
+        /*
+         * Tanda tangan hanya dituntut ketika barang benar-benar diterima.
+         * Penerimaan yang berakhir bermasalah tidak menerbitkan dokumen bukti,
+         * sehingga menahan alurnya karena tanda tangan justru mengurung
+         * permintaan yang memang perlu segera dihentikan.
+         */
+        if ($sesuai || $dapatDiatasi) {
+            $penandaTangan = auth()->user()->role === 'ketua_tim'
+                ? auth()->user()
+                : static::ketuaTimPemohon($record);
+
+            if (! static::bubuhkanTandaTangan($penandaTangan, $data, $record)) {
+                return;
+            }
+        }
 
         DB::transaction(function () use ($record, $data, $sesuai, $dapatDiatasi) {
 
@@ -822,9 +985,22 @@ class PermintaanBarangResource extends Resource
             // Lebar sedang, bukan layar penuh: rincian ini dibaca sekilas
             // dan dialog selebar layar justru menyulitkan kembali ke daftar.
             ->modalWidth(Width::TwoExtraLarge)
-            // Rincian hanya dibaca, sehingga dialog cukup punya satu tombol tutup.
+            // Rincian hanya dibaca, sehingga dialog tidak punya tombol kirim.
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Tutup')
+            /*
+             * Tombol unduh diletakkan di kaki dialog, bukan sebagai aksi baris.
+             *
+             * Berkas bukti baru terbit setelah permintaan disahkan, dan
+             * permintaan yang sudah selesai berpindah tampilannya ke halaman
+             * Riwayat. Akibatnya aksi baris pada tabel Permintaan Barang tidak
+             * pernah memenuhi syaratnya sendiri: barisnya sudah tidak ada di
+             * sana ketika berkasnya ada. Dialog rincian dipakai kedua halaman,
+             * sehingga satu tombol di sini menjangkau keduanya sekaligus.
+             */
+            ->extraModalFooterActions([
+                static::aksiUnduhBukti(),
+            ])
             ->modalContent(fn (PermintaanBarang $record) => view(
                 'filament.partials.detail-permintaan',
                 // Relasi dimuat di sini, bukan pada kueri tabel, agar daftar

@@ -3,23 +3,26 @@
 namespace App\Filament\Pages;
 
 use App\Models\BarangPersediaan;
+use App\Models\Kategori;
 use App\Models\MutasiStok;
 use App\Services\StokService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pencatatan stok masuk barang persediaan (UC-07).
@@ -122,30 +125,28 @@ class StokMasuk extends Page implements HasTable
                 ->label('Catat Stok Masuk')
                 ->icon('heroicon-m-plus')
                 ->modalHeading('Catat Stok Masuk')
+                ->modalDescription('Satu dokumen dapat memuat banyak barang sekaligus.')
                 ->modalSubmitActionLabel('Simpan')
+                ->modalCancelActionLabel('Batal')
+                ->modalWidth(Width::FourExtraLarge)
                 ->schema([
-                    Select::make('barang_id')
-                        ->label('Barang')
-                        ->options(fn () => BarangPersediaan::query()
-                            ->where('status_aktif', true)
-                            ->orderBy('nama_barang')
-                            ->pluck('nama_barang', 'id'))
-                        ->searchable()
-                        // Batas tanggal dokumen bergantung pada barang yang
-                        // dipilih, sehingga pilihannya harus langsung terkirim
-                        ->live()
-                        ->required(),
-                    TextInput::make('jumlah')
-                        ->label('Jumlah')
-                        ->numeric()
-                        ->minValue(1)
-                        ->required(),
+                    /*
+                     * Sumber, nomor dokumen, dan tanggal berlaku untuk seluruh
+                     * barang di dalam satu nota, sehingga diisi sekali saja.
+                     * Sebelumnya ketiganya diketik ulang untuk setiap barang —
+                     * satu nota berisi sepuluh jenis barang berarti tiga puluh
+                     * isian yang isinya sama persis, dan setiap pengulangan
+                     * adalah satu kesempatan salah ketik yang membuat baris
+                     * yang seharusnya sekelompok jadi tampak tidak berhubungan
+                     * pada kartu kendali.
+                     */
                     Select::make('sumber')
                         ->label('Sumber')
                         ->options(self::SUMBER_MASUK)
                         ->native(false)
                         ->live()
                         ->required(),
+
                     TextInput::make('nomor_dasar')
                         ->label('Nomor Dasar')
                         /*
@@ -166,19 +167,38 @@ class StokMasuk extends Page implements HasTable
                             ['pembelian', 'transfer_masuk'],
                             true,
                         ))
-                        ->helperText(fn (Get $get): string => in_array($get('sumber'), ['pembelian', 'transfer_masuk'], true)
-                            ? 'Nomor dokumen pengadaan atau berita acara serah terima.'
-                            : 'Nomor dokumen, bila ada.')
+                        ->helperText(function (Get $get): string {
+                            $nomor = trim((string) $get('nomor_dasar'));
+
+                            /*
+                             * Nota yang tercatat dua kali adalah kekeliruan
+                             * yang paling mungkin terjadi pada pemasukan
+                             * borongan, sekaligus paling sulit ditemukan
+                             * sesudahnya. Peringatan ini tidak menghalangi:
+                             * nomor yang sama bisa saja sah, misalnya ketika
+                             * sebagian barang pada satu nota baru menyusul.
+                             */
+                            if ($nomor !== '' && MutasiStok::where('nomor_dasar', $nomor)->exists()) {
+                                return 'Nomor ini sudah pernah tercatat. Pastikan bukan pemasukan yang terulang.';
+                            }
+
+                            return in_array($get('sumber'), ['pembelian', 'transfer_masuk'], true)
+                                ? 'Nomor dokumen pengadaan atau berita acara serah terima.'
+                                : 'Nomor dokumen, bila ada.';
+                        })
+                        ->live(onBlur: true)
                         // Mengikuti lebar kolom nomor_dasar pada tabel mutasi_stok
                         ->maxLength(60),
+
                     /*
                      * Tanggal dokumen, bukan tanggal pencatatan.
                      *
                      * Kolom "Tanggal M/K" pada kartu kendali menunjuk tanggal
                      * faktur atau berita acaranya, sedangkan dokumen kerap baru
-                     * sampai ke gudang beberapa hari kemudian. Sebelumnya kartu
-                     * selalu memakai tanggal input, sehingga hasil cetak sistem
-                     * tidak dapat disandingkan dengan arsip dokumen aslinya.
+                     * sampai ke gudang beberapa hari kemudian. Tanggal mundur
+                     * diterima: saldo seluruh barang dihitung ulang setiap buku
+                     * besarnya berubah, sehingga kolom Sisa tetap benar meski
+                     * transaksinya disisipkan di tengah.
                      */
                     DatePicker::make('tanggal')
                         ->label('Tanggal Dokumen')
@@ -188,45 +208,240 @@ class StokMasuk extends Page implements HasTable
                         ->required()
                         // Transaksi tidak dapat dicatat mendahului kejadiannya
                         ->maxDate(now())
+                        ->helperText('Tanggal pada faktur atau berita acara, bukan tanggal pencatatan.'),
+
+                    Repeater::make('barang')
+                        ->label('Barang')
+                        ->addActionLabel('Tambah barang')
+                        ->defaultItems(1)
+                        ->minItems(1)
                         /*
-                         * Tidak boleh mendahului transaksi terakhir barang itu.
-                         * Kolom "Sisa" dicetak apa adanya dari saldo yang
-                         * terekam saat transaksi dijalankan, sementara kartunya
-                         * diurutkan menurut tanggal; tanggal yang melompat ke
-                         * belakang akan memisahkan kedua urutan itu sehingga
-                         * kolom Sisa terbaca naik-turun tanpa sebab.
+                         * Urutan baris di dalam satu nota tidak membawa arti
+                         * apa pun: seluruhnya bertanggal sama, dan kartu
+                         * kendali mengurutkan transaksinya sendiri menurut
+                         * tanggal. Pegangan seret bawaan komponen justru
+                         * membuat urutannya tampak penting.
                          */
-                        ->minDate(fn (Get $get): ?string => self::batasTanggal($get('barang_id')))
-                        ->helperText(function (Get $get): string {
-                            $batas = self::batasTanggal($get('barang_id'));
+                        ->reorderable(false)
+                        /*
+                         * Baris terakhir tidak dapat dihapus. Tanpa ini daftar
+                         * barang bisa dikosongkan sama sekali, dan kekeliruan
+                         * itu baru ditegur ketika Simpan ditekan — padahal yang
+                         * dimaksud pengguna hampir selalu mengganti isi
+                         * barisnya, bukan meniadakan barangnya. `minItems`
+                         * tetap dipertahankan sebagai pengaman terakhir.
+                         */
+                        ->deletable(fn (Repeater $component): bool => count($component->getRawState()) > 1)
+                        ->columns(12)
+                        ->columnSpanFull()
+                        ->schema([
+                            Select::make('barang_id')
+                                ->label('Barang')
+                                ->options(fn () => BarangPersediaan::query()
+                                    ->where('status_aktif', true)
+                                    ->orderBy('nama_barang')
+                                    ->pluck('nama_barang', 'id'))
+                                ->searchable()
+                                ->required()
+                                /*
+                                 * Satu barang tidak boleh muncul dua kali dalam
+                                 * satu nota. Dua baris terpisah untuk barang
+                                 * yang sama menghasilkan dua transaksi bernomor
+                                 * dasar dan bertanggal sama pada kartu
+                                 * kendalinya, yang kemudian mustahil dibedakan
+                                 * — dan tampak persis seperti pencatatan ganda.
+                                 */
+                                ->distinct()
+                                ->createOptionForm(self::borangBarangBaru())
+                                ->createOptionUsing(fn (array $data): int => BarangPersediaan::create([
+                                    ...$data,
+                                    // Barang baru selalu lahir berstok nol;
+                                    // isinya datang dari nota yang sedang
+                                    // dicatat ini, bukan diketik langsung.
+                                    'stok_fisik'   => 0,
+                                    'stok_hold'    => 0,
+                                    'status_aktif' => true,
+                                ])->id)
+                                ->createOptionModalHeading('Barang Baru')
+                                ->columnSpan(6),
 
-                            return $batas
-                                ? 'Tanggal pada faktur atau berita acara. Barang ini terakhir bermutasi '
-                                    . Carbon::parse($batas)->translatedFormat('j F Y')
-                                    . ', jadi tanggalnya tidak dapat lebih awal daripada itu.'
-                                : 'Tanggal pada faktur atau berita acara, bukan tanggal pencatatan.';
-                        }),
-                    Textarea::make('keterangan')
-                        ->label('Keterangan')
-                        ->rows(2)
-                        ->maxLength(255),
+                            TextInput::make('jumlah')
+                                ->label('Jumlah')
+                                ->numeric()
+                                ->minValue(1)
+                                ->required()
+                                ->columnSpan(2),
+
+                            TextInput::make('keterangan')
+                                ->label('Keterangan')
+                                ->maxLength(255)
+                                ->columnSpan(4),
+                        ]),
                 ])
-                ->action(function (array $data): void {
-                    app(StokService::class)->tambah(
-                        barangId: (int) $data['barang_id'],
-                        jumlah: (int) $data['jumlah'],
-                        sumber: $data['sumber'],
-                        nomorDasar: $data['nomor_dasar'] ?? null,
-                        keterangan: $data['keterangan'] ?? null,
-                        petugasId: auth()->id(),
-                        tanggal: $data['tanggal'] ?? null,
-                    );
-
-                    Notification::make()
-                        ->title('Stok masuk tercatat')
-                        ->success()
-                        ->send();
+                /*
+                 * Dialog konfirmasi didaftarkan sebagai aksi anak, bukan aksi
+                 * halaman: Filament hanya mau memasang aksi bersarang yang
+                 * dikenali induknya, dan justru itulah yang menjaga dialog ini
+                 * tidak bisa dipanggil sendirian dari luar formulirnya.
+                 */
+                ->registerModalActions([
+                    $this->konfirmasiCatatAction(),
+                ])
+                ->action(function (array $data, StokMasuk $livewire): void {
+                    /*
+                     * Formulir yang lolos validasi belum mencatat apa pun.
+                     * Dialog konfirmasi ditumpuk di atasnya — formulir tetap
+                     * terpasang di bawahnya — sehingga "Batal" mengembalikan
+                     * pengguna ke isian yang masih utuh, dan buku besar stok
+                     * baru berubah setelah "Ya, Simpan" ditekan.
+                     */
+                    $livewire->mountAction('konfirmasiCatat', ['nota' => $data]);
                 }),
+        ];
+    }
+
+    /**
+     * Dialog konfirmasi sebelum nota tercatat.
+     *
+     * Ditulis sebagai aksi tersendiri, bukan `requiresConfirmation()` pada aksi
+     * Catat, sebab pilihan itu hanya mengganti ikon dan label pada modal yang
+     * sama — formulirnya tetap menjadi satu-satunya langkah. Yang dibutuhkan di
+     * sini justru langkah kedua: stok masuk mengubah buku besar dan tidak dapat
+     * dibatalkan dari layar mana pun, sehingga satu jeda untuk membaca ulang
+     * lebih murah daripada satu koreksi sesudahnya.
+     */
+    public function konfirmasiCatatAction(): Action
+    {
+        return Action::make('konfirmasiCatat')
+            ->modalHeading('Apakah data barang sudah sesuai?')
+            ->modalWidth(Width::Medium)
+            ->modalContent(fn (array $arguments) => view(
+                'filament.partials.konfirmasi-stok-masuk',
+                ['ringkasan' => $this->ringkasanNota($arguments['nota'])],
+            ))
+            ->modalSubmitActionLabel('Ya, Simpan')
+            ->modalCancelActionLabel('Batal')
+            // Nota sudah tercatat, sehingga formulir di bawahnya ikut ditutup;
+            // membiarkannya terbuka mengundang nota yang sama disimpan dua kali.
+            ->cancelParentActions()
+            ->action(fn (array $arguments) => $this->simpanNota($arguments['nota']));
+    }
+
+    /**
+     * Ringkasan nota untuk dibaca ulang di dialog konfirmasi.
+     *
+     * Seluruh angkanya diturunkan dari isian formulir yang baru saja lolos
+     * validasi, bukan dibaca dari basis data — pada titik ini memang belum ada
+     * satu baris pun yang tersimpan di sana.
+     *
+     * @param  array<string,mixed>  $data
+     * @return array<string,string>
+     */
+    protected function ringkasanNota(array $data): array
+    {
+        $baris = $data['barang'] ?? [];
+
+        return [
+            'Nota'          => filled($data['nomor_dasar'] ?? null) ? $data['nomor_dasar'] : '—',
+            'Sumber'        => self::SUMBER_MASUK[$data['sumber'] ?? null] ?? '—',
+            'Tanggal'       => Carbon::parse($data['tanggal'])->format('d-m-Y'),
+            'Jumlah barang' => count($baris) . ' barang',
+            'Total unit'    => collect($baris)->sum(fn (array $b): int => (int) ($b['jumlah'] ?? 0)) . ' unit',
+        ];
+    }
+
+    /**
+     * Mencatat satu nota ke buku besar stok.
+     *
+     * @param  array<string,mixed>  $data
+     */
+    protected function simpanNota(array $data): void
+    {
+        $stok = app(StokService::class);
+
+        /*
+         * Seluruh baris satu nota disimpan dalam satu transaksi. Sebuah nota
+         * adalah satu kejadian; tercatat separuh — misalnya karena satu barang
+         * membuat saldonya mustahil — meninggalkan stok yang tidak sesuai
+         * dokumen mana pun, dan itu sulit ditemukan justru karena sebagiannya
+         * tampak benar.
+         */
+        DB::transaction(function () use ($data, $stok): void {
+            foreach ($data['barang'] as $baris) {
+                $stok->tambah(
+                    barangId: (int) $baris['barang_id'],
+                    jumlah: (int) $baris['jumlah'],
+                    sumber: $data['sumber'],
+                    nomorDasar: $data['nomor_dasar'] ?? null,
+                    keterangan: $baris['keterangan'] ?? null,
+                    petugasId: auth()->id(),
+                    tanggal: $data['tanggal'] ?? null,
+                );
+            }
+        });
+
+        $jumlahBaris = count($data['barang']);
+
+        Notification::make()
+            ->title('Stok masuk tercatat')
+            ->body($jumlahBaris === 1
+                ? 'Satu barang tercatat pada kartu kendalinya.'
+                : $jumlahBaris . ' barang tercatat pada kartu kendalinya masing-masing.')
+            ->success()
+            ->send();
+    }
+
+    /**
+     * Borang barang baru, dipakai ketika barang yang diterima belum ada di
+     * katalog.
+     *
+     * Disediakan di dalam formulir Stok Masuk, bukan dengan menyuruh petugas
+     * membuka halaman Barang Persediaan lebih dulu, sebab barang baru justru
+     * paling sering ketahuan pada saat notanya dibuka. Memaksa keluar dari
+     * formulir berarti seluruh baris yang sudah diketik harus diulang.
+     *
+     * Stok fisik tidak diminta di sini: barang baru lahir berstok nol dan
+     * isinya datang dari nota yang sedang dicatat, sehingga setiap angka stok
+     * tetap punya baris kartu kendalinya sendiri.
+     *
+     * @return array<int,mixed>
+     */
+    protected static function borangBarangBaru(): array
+    {
+        return [
+            Select::make('kategori_id')
+                ->label('Kategori')
+                ->options(fn () => Kategori::where('tipe', 'persediaan')
+                    ->orderBy('nama_kategori')
+                    ->pluck('nama_kategori', 'id'))
+                ->searchable()
+                ->native(false)
+                ->required(),
+
+            TextInput::make('kode_barang')
+                ->label('Kode Barang')
+                ->required()
+                ->maxLength(30)
+                ->helperText('Kode hanya perlu unik di dalam kategorinya, mengikuti penomoran Sub-Bagian Umum.'),
+
+            TextInput::make('nama_barang')
+                ->label('Nama Barang')
+                ->required()
+                ->maxLength(150),
+
+            TextInput::make('satuan')
+                ->label('Satuan')
+                ->required()
+                ->maxLength(20)
+                ->placeholder('Pcs, Dus, Lusin, Rim'),
+
+            TextInput::make('stok_minimum')
+                ->label('Stok Minimum')
+                ->numeric()
+                ->minValue(0)
+                ->default(0)
+                ->required()
+                ->helperText('Nol berarti tidak dipantau; barang ini tidak akan memicu peringatan stok menipis.'),
         ];
     }
 

@@ -105,6 +105,9 @@ class AdminPanelProvider extends PanelProvider
             ->pages([
                 Dashboard::class,
             ])
+            // Halaman penggantian kata sandi didaftarkan tanpa muncul di menu:
+            // ia bukan tempat yang dituju, melainkan tempat yang menahan.
+            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([])
             // Pengaturan diletakkan di dalam menu profil, bukan menu samping,
@@ -140,6 +143,9 @@ class AdminPanelProvider extends PanelProvider
                 // untuk pengguna yang benar-benar membuka panel, bukan untuk
                 // setiap pengunjung halaman masuk.
                 SapuPermintaanKedaluwarsa::class,
+                // Menahan pemilik akun yang masih memakai kata sandi awal dari
+                // impor massal, sampai ia menggantinya sendiri.
+                \App\Http\Middleware\PaksaGantiKataSandi::class,
             ]);
     }
 }

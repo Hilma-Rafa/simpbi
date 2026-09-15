@@ -65,7 +65,19 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    /*
+     * Waktu Indonesia Barat, bukan UTC bawaan Laravel.
+     *
+     * Sistem ini melayani satu kantor di Jakarta, sehingga tidak ada zona lain
+     * yang perlu dilayani dan memisahkan waktu simpan dari waktu tampil hanya
+     * menambah tempat yang bisa terlewat. Sebelumnya `now()` mengembalikan UTC:
+     * permintaan yang dibuat pukul 13.36 tercatat 06.36, dan — yang lebih
+     * berbahaya — App\Support\JamKerja membandingkan jam operasional 08.00–16.00
+     * dengan jam UTC, sehingga yang dianggap jam kantor sebenarnya pukul
+     * 15.00–23.00 WIB dan permintaan yang masuk pagi hari jatuh tempo tengah
+     * malam.
+     */
+    'timezone' => env('APP_TIMEZONE', 'Asia/Jakarta'),
 
     /*
     |--------------------------------------------------------------------------

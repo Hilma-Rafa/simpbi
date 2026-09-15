@@ -158,6 +158,20 @@ class Riwayat extends Page implements HasTable
         // Penyaring tiap jenis berbeda, sehingga sisa penyaring jenis
         // sebelumnya dibersihkan agar tidak diterapkan pada kueri yang salah.
         $this->tableFilters = null;
+
+        /*
+         * Tabelnya dibangun ulang di sini, bukan dibiarkan terbangun sendiri.
+         *
+         * Filament menyusun tabel pada tahap `booted`, yang berjalan sebelum
+         * aksi Livewire ini dipanggil. Tanpa penyusunan ulang, tabel yang
+         * dirender setelah penggantian jenis masih tabel jenis sebelumnya —
+         * yang tampak bagi pengguna sebagai tab yang baru berpindah pada
+         * klik kedua. Penyaringnya ikut disusun ulang sebab setiap jenis
+         * memiliki penyaring yang berbeda.
+         */
+        $this->table = $this->table($this->makeTable());
+        $this->cacheSchema('tableFiltersForm', $this->getTableFiltersForm(...));
+
         $this->resetTableFiltersForm();
         $this->resetPage();
     }

@@ -86,51 +86,112 @@
         .kol-ket     { width: 150px; }
 
         /* ---------- TANDA TANGAN ---------- */
-        .ttd { width: 100%; margin-top: 40px; }
+        .ttd { width: 100%; margin-top: 36px; }
         .ttd td {
-            width: 50%;
             vertical-align: top;
             text-align: center;
             font-size: 11pt;
         }
+        /*
+         * Dua pihak pertama tidak lagi berbagi halaman rata dua. Kolom selebar
+         * separuh memusatkan isinya pada seperempat dan tigaperempat halaman,
+         * sehingga keduanya tampak tertarik ke tengah dan ruang di tepi kiri
+         * dan kanan menganggur. Kolom penyekat di antaranya mendorong masing-
+         * masing ke seperlima dan empatperlima halaman — letak yang lazim pada
+         * naskah dinas.
+         */
+        .kol-pihak  { width: 40%; }
+        .kol-sekat  { width: 20%; }
+
         .ruang-ttd { height: 78px; }
+        /* Tinggi dikunci, lebar mengikuti — goresan kanvas bernisbah 3:1
+           sehingga lebarnya tetap di dalam kolom selebar separuh halaman. */
+        .ttd-gambar { height: 72px; margin-top: 3px; }
+
         .nama-ttd {
             font-weight: bold;
             text-decoration: underline;
             white-space: nowrap;
         }
 
-        /* ---------- KODE QR ---------- */
-        .qr-bungkus {
-            width: 86px;
-            height: 86px;
-            margin: 4px auto 0 auto;
-            position: relative;
-        }
-        .qr-bungkus img.qr {
-            width: 86px;
-            height: 86px;
-        }
-        .qr-logo {
-            position: absolute;
-            top: 30px;
-            left: 30px;
-            width: 26px;
-            height: 26px;
-            background: #fff;
-            border-radius: 13px;
-            padding: 3px;
-        }
-        .qr-logo img { width: 20px; height: auto; }
+        /* ---------- PENGESAHAN ---------- */
+        /* Jarak ke baris di atasnya memberi blok ini napas sendiri, bukan
+           sekadar menyambung ekor dua pihak pertama. */
+        .pengesahan { padding-top: 30px; }
+        .ettd-jabatan { line-height: 1.35; }
 
+        /*
+         * Kode QR diberi ruang bertinggi tetap, sebagaimana ruang tanda tangan
+         * basah di atasnya. Sebelumnya kodenya dibungkus kotak berposisi
+         * `relative` dengan tepi `auto`; DomPDF menyusun kotak semacam itu di
+         * luar aliran barisnya, sehingga kode menindih tulisan "Kepala Sub
+         * Bagian Umum" tepat di atasnya. Gambar biasa di dalam ruang bertinggi
+         * tetap tidak punya cara untuk keluar dari barisnya.
+         *
+         * Ukuran gambarnya menghitung zona sunyi empat modul di tepi kode, jadi
+         * modul gelapnya sendiri tercetak selebar enam puluh poin — sekitar
+         * seperlima lebih kecil daripada sebelumnya, dan tidak lagi mendesak
+         * tulisan di atas maupun di bawahnya.
+         */
+        .ruang-ettd { height: 94px; }
+        .qr-ettd {
+            width: 86px;
+            height: 86px;
+            margin-top: 4px;
+        }
+
+        /*
+         * Catatan kaki dipaku ke dasar halaman, bukan dibiarkan mengalir
+         * sesudah blok tanda tangan. Sebagai isi yang mengalir, letaknya
+         * mengikuti panjang daftar barang — pada surat berisi satu barang ia
+         * berhenti seratus empat puluh delapan poin di atas tepi bawah kertas
+         * dan tampak mengambang di tengah halaman.
+         *
+         * `position: fixed` pada DomPDF mengacu pada kotak halaman, sehingga
+         * catatan ini duduk pada tempat yang sama berapa pun panjang isinya.
+         */
         .catatan-kaki {
-            margin-top: 34px;
-            font-size: 8pt;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            /* Tanpa tata letak tetap, DomPDF melebarkan kolom tulisan
+               mengikuti isinya dan lebar yang ditetapkan di bawah diabaikan. */
+            table-layout: fixed;
+        }
+        /* Rata bawah, meniru dokumen acuan: dasar tulisan sejajar dasar kode,
+           bukan mengambang di tengah tingginya. */
+        .catatan-kaki td { vertical-align: bottom; }
+        /* Lebar ditulis sebagai persentase, bukan piksel: pada tata letak
+           tetap DomPDF mengabaikan lebar berpiksel dan membagi sisa halaman
+           rata, sehingga tulisan terlempar enam puluh poin dari kodenya. */
+        .ck-qr { width: 7.5%; }
+        /* Modul gelapnya setara 34pt, ukuran kode pada catatan kaki dokumen
+           acuan; selebihnya zona sunyi. Lebih kecil dari ini modulnya turun di
+           bawah seperempat milimeter ketika dicetak dan pemindai ponsel mulai
+           kehilangan jejaknya. */
+        .ck-qr img { width: 48px; height: 48px; }
+        /*
+         * Lebar kolom tulisan ditahan di bawah lebar halaman supaya kalimat
+         * pertama patah menjadi dua baris. Dibiarkan selebar halaman, ia
+         * menjadi satu baris sepanjang kertas yang terbaca sebagai kalimat
+         * dokumen, bukan sebagai catatan kaki.
+         */
+        .ck-teks {
+            padding-left: 3px;
+            width: 64%;
+            font-size: 6.5pt;
             font-style: italic;
-            line-height: 1.4;
-            color: #333;
-            border-top: 1px solid #999;
-            padding-top: 6px;
+            line-height: 1.5;
+            color: #6E6D6D;
+        }
+        /* Baris sambungan menjorok sejajar tulisan, bukan sejajar tanda
+           bintangnya, sehingga penandanya tetap menonjol di tepi kiri. */
+        .ck-teks p {
+            margin: 0;
+            padding-left: 7px;
+            text-indent: -7px;
         }
     </style>
 </head>
@@ -214,47 +275,72 @@
 {{-- ==================== TANDA TANGAN ==================== --}}
 <table class="ttd">
     <tr>
-        <td>
+        <td class="kol-pihak">
             Yang Menyerahkan,<br>
             Petugas Gudang
-            <div class="ruang-ttd"></div>
+            {{-- Tanda tangan menempati ruang yang sebelumnya dibiarkan kosong
+                 untuk tanda tangan basah, sehingga tinggi barisnya tidak
+                 berubah baik dokumen ini bertanda tangan maupun tidak. --}}
+            <div class="ruang-ttd">
+                @if ($ttdPenyerah)
+                    <img class="ttd-gambar" src="{{ $ttdPenyerah }}" alt="">
+                @endif
+            </div>
             <span class="nama-ttd">{{ $penyerah ?? '.....................................' }}</span>
         </td>
-        <td>
+        <td class="kol-sekat"></td>
+        <td class="kol-pihak">
             Yang Menerima,<br>
-            {{ $permintaan->tim?->nama_tim ?? 'Unit Pemohon' }}
-            <div class="ruang-ttd"></div>
-            <span class="nama-ttd">{{ $permintaan->nama_pemohon }}</span>
+            Ketua Tim {{ $permintaan->tim?->nama_tim ?? 'Unit Pemohon' }}
+            <div class="ruang-ttd">
+                @if ($ttdPenerima)
+                    <img class="ttd-gambar" src="{{ $ttdPenerima }}" alt="">
+                @endif
+            </div>
+            <span class="nama-ttd">{{ $penerima ?? '.....................................' }}</span>
         </td>
     </tr>
     <tr>
-        <td colspan="2" style="padding-top: 26px;">
-            Mengetahui,<br>
-            Kepala Sub Bagian Umum
+        <td colspan="3" class="pengesahan">
+            <div class="ettd-jabatan">Mengetahui,<br>Kepala Sub Bagian Umum</div>
 
-            @if ($qr)
-                <div class="qr-bungkus">
-                    <img class="qr" src="{{ $qr }}" alt="Kode verifikasi">
-                    @if ($logo)
-                        <div class="qr-logo"><img src="{{ $logo }}" alt=""></div>
-                    @endif
-                </div>
-            @else
-                <div class="ruang-ttd"></div>
-            @endif
+            {{-- Kode QR inilah tanda tangan elektronik Kasubbag, berdiri
+                 sendiri tanpa bingkai maupun keterangan — sebagaimana e-TTD
+                 pada naskah dinas: kodenya sendiri yang menjadi tanda, bukan
+                 kotak yang mengelilinginya. Lambang BPS sudah menyatu di dalam
+                 kodenya, bukan ditumpangkan dari sini. --}}
+            <div class="ruang-ettd">
+                @if ($qr)
+                    <img class="qr-ettd" src="{{ $qr }}" alt="Kode verifikasi">
+                @endif
+            </div>
 
             <span class="nama-ttd">{{ $pengesah ?? '.....................................' }}</span>
         </td>
     </tr>
 </table>
 
-{{-- ==================== CATATAN KAKI ==================== --}}
-<p class="catatan-kaki">
-    Dokumen ini diterbitkan oleh Sistem Informasi Manajemen Permintaan Barang dan Inventaris
-    dan disahkan secara elektronik pada
-    {{ $permintaan->pengesahan_at?->translatedFormat('d F Y, H:i') ?? '-' }}.
-    Keaslian dokumen dapat diperiksa dengan memindai kode QR di atas.
-</p>
+{{-- ==================== CATATAN KAKI ====================
+     Bentuknya mengikuti dokumen ber-TTE yang dijadikan acuan: kode QR kecil
+     merapat ke sudut kiri bawah, keterangan di sampingnya. Penerbit sertifikat
+     yang disebut adalah sistem ini sendiri, sebab dokumen ini memang tidak
+     ditandatangani lewat penyelenggara sertifikasi mana pun. --}}
+<table class="catatan-kaki">
+    <tr>
+        <td class="ck-qr">
+            @if ($qrFootnote ?? null)
+                <img src="{{ $qrFootnote }}" alt="Kode menuju berkas asli">
+            @endif
+        </td>
+        <td class="ck-teks">
+            <p>* Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik yang diterbitkan oleh Sistem Informasi Manajemen Permintaan Barang dan Inventaris.</p>
+            <p>* Pindai kode QR di samping untuk menampilkan file asli</p>
+        </td>
+        {{-- Kolom penyisa: menampung sisa lebar halaman supaya tata letak
+             tetap tidak membagikannya kembali ke kolom tulisan. --}}
+        <td></td>
+    </tr>
+</table>
 
 </body>
 </html>

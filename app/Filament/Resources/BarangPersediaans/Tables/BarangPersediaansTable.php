@@ -5,6 +5,7 @@ namespace App\Filament\Resources\BarangPersediaans\Tables;
 use App\Filament\Support\KeadaanKosong;
 use App\Models\BarangPersediaan;
 use App\Services\EksporRiwayatService;
+use App\Services\KartuKendaliService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -144,7 +145,7 @@ class BarangPersediaansTable
                     ->schema(fn ($record) => [
                         Select::make('tahun')
                             ->label('Tahun')
-                            ->options(static::tahunTersedia($record))
+                            ->options(app(KartuKendaliService::class)->tahunTersedia($record))
                             ->default(now()->year)
                             ->selectablePlaceholder(false)
                             ->native(false)
@@ -155,17 +156,22 @@ class BarangPersediaansTable
                             ->hiddenLabel()
                             ->content(fn (Get $get) => view(
                                 'filament.partials.riwayat-mutasi',
-                                static::dataKartuKendali($record, (int) ($get('tahun') ?: now()->year)),
+                                app(KartuKendaliService::class)->data($record, (int) ($get('tahun') ?: now()->year)),
                             )),
                     ])
                     ->action(function ($record, array $data) {
                         $tahun = (int) ($data['tahun'] ?? now()->year);
 
-                        return app(EksporRiwayatService::class)->pdfTampilan(
-                            'Kartu Kendali ' . $record->nama_barang . ' ' . $tahun,
-                            'pdf.kartu-kendali',
-                            static::dataKartuKendali($record, $tahun),
-                        );
+                        $judul = 'Kartu Kendali ' . $record->nama_barang . ' ' . $tahun;
+
+                        // Tampilan kartu kendali melayani sehimpunan kartu,
+                        // sebab ekspor dari halaman Kartu Kendali menerbitkan
+                        // seluruh barang sekaligus. Di sini himpunannya berisi
+                        // satu kartu saja.
+                        return app(EksporRiwayatService::class)->pdfTampilan($judul, 'pdf.kartu-kendali', [
+                            'judul' => $judul,
+                            'kartu' => [app(KartuKendaliService::class)->data($record, $tahun)],
+                        ]);
                     }),
 
                 EditAction::make(),
@@ -177,89 +183,4 @@ class BarangPersediaansTable
             ]);
     }
 
-    // =====================================================================
-    // KARTU KENDALI
-    // =====================================================================
-
-    /**
-     * Tahun yang dapat dipilih untuk suatu barang.
-     *
-     * Berisi tahun-tahun yang benar-benar memiliki mutasi, ditambah tahun
-     * berjalan supaya kartu tahun ini tetap dapat dicetak meski belum ada
-     * transaksi. Urutan menurun agar tahun terbaru berada di paling atas.
-     *
-     * @return array<int,string>
-     */
-    protected static function tahunTersedia(BarangPersediaan $barang): array
-    {
-        $tahun = $barang->mutasi()
-            ->selectRaw('DISTINCT ' . static::petikTahun() . ' AS tahun')
-            ->pluck('tahun')
-            ->map(fn ($t) => (int) $t)
-            ->push(now()->year)
-            ->unique()
-            ->sortDesc()
-            ->values();
-
-        return $tahun->mapWithKeys(fn (int $t) => [$t => (string) $t])->all();
-    }
-
-    /**
-     * Pemetikan tahun dari kolom tanggal.
-     *
-     * MySQL dan SQLite memakai fungsi yang berbeda, sedangkan lingkungan
-     * sebenarnya MySQL (Instruksi §52) dan lingkungan pengembangan lokal
-     * memakai SQLite, sehingga keduanya perlu dilayani.
-     */
-    protected static function petikTahun(): string
-    {
-        return DB::connection()->getDriverName() === 'sqlite'
-            ? "CAST(strftime('%Y', tanggal) AS INTEGER)"
-            : 'YEAR(tanggal)';
-    }
-
-    /**
-     * Data satu kartu kendali, dipakai bersama oleh tampilan di layar dan
-     * hasil cetaknya agar keduanya tidak mungkin menampilkan angka berbeda.
-     *
-     * Stok awal diambil dari saldo transaksi terakhir sebelum periode, bukan
-     * dihitung mundur dari stok fisik, sebab kartu kendali harus mencerminkan
-     * buku besar apa adanya. Bila barang belum memiliki mutasi sebelum periode
-     * itu, stok awalnya nol dan selisih terhadap stok fisik justru terlihat
-     * sebagai temuan. Stok akhir memakai saldo transaksi terakhir di dalam
-     * periode, dan kembali ke stok awal bila periodenya kosong.
-     *
-     * @return array<string,mixed>
-     */
-    protected static function dataKartuKendali(BarangPersediaan $barang, int $tahun): array
-    {
-        // Batas periode ditulis sebagai tanggal murni, tanpa jam. Kolom tanggal
-        // bertipe DATE, sehingga membandingkannya dengan nilai bertanda waktu
-        // membuat transaksi 1 Januari terbuang pada SQLite yang membandingkan
-        // keduanya sebagai teks.
-        $mulai   = Carbon::create($tahun, 1, 1)->toDateString();
-        $selesai = Carbon::create($tahun, 12, 31)->toDateString();
-
-        $awal = (int) ($barang->mutasi()
-            ->whereDate('tanggal', '<', $mulai)
-            ->orderByDesc('tanggal')
-            ->orderByDesc('id')
-            ->value('saldo_sesudah') ?? 0);
-
-        $mutasi = $barang->mutasi()
-            ->with('petugas')
-            ->whereBetween('tanggal', [$mulai, $selesai])
-            ->orderBy('tanggal')
-            ->orderBy('id')
-            ->get();
-
-        return [
-            'barang'  => $barang->loadMissing('kategori'),
-            'mutasi'  => $mutasi,
-            'tahun'   => $tahun,
-            'periode' => 'Januari s.d. Desember ' . $tahun,
-            'awal'    => $awal,
-            'akhir'   => $mutasi->isNotEmpty() ? (int) $mutasi->last()->saldo_sesudah : $awal,
-        ];
-    }
 }

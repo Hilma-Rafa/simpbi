@@ -43,10 +43,19 @@ class LoncengNotifikasi extends Component
         $this->terakhirDilihat = $this->kueri()->max('id');
     }
 
+    /**
+     * Dasar bersama seluruh isi lonceng: daftar, angka pada badge, dan toast.
+     *
+     * Penyaringan notifikasi yang sudah disingkirkan diletakkan di sini, bukan
+     * di masing-masing pemakainya, supaya ketiganya tidak mungkin berbeda
+     * pendapat — badge yang menghitung notifikasi yang tidak tampak di panel
+     * adalah angka yang tidak dapat ditindaklanjuti pengguna.
+     */
     protected function kueri()
     {
         return Notifikasi::query()
             ->dalamAplikasi()
+            ->belumDisembunyikan()
             ->where('user_id', auth()->id());
     }
 
@@ -99,6 +108,29 @@ class LoncengNotifikasi extends Component
     public function tandaiDibaca(int $id): void
     {
         $this->kueri()->where('id', $id)->belumDibaca()->update(['dibaca_at' => now()]);
+    }
+
+    /**
+     * Menyingkirkan satu notifikasi dari panel, tanpa menghapus barisnya.
+     *
+     * Panel lonceng adalah daftar hal yang masih perlu diperhatikan, sehingga
+     * pengguna perlu dapat membersihkannya; sedangkan tabel `notifikasi`
+     * merangkap rekam jejak pengiriman yang dibaca halaman Riwayat, sehingga
+     * barisnya harus tetap ada. Kolom `disembunyikan_at` yang memisahkan kedua
+     * kepentingan itu.
+     *
+     * `dibaca_at` sengaja tidak ikut diisi: menyingkirkan tanpa membuka bukan
+     * berarti sudah membacanya, dan Riwayat sebaiknya mencatat keadaan itu apa
+     * adanya. Angka pada badge tetap turun dengan sendirinya karena kueri()
+     * yang sama sudah membuang notifikasi yang disingkirkan.
+     *
+     * Penulisan lewat kueri() membuatnya tersaring kepemilikan — notifikasi
+     * milik pengguna lain tidak dapat disingkirkan meski idnya ditebak — dan
+     * sekaligus membuat pemanggilan berulang tidak berakibat apa-apa.
+     */
+    public function sembunyikan(int $id): void
+    {
+        $this->kueri()->whereKey($id)->update(['disembunyikan_at' => now()]);
     }
 
     public function tandaiSemuaDibaca(): void

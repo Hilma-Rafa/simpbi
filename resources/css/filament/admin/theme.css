@@ -194,69 +194,24 @@
 
 /* ================= Penghalusan halaman masuk =================
  * Seluruh gerak di bawah ini hanya memakai transform dan opacity, sehingga
- * tidak memicu perhitungan ulang tata letak. Dekorasi memakai opasitas rendah
- * agar tidak menarik perhatian dari judul, dan semuanya berhenti ketika
+ * tidak memicu perhitungan ulang tata letak, dan semuanya melunak ketika
  * pengguna meminta pengurangan gerak.
+ *
+ * Gerak latar sengaja tidak ada lagi. Panel kiri dulu memuat tiga bentuk yang
+ * hanyut ditambah paralaks mengikuti penunjuk; keduanya menarik perhatian ke
+ * hiasan, padahal satu-satunya tindakan di halaman ini ada di sisi kanan.
+ * Yang tersisa adalah gerak pada momen interaksi: isian yang muncul berurutan
+ * saat halaman terbuka, kolom yang menyala saat difokus, dan tombol yang
+ * berubah keadaan saat ditekan.
  */
 
-/* ---------- Bentuk geometris yang hanyut perlahan ---------- */
-.fi-simpbi-login-bentuk {
-    position: absolute;
-    border-radius: 9999px;
-    border: 1px solid rgb(255 255 255 / 0.07);
-    will-change: transform;
-}
-
-.fi-simpbi-login-bentuk-1 {
-    inset-block-start: -6rem;
-    inset-inline-end: -7rem;
-    inline-size: 26rem;
-    block-size: 26rem;
-    animation: simpbi-hanyut-1 34s ease-in-out infinite;
-}
-
-.fi-simpbi-login-bentuk-2 {
-    inset-block-end: -9rem;
-    inset-inline-start: -6rem;
-    inline-size: 22rem;
-    block-size: 22rem;
-    border-color: rgb(245 158 11 / 0.10);
-    animation: simpbi-hanyut-2 42s ease-in-out infinite;
-}
-
-/* Persegi membulat, diputar sedikit agar tidak seragam dengan lingkaran */
-.fi-simpbi-login-bentuk-3 {
-    inset-block-start: 42%;
-    inset-inline-end: 12%;
-    inline-size: 9rem;
-    block-size: 9rem;
-    border-radius: 1.75rem;
-    animation: simpbi-hanyut-3 28s ease-in-out infinite;
-}
-
-@keyframes simpbi-hanyut-1 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-    50%      { transform: translate3d(-1.5rem, 1.75rem, 0) scale(1.04); }
-}
-
-@keyframes simpbi-hanyut-2 {
-    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-    50%      { transform: translate3d(1.75rem, -1.25rem, 0) scale(0.96); }
-}
-
-@keyframes simpbi-hanyut-3 {
-    0%, 100% { transform: translate3d(0, 0, 0) rotate(12deg); }
-    50%      { transform: translate3d(-0.75rem, -1.5rem, 0) rotate(20deg); }
-}
-
-/* ---------- Paralaks halus mengikuti penunjuk ----------
- * Nilai --px dan --py diisi skrip pada elemen pembungkus, dan hanya lapisan
- * dekorasi yang ikut bergeser. Teks tidak pernah tersentuh.
+/* ---------- Lengkung khusus untuk gerak masuk ----------
+ * Lebih tegas daripada lengkung sorot yang dipakai di berkas ini: gerak masuk
+ * harus terasa selesai lebih cepat daripada durasinya, sedangkan sorot boleh
+ * lebih datar. Keduanya sengaja dipisah, bukan disamakan.
  */
-.fi-simpbi-login-lapisan {
-    transition: transform 400ms cubic-bezier(.22, .61, .36, 1);
-    transform: translate3d(calc(var(--px, 0) * var(--kedalaman, 1)), calc(var(--py, 0) * var(--kedalaman, 1)), 0);
-    will-change: transform;
+:root {
+    --simpbi-lengkung-masuk: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 /* ---------- Lambang dapat disentuh ---------- */
@@ -286,32 +241,6 @@
     background-color: rgb(255 255 255 / 0.10);
     border-color: rgb(255 255 255 / 0.25);
     box-shadow: 0 0 0 4px rgb(245 158 11 / 0.08);
-}
-
-/* ---------- Tiga sorotan ---------- */
-.fi-simpbi-login-sorotan {
-    border: 1px solid rgb(255 255 255 / 0.08);
-    background-color: rgb(255 255 255 / 0.03);
-    border-radius: 0.875rem;
-    transition:
-        transform 250ms cubic-bezier(.22, .61, .36, 1),
-        border-color 250ms ease,
-        background-color 250ms ease;
-}
-
-.fi-simpbi-login-sorotan:hover {
-    transform: translateY(-2px);
-    border-color: rgb(255 255 255 / 0.16);
-    background-color: rgb(255 255 255 / 0.06);
-}
-
-.fi-simpbi-login-sorotan-ikon {
-    transition: background-color 250ms ease, box-shadow 250ms ease;
-}
-
-.fi-simpbi-login-sorotan:hover .fi-simpbi-login-sorotan-ikon {
-    background-color: rgb(255 255 255 / 0.14);
-    box-shadow: 0 0 0 3px rgb(255 255 255 / 0.05);
 }
 
 /* ---------- Tombol perlihatkan kata sandi ---------- */
@@ -361,6 +290,14 @@
     opacity: 0.9;
 }
 
+/* Filament memasang kelas fi-processing lewat Alpine begitu tombol ditekan,
+   yaitu sebelum jawaban jaringan datang. Menumpanginya membuat umpan baliknya
+   seketika, tanpa menunggu penanda muat yang sengaja ditunda Filament. */
+.fi-simpbi-login-form .fi-btn.fi-processing {
+    cursor: progress;
+    opacity: 0.92;
+}
+
 .fi-simpbi-login-form .fi-loading-indicator {
     inline-size: 1.05rem;
     block-size: 1.05rem;
@@ -374,24 +311,69 @@
     transition: opacity 250ms ease;
 }
 
+/* ---------- Isi sisi kanan muncul berurutan ----------
+ * Jeda antarunsur ditulis pada gaya sebaris masing-masing (--tunda), sehingga
+ * urutannya terbaca langsung dari berkas Blade-nya. Tombol Masuk memakai jeda
+ * tersendiri agar muncul sesudah kolom isian, bukan bersamaan.
+ *
+ * Memakai animation, bukan transition, karena gerak ini berjalan sekali pada
+ * saat halaman dimuat — justru ketika peramban sedang sibuk, dan animation
+ * berjalan di luar utas utama.
+ */
+@keyframes simpbi-masuk-naik {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
+@keyframes simpbi-masuk-pudar {
+    from {
+        opacity: 0;
+    }
+}
+
+.fi-simpbi-login-tampil > * {
+    animation: simpbi-masuk-naik 260ms var(--simpbi-lengkung-masuk) var(--tunda, 0ms) both;
+}
+
+.fi-simpbi-login-form .fi-ac {
+    animation: simpbi-masuk-naik 260ms var(--simpbi-lengkung-masuk) 300ms both;
+}
+
+/* ---------- Kolom isian yang sedang difokus ----------
+ * Filament sudah memberi cincin fokus, tetapi perubahannya mendadak. Di sini
+ * perpindahannya dihaluskan dan cincinnya sedikit dipertegas, supaya tempat
+ * mengetik terbaca tanpa perlu mencari kursor.
+ */
+.fi-simpbi-login-form .fi-input-wrp {
+    /* Memakai outline, bukan box-shadow: cincin fokus bawaan Filament sendiri
+     * dirangkai pada box-shadow, sehingga menimpanya justru akan menghapus
+     * penanda fokus yang wajib terlihat. */
+    outline: 0 solid color-mix(in oklab, var(--color-brand) 18%, transparent);
+    transition: outline-width 150ms ease, outline-color 150ms ease;
+}
+
+.fi-simpbi-login-form .fi-input-wrp:has(input:focus) {
+    outline-width: 4px;
+}
+
 /* ---------- Menghormati preferensi pengurangan gerak ---------- */
 @media (prefers-reduced-motion: reduce) {
-    .fi-simpbi-login-bentuk,
-    .fi-simpbi-login-lapisan {
-        animation: none;
-        transition: none;
-        transform: none;
+    /* Urutan kemunculannya dipertahankan karena membantu membaca halaman;
+       yang dilepas hanya perpindahan posisinya. */
+    .fi-simpbi-login-tampil > *,
+    .fi-simpbi-login-form .fi-ac {
+        animation-name: simpbi-masuk-pudar;
     }
 
     .fi-simpbi-login-merek,
     .fi-simpbi-login-merek-tanda,
-    .fi-simpbi-login-sorotan,
     .fi-simpbi-login-form .fi-sc-actions .fi-btn {
         transition: none;
     }
 
     .fi-simpbi-login-merek:hover,
-    .fi-simpbi-login-sorotan:hover,
     .fi-simpbi-login-form .fi-sc-actions .fi-btn:hover {
         transform: none;
     }
@@ -900,4 +882,165 @@
 .dark .fi-badge:not(.fi-color) {
     /* Pada latar gelap "lebih kontras" berarti lebih muda, bukan lebih gelap. */
     color: var(--gray-100);
+}
+
+/* ================= Kanvas tanda tangan =================
+ *
+ * Kotaknya dibuat menyerupai ruang tanda tangan pada surat: latar putih bersih
+ * dengan garis tepi putus-putus, sehingga pengguna langsung mengenali tempat
+ * itu sebagai tempat membubuhkan tanda tangan tanpa perlu membaca petunjuk.
+ *
+ * Nisbah sisi dikunci supaya bentuk goresan di layar sama dengan bentuknya
+ * ketika tercetak di PDF. Tanpa itu, tanda tangan yang digambar pada layar
+ * lebar akan tampak gepeng di dokumen.
+ */
+.fi-simpbi-ttd-kotak {
+    position: relative;
+    /*
+     * Selebar wadahnya, tanpa batas lebar.
+     *
+     * Sebelumnya lebarnya dibatasi 26rem, sehingga di dalam dialog yang lebih
+     * lebar kotaknya menempel ke kiri dan menyisakan ruang kosong di kanan —
+     * terbaca sebagai tata letak yang belum selesai, bukan sebagai keputusan.
+     *
+     * Nisbahnya 5:2, bukan 3:1 seperti semula. Lebih lega untuk tanda tangan
+     * yang berkelok ke atas dan bawah, sementara hasil cetaknya di surat hanya
+     * menyempit dari 216 menjadi 180 piksel — masih sepadan dengan ruang tanda
+     * tangan di sebelahnya. Nisbah persegi akan menyusutkannya sampai 72
+     * piksel, sekecil perangko.
+     */
+    aspect-ratio: 5 / 2;
+    background-color: #fff;
+    border: 1px dashed var(--gray-300);
+    border-radius: 0.625rem;
+    overflow: hidden;
+}
+
+.dark .fi-simpbi-ttd-kotak {
+    /* Tetap putih meski mode gelap: yang digambar adalah tinta gelap di atas
+     * kertas, dan hasilnya kelak memang tercetak di atas kertas putih. */
+    border-color: var(--gray-600);
+}
+
+.fi-simpbi-ttd-kotak canvas {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    /* Menahan peramban menggulir atau memperbesar halaman ketika jari
+     * menggores kanvas di layar sentuh. */
+    touch-action: none;
+    cursor: crosshair;
+}
+
+.fi-simpbi-ttd-tersimpan img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: contain;
+}
+
+/* Petunjuk duduk di belakang goresan dan tidak menangkap tetikus, supaya
+ * menggambar tepat di atas tulisannya tetap dapat dilakukan. */
+.fi-simpbi-ttd-petunjuk {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    font-size: 0.8125rem;
+    color: var(--gray-400);
+}
+
+.fi-simpbi-ttd-aksi {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-block-start: 0.5rem;
+}
+
+.fi-simpbi-ttd-tombol {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-brand, #1557A6);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    transition: background-color 120ms ease, color 120ms ease;
+}
+
+.fi-simpbi-ttd-tombol:hover:not(:disabled) {
+    background-color: var(--gray-100);
+}
+
+.dark .fi-simpbi-ttd-tombol:hover:not(:disabled) {
+    background-color: color-mix(in oklab, var(--gray-50) 10%, transparent);
+}
+
+.fi-simpbi-ttd-tombol:disabled {
+    color: var(--gray-400);
+    cursor: default;
+}
+
+/* ================= Pemilih periode kartu kendali =================
+ *
+ * Berdiri di atas tabel sebagai satu baris tenang, bukan sebagai panel
+ * tersendiri: periode hanyalah satu keputusan, dan membungkusnya dalam kartu
+ * membuatnya tampak sepenting isinya sendiri.
+ */
+.fi-simpbi-periode {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.625rem;
+    margin-block-end: 1rem;
+}
+
+.fi-simpbi-periode-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-navy, #0B2A5B);
+}
+
+.dark .fi-simpbi-periode-label {
+    color: var(--gray-200);
+}
+
+.fi-simpbi-periode-pilih {
+    font-size: 0.875rem;
+    padding: 0.375rem 2rem 0.375rem 0.625rem;
+    border-radius: 0.5rem;
+    background-color: #fff;
+    color: var(--gray-950);
+    box-shadow: inset 0 0 0 1px var(--gray-300);
+}
+
+.dark .fi-simpbi-periode-pilih {
+    background-color: color-mix(in oklab, var(--gray-950) 60%, transparent);
+    color: var(--gray-100);
+    box-shadow: inset 0 0 0 1px var(--gray-600);
+}
+
+.fi-simpbi-periode-catatan {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+}
+
+/* ================= Tinggi panel dasbor yang sebaris =================
+ *
+ * Dua panel yang berdampingan pada satu baris kisi sebelumnya berakhir pada
+ * tinggi yang berbeda, sebab masing-masing hanya setinggi isinya sendiri —
+ * "Kondisi Stok per Kategori" punya daerah gulir bertinggi tetap, sedangkan
+ * "Barang Perlu Perhatian" mengikuti banyaknya baris yang kebetulan ada.
+ * Selisihnya menyisakan takik kosong di bawah panel yang lebih pendek, yang
+ * terbaca sebagai kelalaian tata letak, bukan sebagai keputusan.
+ *
+ * Sel kisinya sendiri sudah sama tinggi — terukur 466 piksel bagi keduanya —
+ * dan yang tidak ikut meregang hanyalah kartu di dalam sel itu. Aturan ini
+ * meneruskan tinggi sel kepada kartunya.
+ *
+ * Hanya panel berbentuk kartu yang disasar. Kartu ringkasan angka memakai
+ * pembungkusnya sendiri (fi-wi-stats-overview) dan sengaja dibiarkan setinggi
+ * isinya, sebab keempatnya memang selalu sama tinggi.
+ */
+.fi-wi-widget > .fi-section {
+    height: 100%;
 }

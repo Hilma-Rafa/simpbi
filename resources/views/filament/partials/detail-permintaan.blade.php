@@ -122,7 +122,7 @@
                         Terhenti {{ $batasTerlewat?->translatedFormat('d F Y, H:i') ?? '—' }}
                     </p>
                     <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-400">
-                        Kunci stok dilepaskan otomatis, barang kembali tersedia untuk tim lain
+                        Maaf pengajuan Anda terhenti karena telah melewati batas waktu. 
                     </p>
                 @else
                     <p class="mt-0.5 text-sm text-gray-600 dark:text-gray-400">

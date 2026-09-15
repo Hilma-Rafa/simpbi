@@ -430,7 +430,7 @@
         $mulaiJudul = 340;
     @endphp
 
-    <section id="beranda" class="relative overflow-hidden bg-navy px-4 pb-0 pt-32 text-white md:pt-40">
+    <section id="beranda" class="relative overflow-hidden bg-navy px-4 pb-0 pt-32 text-white md:pt-20">
         {{-- Cahaya lembut, tanpa gradasi berat --}}
         <div class="pointer-events-none absolute inset-0"
             style="background:

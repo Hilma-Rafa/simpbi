@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\Users\Tables;
 
 use App\Filament\Resources\Users\Schemas\UserForm;
+use App\Filament\Support\AksiImpor;
+use App\Services\Impor\ImporPengguna;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -71,6 +73,14 @@ class UsersTable
             ])
             ->recordActions([
                 EditAction::make(),
+            ])
+            ->headerActions([
+                AksiImpor::buat(
+                    judul: ImporPengguna::JUDUL,
+                    kolom: ImporPengguna::kolom(),
+                    namaTemplate: 'Template-Impor-Pengguna.xlsx',
+                    impor: fn (string $lintasan) => app(ImporPengguna::class)->jalankan($lintasan),
+                ),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

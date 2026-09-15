@@ -109,6 +109,8 @@ class StokService
     public function konversi(PermintaanBarang $permintaan, int $petugasId): void
     {
         DB::transaction(function () use ($permintaan, $petugasId) {
+            $nomorBon = static::terbitkanNomorBon($permintaan);
+
             foreach ($permintaan->detail as $detail) {
                 $jumlah = $detail->jumlah_final ?? $detail->jumlah_diminta;
                 if ($jumlah <= 0) {
@@ -120,11 +122,12 @@ class StokService
                     continue;
                 }
 
-                $saldoSesudah = $barang->stok_fisik - $jumlah;
+                $saldoAwal = static::saldoAwalTersirat($barang);
 
+                // Kunci stok dilepas di sini; stok fisiknya sendiri ditetapkan
+                // oleh hitungUlangSaldo() bersama seluruh kolom Sisa barang ini.
                 $barang->update([
-                    'stok_fisik' => max(0, $saldoSesudah),
-                    'stok_hold'  => max(0, $barang->stok_hold - $jumlah),
+                    'stok_hold' => max(0, $barang->stok_hold - $jumlah),
                 ]);
 
                 MutasiStok::create([
@@ -132,14 +135,20 @@ class StokService
                     'tanggal'         => now()->toDateString(),
                     'jenis'           => 'keluar',
                     'jumlah'          => -$jumlah,
-                    'saldo_sesudah'   => max(0, $saldoSesudah),
+                    'saldo_sesudah'   => 0,
                     'sumber'          => 'pemakaian',
-                    'nomor_dasar'     => $permintaan->kode_permintaan,
+                    // Kolom "Nomor Dasar M/K" pada kartu kendali memakai nomor
+                    // bon, mengikuti penomoran Sub-Bagian Umum. Kode
+                    // permintaannya tetap tercatat pada keterangan sehingga
+                    // penelusuran balik ke sistem tidak hilang.
+                    'nomor_dasar'     => $nomorBon,
                     'referensi_tabel' => 'permintaan_barang',
                     'referensi_id'    => $permintaan->id,
                     'keterangan'      => 'Pengeluaran atas permintaan ' . $permintaan->kode_permintaan,
                     'petugas_id'      => $petugasId,
                 ]);
+
+                static::hitungUlangSaldo($barang->id, $saldoAwal);
             }
         });
     }
@@ -152,11 +161,16 @@ class StokService
      * acara, dan faktur kerap baru sampai ke gudang beberapa hari kemudian.
      * Bila tidak diisi, tanggal hari ini yang dipakai.
      *
-     * Tanggalnya tidak boleh mendahului transaksi terakhir barang tersebut.
-     * Kolom "Sisa" pada kartu kendali dicetak apa adanya dari saldo_sesudah,
-     * yaitu saldo pada saat transaksi dijalankan, sedangkan kartunya diurutkan
-     * menurut tanggal; membiarkan tanggal melompat ke belakang akan membuat
-     * kedua urutan itu berpisah dan kolom Sisa terbaca naik-turun tanpa sebab.
+     * Tanggalnya boleh mundur. Nota pembelian kerap baru sampai ke gudang
+     * berhari-hari setelah barangnya diterima, dan riwayat tahun berjalan
+     * kadang baru dicatatkan susulan — memaksa urutan pemasukan mengikuti
+     * urutan tanggal akan membuat keduanya mustahil dicatat pada tanggal yang
+     * sebenarnya.
+     *
+     * Konsekuensinya kolom "Sisa" tidak lagi dapat dipercaya apa adanya dari
+     * saldo pada saat transaksi disimpan, sebab penyisipan di tengah menggeser
+     * seluruh saldo sesudahnya. Karena itu saldo barang itu dihitung ulang
+     * dari awal setiap kali buku besarnya berubah.
      */
     public function tambah(int $barangId, int $jumlah, string $sumber, ?string $nomorDasar, ?string $keterangan, int $petugasId, ?string $tanggal = null): void
     {
@@ -165,29 +179,127 @@ class StokService
         DB::transaction(function () use ($barangId, $jumlah, $sumber, $nomorDasar, $keterangan, $petugasId, $tanggal) {
             $barang = BarangPersediaan::lockForUpdate()->findOrFail($barangId);
 
-            $terakhir = static::tanggalMutasiTerakhir($barangId);
-
-            if ($terakhir !== null && $tanggal < $terakhir) {
-                throw new InvalidArgumentException(
-                    'Tanggal dokumen tidak boleh mendahului transaksi terakhir barang ini (' . $terakhir . ').'
-                );
-            }
-
-            $saldoSesudah = $barang->stok_fisik + $jumlah;
-            $barang->update(['stok_fisik' => $saldoSesudah]);
+            $saldoAwal = static::saldoAwalTersirat($barang);
 
             MutasiStok::create([
                 'barang_id'     => $barang->id,
                 'tanggal'       => $tanggal,
                 'jenis'         => 'masuk',
                 'jumlah'        => $jumlah,
-                'saldo_sesudah' => $saldoSesudah,
+                // Diisi sementara; nilai sebenarnya ditetapkan oleh
+                // hitungUlangSaldo() setelah barisnya duduk pada urutannya.
+                'saldo_sesudah' => 0,
                 'sumber'        => $sumber,
                 'nomor_dasar'   => $nomorDasar,
                 'keterangan'    => $keterangan,
                 'petugas_id'    => $petugasId,
             ]);
+
+            static::hitungUlangSaldo($barang->id, $saldoAwal);
         });
+    }
+
+    /**
+     * Memberi nomor bon kepada sebuah permintaan, bila belum punya.
+     *
+     * Penomoran dimulai ulang setiap tahun dan mengikuti tahun saat barang
+     * keluar, bukan tahun permintaan diajukan — permintaan akhir Desember yang
+     * baru diambil pada Januari masuk ke kartu kendali tahun berikutnya, dan
+     * nomornya harus sejalan dengan kartu tempat ia tercatat.
+     *
+     * Nomor terakhir dicari dengan mengurutkan sebagai angka, bukan sebagai
+     * teks. Selama nomornya tiga digit keduanya kebetulan sama hasilnya, tetapi
+     * begitu melewati 999 urutan teks akan menempatkan "99" di atas "1000" dan
+     * penomoran berikutnya mengulang nomor yang sudah terpakai.
+     *
+     * Dipanggil di dalam transaksi konversi, sehingga permintaan yang berakhir
+     * bermasalah tidak pernah menghabiskan satu nomor pun.
+     */
+    protected static function terbitkanNomorBon(PermintaanBarang $permintaan): string
+    {
+        if (filled($permintaan->nomor_bon)) {
+            return $permintaan->nomor_bon;
+        }
+
+        $tahun = (int) now()->year;
+
+        $terakhir = (int) PermintaanBarang::query()
+            ->where('tahun_bon', $tahun)
+            ->orderByRaw('CAST(nomor_bon AS INTEGER) DESC')
+            ->value('nomor_bon');
+
+        $nomor = str_pad((string) ($terakhir + 1), 3, '0', STR_PAD_LEFT);
+
+        $permintaan->forceFill([
+            'nomor_bon' => $nomor,
+            'tahun_bon' => $tahun,
+        ])->save();
+
+        return $nomor;
+    }
+
+    /**
+     * Saldo yang sudah ada pada sebuah barang sebelum baris pertama buku
+     * besarnya.
+     *
+     * Buku besar mutasi tidak selalu memuat seluruh riwayat barang. Katalog
+     * awal dimasukkan dengan stok fisik apa adanya, tanpa baris "stok awal"
+     * yang mendampinginya, sehingga menghitung saldo mulai dari nol akan
+     * menghapus stok yang sebenarnya ada. Selisih antara stok fisik sekarang
+     * dan jumlah seluruh mutasi itulah saldo yang tersirat, dan angka itu yang
+     * dipakai sebagai titik mulai perhitungan ulang.
+     *
+     * Dibaca sebelum buku besarnya diubah, sebab sesudahnya selisih itu sudah
+     * bergeser oleh baris yang baru disisipkan.
+     */
+    protected static function saldoAwalTersirat(BarangPersediaan $barang): int
+    {
+        return $barang->stok_fisik - (int) MutasiStok::where('barang_id', $barang->id)->sum('jumlah');
+    }
+
+    /**
+     * Menghitung ulang kolom saldo_sesudah seluruh mutasi sebuah barang, lalu
+     * menyelaraskan stok fisiknya dengan saldo terakhir.
+     *
+     * Urutannya menurut tanggal, lalu menurut id bagi transaksi yang jatuh
+     * pada tanggal yang sama — id mewakili urutan pencatatan, yang merupakan
+     * satu-satunya keterangan urutan yang tersedia ketika tanggalnya kembar.
+     * Urutan ini harus sama persis dengan urutan yang dipakai kartu kendali
+     * saat dicetak, sebab kolom Sisa dibaca berpasangan dengan barisnya.
+     *
+     * Saldo yang jatuh di bawah nol ditolak: kartu kendali dengan sisa negatif
+     * menggambarkan keadaan yang tidak mungkin, dan lebih baik penyisipannya
+     * gagal terang-terangan daripada menerbitkan kartu yang mustahil.
+     */
+    public static function hitungUlangSaldo(int $barangId, int $saldoAwal = 0): void
+    {
+        $saldo = $saldoAwal;
+
+        $mutasi = MutasiStok::query()
+            ->where('barang_id', $barangId)
+            ->orderBy('tanggal')
+            ->orderBy('id')
+            ->get(['id', 'tanggal', 'jumlah', 'saldo_sesudah']);
+
+        foreach ($mutasi as $baris) {
+            $saldo += $baris->jumlah;
+
+            if ($saldo < 0) {
+                throw new InvalidArgumentException(
+                    'Transaksi ini membuat sisa stok menjadi negatif pada '
+                    . $baris->tanggal->format('d-m-Y')
+                    . '. Periksa kembali tanggal atau jumlahnya.'
+                );
+            }
+
+            // Hanya baris yang saldonya benar-benar berubah yang ditulis ulang,
+            // supaya penyisipan di ujung tidak menyentuh ratusan baris lama.
+            if ($baris->saldo_sesudah !== $saldo) {
+                MutasiStok::whereKey($baris->id)->update(['saldo_sesudah' => $saldo]);
+            }
+        }
+
+        BarangPersediaan::whereKey($barangId)->update(['stok_fisik' => $saldo]);
     }
 
     /**

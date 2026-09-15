@@ -40,3 +40,16 @@ yarn-error.log
 /.claude/agents/
 /.claude/settings.local.json
 /skills-lock.json
+
+# Bukti visual hasil pengujian dan berkas kerja, bukan bahan yang dibutuhkan kode.
+# Berkas acuan Sub-Bagian Umum (Kartu-Kendali-Persediaan-*.xlsx, contoh-*)
+# tetap dilacak karena seeder dan pembanding tata letak membacanya.
+/docs/hasil-perbaikan/
+/docs/hasil-*.png
+/docs/hasil-*.pdf
+/docs/Hasil*.xlsx
+/docs/PB-*.pdf
+# Berkas kunci yang dibuat Excel ketika dokumen sedang dibuka.
+/docs/~$*
+# Lintasan salah tulis dari sesi lama.
+/undefined/

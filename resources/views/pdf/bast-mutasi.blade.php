@@ -35,25 +35,80 @@
         .mutasi th, .mutasi td { border: 1px solid #000; padding: 6px 8px; font-size: 10.5pt; }
         .mutasi th { background: #f0f0f0; text-align: left; }
 
-        /* ---------- BLOK TANDA TANGAN ---------- */
-        .ttd { width: 100%; margin-top: 26px; border-collapse: collapse; }
-        .ttd td { width: 33.33%; vertical-align: top; text-align: center; font-size: 10.5pt; padding: 0 6px; }
-        /* Tinggi tetap agar kolom 1-baris dan 2-baris sejajar. */
-        .ttd .peran { margin: 0; height: 44px; line-height: 1.3; }
-        .ttd .sign-area { height: 92px; padding-top: 8px; }
-        .ttd .nama { margin: 0; font-weight: bold; text-decoration: underline; }
+        /* ---------- BLOK TANDA TANGAN ----------
+           Susunan, ukuran, dan jaraknya mengikuti dokumen bukti permintaan:
+           dua pihak berhadapan di atas, pengesah di tengah bawah. Sebelumnya
+           ketiganya berjajar dalam tiga kolom sama lebar, sehingga kolom
+           pengesah — satu-satunya yang benar-benar bertanda tangan — berdesak
+           di tepi kanan alih-alih menjadi penutup dokumen. */
+        .ttd { width: 100%; margin-top: 36px; }
+        .ttd td { vertical-align: top; text-align: center; font-size: 11pt; }
+        .kol-pihak { width: 40%; }
+        .kol-sekat { width: 20%; }
 
-        /* e-TTD: QR dengan logo di tengah (gaya tanda tangan elektronik) */
-        .ettd-wrap { position: relative; width: 72px; height: 72px; margin: 0 auto; }
-        .ettd-wrap img.qr { width: 72px; height: 72px; display: block; }
-        .ettd-wrap img.logo {
-            position: absolute; top: 26px; left: 26px; width: 20px; height: 20px;
-            background: #fff; padding: 1px;
-        }
-        .ettd-note { font-size: 7.5pt; font-style: italic; color: #333; margin: 3px 0 0; }
+        /* Ruang tanda tangan basah, tingginya dikunci seperti pada bukti
+           permintaan sehingga tetap ada baik dokumen ini bertanda tangan
+           maupun tidak. Baris peran dibiarkan mengalir apa adanya — tinggi
+           tetap yang dulu dipasang padanya memampatkan blok ini sekitar empat
+           setengah poin dibanding acuannya. */
+        .ruang-ttd { height: 78px; }
+        /* Tanpa `white-space: nowrap` seperti pada acuan: nama pihak di sini
+           diketik bebas sampai seratus aksara, dan nama sepanjang itu akan
+           menerobos tepi halaman bila dilarang patah. */
+        .nama-ttd { font-weight: bold; text-decoration: underline; }
 
-        .kaki { margin-top: 30px; font-size: 8pt; color: #333; text-align: center; border-top: 1px solid #ccc; padding-top: 6px; }
+        /* ---------- PENGESAHAN ---------- */
+        .pengesahan { padding-top: 30px; }
+        .ettd-jabatan { line-height: 1.35; }
+
+        /* e-TTD: satu gambar kode QR yang lambangnya sudah menyatu di dalamnya.
+           Sebelumnya lambang ditumpangkan sebagai gambar kedua berlatar putih
+           di atas kodenya — sebuah stiker, bukan bagian dari kode: modul di
+           bawahnya masih dianggap ada, letaknya dipatri dalam piksel, dan
+           tingginya dipaksa sama dengan lebarnya sehingga lambangnya gepeng.
+
+           Ukurannya kini sama persis dengan bukti permintaan, sudah termasuk
+           zona sunyi empat modul di tepinya. */
+        .ruang-ettd { height: 94px; }
+        .qr-ettd { width: 86px; height: 86px; margin-top: 4px; }
+
         .placeholder-ttd { font-size: 9pt; color: #777; font-style: italic; padding-top: 30px; }
+
+        /* ---------- CATATAN KAKI ----------
+           Sama dengan bukti permintaan: dipaku ke dasar halaman, kode kecil di
+           kiri, keterangan di kanannya. Menggantikan paragraf tengah yang dulu
+           mengalir sesudah blok tanda tangan dan karena itu letaknya berubah-
+           ubah mengikuti panjang alasan mutasi. */
+        .catatan-kaki {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            /* Tanpa tata letak tetap, DomPDF melebarkan kolom tulisan
+               mengikuti isinya dan lebar yang ditetapkan di bawah diabaikan. */
+            table-layout: fixed;
+        }
+        .catatan-kaki td { vertical-align: bottom; }
+        /* Lebar ditulis sebagai persentase, bukan piksel: pada tata letak tetap
+           DomPDF mengabaikan lebar berpiksel dan membagi sisa halaman rata. */
+        .ck-qr { width: 7.5%; }
+        .ck-qr img { width: 48px; height: 48px; }
+        .ck-teks {
+            padding-left: 3px;
+            width: 64%;
+            font-size: 6.5pt;
+            font-style: italic;
+            line-height: 1.5;
+            color: #6E6D6D;
+        }
+        /* Baris sambungan menjorok sejajar tulisan, bukan sejajar tanda
+           bintangnya, sehingga penandanya tetap menonjol di tepi kiri. */
+        .ck-teks p {
+            margin: 0;
+            padding-left: 7px;
+            text-indent: -7px;
+        }
     </style>
 </head>
 <body>
@@ -108,42 +163,70 @@
     {{-- ================= TANDA TANGAN ================= --}}
     <table class="ttd">
         <tr>
-            <td>
-                <p class="peran">Yang Menyerahkan,</p>
-                <div class="sign-area">
-                    <div class="placeholder-ttd">&nbsp;</div>
-                </div>
-                <p class="nama">{{ $bast->pihak_penyerah }}</p>
+            {{-- Jabatan kedua pihak dibaca dari relasi tim, bukan dikarang:
+                 kolom pihak penyerah dan penerima hanyalah teks bebas yang
+                 diketik operator, sehingga jabatannya tidak tersimpan di mana
+                 pun. Yang pasti diketahui sistem adalah unit asal dan unit
+                 tujuan asetnya. --}}
+            <td class="kol-pihak">
+                Yang Menyerahkan,<br>
+                Tim Kerja {{ $bast->timAsal?->nama_tim ?? '-' }}
+                <div class="ruang-ttd"></div>
+                <span class="nama-ttd">{{ $bast->pihak_penyerah }}</span>
             </td>
-            <td>
-                <p class="peran">Yang Menerima,</p>
-                <div class="sign-area">
-                    <div class="placeholder-ttd">&nbsp;</div>
-                </div>
-                <p class="nama">{{ $bast->pihak_penerima }}</p>
+            <td class="kol-sekat"></td>
+            <td class="kol-pihak">
+                Yang Menerima,<br>
+                Ketua Tim {{ $bast->timTujuan?->nama_tim ?? '-' }}
+                <div class="ruang-ttd"></div>
+                <span class="nama-ttd">{{ $bast->pihak_penerima }}</span>
             </td>
-            <td>
-                <p class="peran">Mengetahui,<br>Kepala Sub-Bagian Umum</p>
-                <div class="sign-area">
+        </tr>
+        <tr>
+            <td colspan="3" class="pengesahan">
+                <div class="ettd-jabatan">Mengetahui,<br>Kepala Sub Bagian Umum</div>
+
+                {{-- Kode QR inilah tanda tangan elektronik Kasubbag, berdiri
+                     sendiri tanpa bingkai maupun keterangan — sebagaimana e-TTD
+                     pada naskah dinas: kodenya sendiri yang menjadi tanda. --}}
+                <div class="ruang-ettd">
                     @if ($bast->disahkan_at && $qr)
-                        <div class="ettd-wrap">
-                            <img class="qr" src="{{ $qr }}" alt="e-TTD">
-                            @if ($logo)<img class="logo" src="{{ $logo }}" alt="">@endif
-                        </div>
-                        <p class="ettd-note">Ditandatangani secara elektronik</p>
+                        <img class="qr-ettd" src="{{ $qr }}" alt="Kode verifikasi">
                     @else
                         <div class="placeholder-ttd">(menunggu pengesahan)</div>
                     @endif
                 </div>
-                <p class="nama">{{ $bast->disahkanOleh?->name ?? '..............................' }}</p>
+
+                <span class="nama-ttd">{{ $bast->disahkanOleh?->name ?? '..............................' }}</span>
             </td>
         </tr>
     </table>
 
-    <div class="kaki">
-        Dokumen ini ditandatangani secara elektronik dan sah tanpa memerlukan tanda tangan basah maupun stempel.
-        Keaslian dokumen dapat diperiksa dengan memindai kode QR pada kolom pengesahan.
-    </div>
+    {{-- ================= CATATAN KAKI =================
+         Hanya muncul pada BAST yang sudah disahkan: pada yang belum, kalimat
+         "telah ditandatangani secara elektronik" belum benar.
+
+         Baris kedua berbunyi "memeriksa keaslian dokumen", bukan "menampilkan
+         file asli" seperti pada bukti permintaan, sebab kode ini menuju halaman
+         verifikasi — BAST tidak punya berkas yang terbuka tanpa masuk sistem,
+         dan menjanjikan berkas yang tidak akan muncul lebih buruk daripada
+         menyebut apa adanya. --}}
+    @if ($bast->disahkan_at && ($qrFootnote ?? ''))
+        <table class="catatan-kaki">
+            <tr>
+                <td class="ck-qr">
+                    <img src="{{ $qrFootnote }}" alt="Kode verifikasi keaslian">
+                </td>
+                <td class="ck-teks">
+                    <p>* Dokumen ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik yang diterbitkan oleh Sistem Informasi Manajemen Permintaan Barang dan Inventaris.</p>
+                    <p>* Pindai kode QR di samping untuk memeriksa keaslian dokumen</p>
+                </td>
+                {{-- Kolom penyisa: menampung sisa lebar halaman supaya tata
+                     letak tetap tidak membagikannya kembali ke kolom tulisan. --}}
+                <td></td>
+            </tr>
+        </table>
+    @endif
 
 </body>
 </html>

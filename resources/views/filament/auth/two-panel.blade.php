@@ -10,21 +10,22 @@
     formulir menjadi putih di atas panel yang tetap putih dan label "Alamat
     Email" serta "Kata Sandi" tidak terbaca sama sekali.
 
-    Seluruh dekorasi pada sisi kiri dibentuk dari CSS — kisi, cahaya lembut,
-    dan bentuk geometris — tanpa gambar latar, dan hanya bergerak lewat
-    transform/opacity supaya tidak memicu perhitungan ulang tata letak.
+    Sisi kiri sengaja dibiarkan lapang: hanya lambang, judul sistem, satu
+    kalimat, dan baris satuan kerja. Sebelumnya panel ini memuat tiga kartu
+    sorotan, tiga bentuk geometris yang hanyut, dan paralaks mengikuti
+    penunjuk sekaligus; hasilnya ramai dan menarik perhatian dari satu-satunya
+    tindakan di halaman ini, yaitu mengisi dua kolom di sebelah kanan. Yang
+    tersisa kini hanya kisi tipis dan cahaya lembut, keduanya dari CSS tanpa
+    gambar latar.
 --}}
 @php
     $livewire ??= null;
     $logoBps = asset('images/logo-bps.png');
 
-    // Tiga hal yang paling sering ditanyakan pengguna baru, ditampilkan
-    // ringkas sebagai isi panel kiri agar areanya tidak terasa kosong.
-    $sorotan = [
-        ['ikon' => 'heroicon-o-clipboard-document-check', 'judul' => 'Permintaan Terlacak',  'teks' => 'Setiap tahap persetujuan tercatat dan dapat ditelusuri.'],
-        ['ikon' => 'heroicon-o-archive-box',              'judul' => 'Stok Selalu Mutakhir', 'teks' => 'Ketersediaan barang terkunci otomatis saat diminta.'],
-        ['ikon' => 'heroicon-o-document-check',           'judul' => 'Dokumen Sah',          'teks' => 'Bukti permintaan terbit lengkap dengan kode verifikasi.'],
-    ];
+    // Satu-satunya jalan keluar pengguna yang terkunci: SIMPBI tidak
+    // menyediakan pemulihan kata sandi mandiri karena akun diberikan
+    // Administrator dan sebagian dipakai bersama satu tim kerja.
+    $tautanBantuan = \App\Support\KontakBantuan::tautanWhatsApp();
 @endphp
 
 <x-filament-panels::layout.base :livewire="$livewire">
@@ -36,28 +37,19 @@
 
         {{-- ================= Sisi kiri: identitas ================= --}}
         <aside
-            id="panelIdentitas"
             class="relative hidden flex-col justify-between overflow-hidden bg-navy p-8 text-white md:flex lg:p-10 xl:p-14"
         >
-            {{-- Cahaya lembut --}}
+            {{-- Cahaya lembut, satu-satunya kedalaman pada panel ini --}}
             <div
-                class="fi-simpbi-login-lapisan pointer-events-none absolute inset-0"
-                style="--kedalaman: .6; background:
-                    radial-gradient(42rem 24rem at 88% -12%, rgba(245,158,11,.18), transparent 62%),
-                    radial-gradient(38rem 26rem at -12% 108%, rgba(21,87,166,.6), transparent 58%);"
+                class="pointer-events-none absolute inset-0"
+                style="background:
+                    radial-gradient(42rem 24rem at 88% -12%, rgba(245,158,11,.14), transparent 62%),
+                    radial-gradient(38rem 26rem at -12% 108%, rgba(21,87,166,.5), transparent 58%);"
                 aria-hidden="true"
             ></div>
 
             {{-- Kisi tipis --}}
-            <div class="fi-simpbi-login-kisi fi-simpbi-login-lapisan pointer-events-none absolute inset-0"
-                 style="--kedalaman: .35" aria-hidden="true"></div>
-
-            {{-- Bentuk geometris yang hanyut sangat perlahan --}}
-            <div class="fi-simpbi-login-lapisan pointer-events-none absolute inset-0" style="--kedalaman: 1" aria-hidden="true">
-                <span class="fi-simpbi-login-bentuk fi-simpbi-login-bentuk-1"></span>
-                <span class="fi-simpbi-login-bentuk fi-simpbi-login-bentuk-2"></span>
-                <span class="fi-simpbi-login-bentuk fi-simpbi-login-bentuk-3"></span>
-            </div>
+            <div class="fi-simpbi-login-kisi pointer-events-none absolute inset-0" aria-hidden="true"></div>
 
             {{-- Lambang: BPS + SIMPBI + satuan kerja --}}
             <a href="{{ url('/') }}" class="fi-simpbi-login-merek relative flex w-fit items-center gap-3.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-white/40">
@@ -89,21 +81,6 @@
                     Kelola permintaan, ketersediaan persediaan, dan distribusi barang dalam satu
                     proses yang terintegrasi dan dapat ditelusuri.
                 </p>
-
-                {{-- Sorotan singkat, memberi isi pada panel tanpa membuatnya ramai --}}
-                <ul class="mt-8 hidden space-y-2.5 lg:block">
-                    @foreach ($sorotan as $s)
-                        <li class="fi-simpbi-login-sorotan flex items-start gap-3.5 p-3">
-                            <span class="fi-simpbi-login-sorotan-ikon mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/10 ring-1 ring-inset ring-white/15">
-                                <x-filament::icon :icon="$s['ikon']" class="h-[1.15rem] w-[1.15rem] text-white/85" />
-                            </span>
-                            <span>
-                                <span class="block text-sm font-semibold text-white/95">{{ $s['judul'] }}</span>
-                                <span class="block text-xs leading-relaxed text-white/55">{{ $s['teks'] }}</span>
-                            </span>
-                        </li>
-                    @endforeach
-                </ul>
             </div>
 
             <p class="relative text-xs text-white/45">
@@ -117,7 +94,13 @@
             tabindex="-1"
             class="flex min-h-[100dvh] flex-col items-center justify-center bg-white px-6 py-12 dark:bg-gray-900 sm:px-10"
         >
-            <div class="w-full max-w-[22rem] sm:max-w-sm">
+            {{--
+                Isi sisi kanan muncul berurutan dari atas ke bawah: sapaan,
+                keterangan, kolom isian, lalu keterangan kaki. Urutannya
+                menuntun mata ke tempat mengetik, bukan sekadar hiasan, dan
+                jeda antarunsurnya ditulis pada --tunda masing-masing.
+            --}}
+            <div class="fi-simpbi-login-tampil w-full max-w-[22rem] sm:max-w-sm">
 
                 {{-- Lambang untuk layar kecil, ketika sisi kiri disembunyikan --}}
                 <a href="{{ url('/') }}" class="fi-simpbi-login-merek mb-9 flex w-fit items-center gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-brand/40 md:hidden">
@@ -131,65 +114,63 @@
                     </span>
                 </a>
 
-                <h1 class="text-[1.75rem] font-bold leading-tight tracking-tight text-navy dark:text-white">
+                <h1 style="--tunda: 60ms" class="text-[1.75rem] font-bold leading-tight tracking-tight text-navy dark:text-white text-center">
                     {{ $livewire->getHeading() }}
                 </h1>
 
                 @if ($subheading = $livewire->getSubheading())
-                    <p class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                    <p style="--tunda: 120ms" class="mt-2 text-sm leading-relaxed text-gray-500 dark:text-gray-400 text-center">
                         {{ $subheading }}
                     </p>
                 @endif
 
-                <div class="mt-9">
+                <div style="--tunda: 180ms" class="mt-9">
                     {{ $slot }}
                 </div>
 
-                <p class="mt-10 border-t border-gray-100 pt-5 text-center text-xs leading-relaxed text-gray-400 dark:border-gray-800 dark:text-gray-500">
-                    Akun diberikan oleh Administrator Sistem.<br class="sm:hidden">
-                    Hubungi Sub-Bagian Umum bila mengalami kendala masuk.
-                </p>
+                {{--
+                    Kaki halaman. Kalimat pertama tetap abu-abu samar karena
+                    sekadar keterangan; hanya frasa kontaknya yang diberi warna
+                    dan garis bawah, supaya blok ini tidak terbaca seperti satu
+                    bidang yang seluruhnya dapat diklik.
+
+                    Warnanya biru primer, bukan hijau khas WhatsApp: Instruksi
+                    §25 memberi arti pada tiap warna, dan hijau di SIMPBI sudah
+                    berarti "selesai/aman" sehingga tautan bantuan berwarna hijau
+                    menyampaikan pesan yang keliru. Biru justru definisinya,
+                    yaitu tindakan utama dan informasi.
+
+                    Garis bawahnya menyala terus, tidak hanya saat disorot,
+                    sebab di ponsel tidak ada penunjuk yang dapat menyorot dan
+                    tautannya harus tetap dikenali sebagai tautan.
+                --}}
+                <div style="--tunda: 360ms" class="mt-10 border-t border-gray-100 pt-5 text-center text-xs leading-relaxed dark:border-gray-800">
+                    <p class="text-gray-400 dark:text-gray-500">
+                        Akun diberikan oleh Administrator Sistem.
+                    </p>
+
+                    @if ($tautanBantuan)
+                        <p class="mt-1 text-gray-400 dark:text-gray-500">
+                            Mengalami kendala masuk?
+                            <a
+                                href="{{ $tautanBantuan }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="font-medium text-primary-600 underline decoration-primary-600/40 underline-offset-2 transition hover:text-navy hover:decoration-primary-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:text-primary-400 dark:decoration-primary-400/40 dark:hover:text-primary-300"
+                            >Hubungi Sub-Bagian Umum</a>
+                        </p>
+                    @else
+                        {{-- Nomor belum diisi Administrator; kalimatnya kembali
+                             seperti semula, bukan tautan yang tidak menuju
+                             ke mana-mana. --}}
+                        <p class="mt-1 text-gray-400 dark:text-gray-500">
+                            Hubungi Sub-Bagian Umum bila mengalami kendala masuk.
+                        </p>
+                    @endif
+                </div>
             </div>
         </main>
     </div>
-
-    {{-- Paralaks halus mengikuti penunjuk.
-         Hanya berjalan pada perangkat berpenunjuk presisi dan ketika pengguna
-         tidak meminta pengurangan gerak. Nilainya sangat kecil dan hanya
-         mengenai lapisan dekorasi, bukan teks. --}}
-    <script>
-        (() => {
-            const panel = document.getElementById('panelIdentitas');
-            if (! panel) return;
-
-            const bolehBergerak = window.matchMedia('(pointer: fine)').matches
-                && ! window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-            if (! bolehBergerak) return;
-
-            let menunggu = false;
-
-            panel.addEventListener('pointermove', (e) => {
-                if (menunggu) return;
-                menunggu = true;
-
-                requestAnimationFrame(() => {
-                    const kotak = panel.getBoundingClientRect();
-                    const x = (e.clientX - kotak.left) / kotak.width - 0.5;
-                    const y = (e.clientY - kotak.top) / kotak.height - 0.5;
-
-                    // Pergeseran maksimal hanya beberapa piksel
-                    panel.style.setProperty('--px', (x * 14).toFixed(2) + 'px');
-                    panel.style.setProperty('--py', (y * 14).toFixed(2) + 'px');
-                    menunggu = false;
-                });
-            });
-
-            panel.addEventListener('pointerleave', () => {
-                panel.style.setProperty('--px', '0px');
-                panel.style.setProperty('--py', '0px');
-            });
-        })();
-    </script>
 
     @livewire(\Filament\Livewire\Notifications::class)
 </x-filament-panels::layout.base>

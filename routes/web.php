@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Middleware\TerapkanBahasa;
 use App\Models\PermintaanBarang;
 use App\Models\BastMutasiAset;
+use App\Services\DokumenPermintaanService;
 use Illuminate\Support\Facades\Storage;
 
 Route::get('/', function () {
@@ -52,6 +53,59 @@ Route::get('/verifikasi/{token}', function (string $token) {
 
     return view('verifikasi.permintaan', compact('permintaan', 'pengesah'));
 })->middleware(TerapkanBahasa::class)->name('verifikasi.permintaan');
+
+/**
+ * Lembar hasil pemindaian kode QR pada dokumen bukti permintaan.
+ *
+ * Terbuka tanpa autentikasi, sebab yang memindainya belum tentu pegawai —
+ * dokumen bukti beredar ke luar sistem dan justru itulah gunanya dapat
+ * diperiksa. Yang menjadi kunci adalah tokennya sendiri: empat puluh aksara
+ * acak yang hanya diketahui dari dokumen fisiknya, dan hanya berlaku untuk
+ * permintaan yang sudah disahkan.
+ *
+ * Berkas dikirim inline, bukan sebagai unduhan, karena pemindai kode QR
+ * membukanya di peramban ponsel dan yang diharapkan pemindai adalah melihat
+ * dokumennya seketika.
+ */
+Route::get('/bukti/{token}', function (string $token) {
+    $permintaan = PermintaanBarang::query()
+        ->where('qr_token', $token)
+        ->whereNotNull('pengesahan_at')
+        ->firstOrFail();
+
+    $lintasan = DokumenPermintaanService::lintasanBerfootnote($permintaan);
+
+    abort_unless(Storage::disk('public')->exists($lintasan), 404);
+
+    return response(Storage::disk('public')->get($lintasan), 200, [
+        'Content-Type'        => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="' . $permintaan->kode_permintaan . '.pdf"',
+    ]);
+})->name('bukti.pindai');
+
+/**
+ * Berkas asli, yaitu lembar yang sama tanpa pita tanda tangan elektronik.
+ *
+ * Inilah tujuan kode QR pada pita: memindainya mengembalikan pemeriksa ke
+ * dokumen apa adanya, sehingga penelusuran tidak berputar pada lembar yang
+ * sudah bertanda.
+ */
+Route::get('/bukti/{token}/asli', function (string $token) {
+    $permintaan = PermintaanBarang::query()
+        ->where('qr_token', $token)
+        ->whereNotNull('pengesahan_at')
+        ->firstOrFail();
+
+    abort_unless(
+        $permintaan->file_bukti_path && Storage::disk('public')->exists($permintaan->file_bukti_path),
+        404,
+    );
+
+    return response(Storage::disk('public')->get($permintaan->file_bukti_path), 200, [
+        'Content-Type'        => 'application/pdf',
+        'Content-Disposition' => 'inline; filename="' . $permintaan->kode_permintaan . '.pdf"',
+    ]);
+})->name('bukti.asli');
 
 /**
  * Halaman verifikasi keaslian BAST mutasi aset.

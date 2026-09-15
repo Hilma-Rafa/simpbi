@@ -107,8 +107,8 @@ class KedaluwarsaService
                         'keputusan'     => 'tolak',
                         // Batas waktunya tidak diulang di dalam catatan, sebab
                         // kolom waktu pada baris ini sudah berisi saat itu.
-                        'catatan'       => 'Tahapan tidak ditindaklanjuti sampai batas waktu. '
-                            . 'Kunci stok dilepaskan secara otomatis oleh sistem.',
+                        'catatan'       => 'Tahapan tidak ditindaklanjuti hingga batas waktu. '
+                            . 'Anda dapat mengajukan kembali kapan saja.',
                         'waktu'         => $batasTerlewat,
                     ]);
                 });

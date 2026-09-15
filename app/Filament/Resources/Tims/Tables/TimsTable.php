@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Tims\Tables;
 
+use App\Filament\Support\AksiImpor;
+use App\Services\Impor\ImporTimKerja;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -65,6 +67,14 @@ class TimsTable
             ])
             ->recordActions([
                 EditAction::make(),
+            ])
+            ->headerActions([
+                AksiImpor::buat(
+                    judul: ImporTimKerja::JUDUL,
+                    kolom: ImporTimKerja::kolom(),
+                    namaTemplate: 'Template-Impor-Tim-Kerja.xlsx',
+                    impor: fn (string $lintasan) => app(ImporTimKerja::class)->jalankan($lintasan),
+                ),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -126,4 +126,51 @@ class DialogRincianPermintaanTest extends TestCase
             'Riwayat harus mencatat saat batas jatuh, bukan saat sapuan berjalan.',
         );
     }
+
+    // =====================================================================
+    // PENGUNDUHAN DOKUMEN BUKTI
+    // =====================================================================
+
+    /**
+     * Tombol unduh berada di kaki dialog, bukan sebagai aksi baris.
+     *
+     * Sebagai aksi baris tombolnya tidak pernah dapat muncul: syaratnya adalah
+     * berkas bukti sudah terbit, sedangkan berkas itu baru ada setelah
+     * permintaan disahkan — dan permintaan yang sudah selesai berpindah ke
+     * halaman Riwayat, sehingga barisnya tidak lagi ada pada tabel tempat
+     * tombolnya dipasang. Keadaan itu tidak menimbulkan galat apa pun, hanya
+     * tombol yang diam-diam tidak pernah tampil, sehingga perlu dijaga uji.
+     */
+    public function test_dialog_rincian_menyediakan_unduh_bukti_bila_dokumennya_sudah_terbit(): void
+    {
+        $tim     = $this->buatTim();
+        $pengaju = $this->buatPengguna('tim', $tim);
+
+        $permintaan = $this->buatPermintaan(
+            $tim,
+            $pengaju,
+            [['barang' => $this->buatBarang(), 'diminta' => 5]],
+            status: 'selesai',
+            tambahan: ['file_bukti_path' => 'bukti-permintaan/PB-UJI-0001.pdf'],
+        );
+
+        $this->actingAs($this->buatPengguna('kasubbag'));
+
+        Livewire::test(Riwayat::class, ['jenis' => 'permintaan'])
+            ->mountTableAction('detail', $permintaan)
+            ->assertMountedActionModalSee('Unduh Bukti');
+    }
+
+    public function test_dialog_rincian_tidak_menawarkan_unduh_bila_dokumennya_belum_ada(): void
+    {
+        $permintaan = $this->buatPermintaanKedaluwarsa();
+
+        $this->assertNull($permintaan->file_bukti_path);
+
+        $this->actingAs($this->buatPengguna('kasubbag'));
+
+        Livewire::test(Riwayat::class, ['jenis' => 'permintaan'])
+            ->mountTableAction('detail', $permintaan)
+            ->assertMountedActionModalDontSee('Unduh Bukti');
+    }
 }

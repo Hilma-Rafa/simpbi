@@ -126,7 +126,11 @@ class PengendalianStokTest extends TestCase
         $this->assertSame(-12, $mutasi->jumlah);
         $this->assertSame(28, $mutasi->saldo_sesudah, 'Saldo berjalan harus dicatat saat transaksi terjadi.');
         $this->assertSame('pemakaian', $mutasi->sumber);
-        $this->assertSame($permintaan->kode_permintaan, $mutasi->nomor_dasar);
+        // Kolom "Nomor Dasar M/K" pada kartu kendali memakai nomor bon,
+        // mengikuti penomoran Sub-Bagian Umum; kode permintaannya pindah ke
+        // keterangan supaya penelusuran balik tidak hilang.
+        $this->assertSame($permintaan->refresh()->nomor_bon, $mutasi->nomor_dasar);
+        $this->assertStringContainsString($permintaan->kode_permintaan, $mutasi->keterangan);
         $this->assertSame('permintaan_barang', $mutasi->referensi_tabel);
         $this->assertSame($permintaan->id, $mutasi->referensi_id);
         $this->assertSame($petugas->id, $mutasi->petugas_id);

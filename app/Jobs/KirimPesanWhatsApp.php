@@ -5,11 +5,13 @@ namespace App\Jobs;
 use App\Filament\Resources\BastMutasiAsets\BastMutasiAsetResource;
 use App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource;
 use App\Models\BastMutasiAset;
+use App\Filament\Resources\Users\Schemas\UserForm;
 use App\Models\Notifikasi;
 use App\Models\PermintaanBarang;
 use App\Services\WhatsApp\PengirimanGagal;
 use App\Services\WhatsApp\PengirimWhatsApp;
 use App\Support\NomorWhatsApp;
+use App\Support\PengalihanWhatsApp;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -65,7 +67,12 @@ class KirimPesanWhatsApp implements ShouldQueue
             return;
         }
 
-        $tujuan = NomorWhatsApp::normalkan($notifikasi->user?->no_hp);
+        // Selama pengalihan menyala, tujuan pengiriman bukan lagi nomor
+        // penggunanya melainkan satu nomor yang ditetapkan Administrator.
+        // Nomor pada akun pegawai tidak dibaca sama sekali, sehingga peragaan
+        // tidak pernah menyentuh nomor Ketua Tim yang sebenarnya.
+        $alihkanKe = PengalihanWhatsApp::nomor();
+        $tujuan    = $alihkanKe ?? NomorWhatsApp::normalkan($notifikasi->user?->no_hp);
 
         // Nomor kosong atau tidak masuk akal bukan galat sistem, melainkan data
         // induk yang belum lengkap, sehingga tidak perlu dicoba ulang.
@@ -76,7 +83,10 @@ class KirimPesanWhatsApp implements ShouldQueue
         }
 
         try {
-            $penanda = $pengirim->kirim($tujuan, $this->susunPesan($notifikasi));
+            $penanda = $pengirim->kirim(
+                $tujuan,
+                $this->susunPesan($notifikasi, dialihkan: $alihkanKe !== null),
+            );
 
             $notifikasi->update([
                 'status_kirim'  => 'terkirim',
@@ -121,9 +131,22 @@ class KirimPesanWhatsApp implements ShouldQueue
      * lalu ditutup nama sistem supaya penerima langsung tahu asal pesannya —
      * penting karena pesan datang dari nomor yang belum tentu mereka kenal.
      */
-    protected function susunPesan(Notifikasi $notifikasi): string
+    protected function susunPesan(Notifikasi $notifikasi, bool $dialihkan = false): string
     {
-        $bagian = ["*{$notifikasi->judul}*", '', $notifikasi->pesan];
+        $bagian = [];
+
+        // Pada pesan yang dialihkan, penerima sebenarnya disebutkan lebih dulu.
+        // Tanpa itu seluruh pesan peragaan tiba di satu nomor tanpa dapat
+        // dibedakan, sehingga justru tidak memperlihatkan bahwa alurnya menyasar
+        // orang yang tepat — padahal itulah yang hendak ditunjukkan.
+        if ($dialihkan) {
+            $bagian[] = '[Demo — seharusnya untuk ' . $this->penerimaSebenarnya($notifikasi) . ']';
+            $bagian[] = '';
+        }
+
+        $bagian[] = "*{$notifikasi->judul}*";
+        $bagian[] = '';
+        $bagian[] = $notifikasi->pesan;
 
         if ($tautan = $this->tautanTindakan($notifikasi)) {
             $bagian[] = '';
@@ -134,6 +157,30 @@ class KirimPesanWhatsApp implements ShouldQueue
         $bagian[] = '_SIMPBI — BPS Kota Jakarta Barat_';
 
         return implode("\n", $bagian);
+    }
+
+    /**
+     * Sebutan penerima sebenarnya, untuk dicantumkan pada pesan yang dialihkan.
+     *
+     * Peran dan nama tim ikut disebut karena nama orang saja belum tentu cukup
+     * bagi yang menyaksikan peragaan: yang hendak ditunjukkan bukan siapa
+     * namanya, melainkan bahwa pesan menyasar jabatan yang benar pada tahap
+     * yang sedang berjalan.
+     */
+    protected function penerimaSebenarnya(Notifikasi $notifikasi): string
+    {
+        $pengguna = $notifikasi->user;
+
+        if (! $pengguna) {
+            return 'penerima yang sudah tidak ada';
+        }
+
+        $peran = UserForm::ROLE_OPTIONS[$pengguna->role] ?? $pengguna->role;
+        $tim   = $pengguna->tim?->nama_tim;
+
+        // Peran yang melayani seluruh kantor tidak bertim, sehingga tidak perlu
+        // ditempeli keterangan tim yang kosong.
+        return $pengguna->name . ' (' . $peran . ($tim ? ' ' . $tim : '') . ')';
     }
 
     /**

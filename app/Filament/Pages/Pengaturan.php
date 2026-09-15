@@ -13,6 +13,10 @@ use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use App\Filament\Forms\Components\KanvasTandaTangan;
+use App\Support\NomorWhatsApp;
+use App\Support\PengalihanWhatsApp;
+use App\Support\TandaTangan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
@@ -94,6 +98,11 @@ class Pengaturan extends Page implements HasSchemas
             }
 
             $awal['wa_aktif'] = ($nilai['wa_aktif'] ?? '0') === '1';
+
+            // Kontak bantuan bukan angka seperti batas tahapan, sehingga
+            // diambil terpisah dari perulangan KUNCI_SISTEM di atas.
+            $awal['kontak_bantuan_wa'] = $nilai['kontak_bantuan_wa'] ?? null;
+            $awal['wa_alihkan_ke']     = $nilai['wa_alihkan_ke'] ?? null;
         }
 
         $this->form->fill($awal);
@@ -132,6 +141,28 @@ class Pengaturan extends Page implements HasSchemas
                             ->tel()
                             ->maxLength(20)
                             ->helperText('Dipakai bila notifikasi WhatsApp diaktifkan Administrator.'),
+
+                        /*
+                         * Tanda tangan hanya ditawarkan kepada peran yang
+                         * memang membubuhkannya pada dokumen bukti. Peran lain
+                         * tidak perlu dibebani kolom yang tidak akan pernah
+                         * dipakai, sekaligus mengurangi jumlah tanda tangan
+                         * pegawai yang tersimpan tanpa keperluan.
+                         *
+                         * Ketua Tim dapat menyimpannya di sini lebih dulu, dan
+                         * itu bukan kemudahan belaka: ketika penerimaan barang
+                         * dikonfirmasi anggota timnya, dokumen tetap terbit
+                         * atas nama Ketua Tim, sehingga tanda tangan yang
+                         * dibubuhkan haruslah yang sudah tersimpan di sini.
+                         */
+                        KanvasTandaTangan::make('tanda_tangan')
+                            ->label('Tanda Tangan')
+                            ->tandaTanganTersimpan(fn (): ?string => TandaTangan::dataUri($pengguna))
+                            ->helperText(fn (): string => TandaTangan::tersedia($pengguna)
+                                ? 'Tanda tangan ini dibubuhkan pada dokumen bukti permintaan. Tekan "Gambar Ulang" bila hendak menggantinya.'
+                                : 'Belum ada tanda tangan tersimpan. Bubuhkan sekali di sini, lalu dipakai pada setiap dokumen bukti permintaan.')
+                            ->visible(fn (): bool => in_array($pengguna->role, ['petugas_gudang', 'ketua_tim', 'kasubbag']))
+                            ->columnSpanFull(),
                     ]),
 
                 Section::make('Ubah Kata Sandi')
@@ -180,6 +211,36 @@ class Pengaturan extends Page implements HasSchemas
                             ->label('Aktifkan notifikasi WhatsApp')
                             ->helperText('Bila nonaktif, notifikasi hanya dikirim di dalam aplikasi.')
                             ->columnSpanFull(),
+
+                        // SIMPBI sengaja tidak menyediakan pemulihan kata sandi
+                        // mandiri, sehingga nomor inilah satu-satunya jalan
+                        // keluar pengguna yang terkunci di halaman masuk.
+                        TextInput::make('kontak_bantuan_wa')
+                            ->label('Nomor WhatsApp bantuan masuk')
+                            ->tel()
+                            ->maxLength(20)
+                            ->placeholder('08xxxxxxxxxx')
+                            ->helperText('Ditampilkan sebagai tautan pada halaman masuk. Kosongkan bila belum ada nomor kedinasan — kaki halaman masuk akan kembali tanpa tautan.')
+                            ->columnSpanFull(),
+
+                        // Ditempatkan paling bawah karena sifatnya sementara:
+                        // dipakai saat sistem diperagakan, lalu dikosongkan
+                        // kembali. Keterangannya menyebut keadaan yang sedang
+                        // berlaku, bukan sekadar menjelaskan kolomnya, supaya
+                        // pengalihan yang tertinggal menyala segera ketahuan.
+                        TextInput::make('wa_alihkan_ke')
+                            ->label('Alihkan semua notifikasi ke satu nomor (mode peragaan)')
+                            ->tel()
+                            ->maxLength(20)
+                            ->placeholder('Kosongkan untuk pengiriman normal')
+                            ->helperText(fn (): string => PengalihanWhatsApp::menyala()
+                                ? 'SEDANG MENYALA. Seluruh notifikasi WhatsApp dikirim ke nomor ini, '
+                                    . 'termasuk milik Ketua Tim, dan nomor pada akun pegawai tidak dipakai. '
+                                    . 'Kosongkan kolom ini setelah peragaan selesai.'
+                                : 'Selama terisi, seluruh notifikasi WhatsApp dibelokkan ke nomor ini alih-alih '
+                                    . 'ke nomor pegawai. Berguna untuk peragaan, agar alur dapat dicoba tanpa '
+                                    . 'mengirim pesan kepada Ketua Tim yang sebenarnya.')
+                            ->columnSpanFull(),
                     ]),
             ])
             ->statePath('data');
@@ -214,6 +275,17 @@ class Pengaturan extends Page implements HasSchemas
 
             $pengguna->save();
 
+            /*
+             * Kolom ini bernilai null selama pengguna tidak menggambar apa pun,
+             * dan null memang berarti "tidak ada yang berubah" — bukan perintah
+             * menghapus. Tanda tangan yang sudah tersimpan karena itu tidak
+             * ikut terhapus hanya karena formulir disimpan untuk urusan lain,
+             * misalnya mengganti kata sandi.
+             */
+            if (filled($data['tanda_tangan'] ?? null)) {
+                TandaTangan::simpan($pengguna, $data['tanda_tangan']);
+            }
+
             // Penjagaan kedua: nilai pengaturan sistem hanya diterima dari Admin
             if (! static::bolehMengaturSistem()) {
                 return;
@@ -228,12 +300,35 @@ class Pengaturan extends Page implements HasSchemas
             DB::table('pengaturan')
                 ->where('kunci', 'wa_aktif')
                 ->update(['nilai' => $data['wa_aktif'] ? '1' : '0', 'updated_at' => now()]);
+
+            // Disimpan sudah dalam bentuk seragam, bukan apa adanya, supaya
+            // halaman masuk tidak perlu menebak bentuk nomor yang diketik dan
+            // Administrator langsung melihat hasil bacaan sistem saat kembali
+            // ke halaman ini.
+            DB::table('pengaturan')
+                ->where('kunci', 'kontak_bantuan_wa')
+                ->update([
+                    'nilai'      => NomorWhatsApp::normalkan($data['kontak_bantuan_wa'] ?? null) ?? '',
+                    'updated_at' => now(),
+                ]);
+
+            // Diseragamkan dengan aturan yang sama, sebab nilainya dibandingkan
+            // dan dipakai langsung sebagai nomor tujuan oleh job pengiriman.
+            DB::table('pengaturan')
+                ->where('kunci', 'wa_alihkan_ke')
+                ->update([
+                    'nilai'      => NomorWhatsApp::normalkan($data['wa_alihkan_ke'] ?? null) ?? '',
+                    'updated_at' => now(),
+                ]);
         });
 
         // Kata sandi tidak perlu tertinggal pada state formulir
         $this->form->fill(array_merge($data, [
             'password'              => null,
             'password_confirmation' => null,
+            // Kanvas dikembalikan ke keadaan "tidak ada goresan baru", supaya
+            // penyimpanan berikutnya tidak menulis ulang gambar yang sama.
+            'tanda_tangan'          => null,
         ]));
 
         Notification::make()

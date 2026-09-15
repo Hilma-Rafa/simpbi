@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>Kartu Kendali {{ $barang->nama_barang }}</title>
+    <title>{{ $judul ?? 'Kartu Kendali Barang Persediaan' }}</title>
     <style>
         @page { margin: 15mm 14mm; }
 
@@ -88,9 +88,32 @@
             border-top: 0.5pt solid #999;
             padding-top: 5px;
         }
+
+        /* Setiap kartu memulai halamannya sendiri. Kartu kendali diarsipkan
+           per barang, sehingga dua kartu pada satu lembar tidak dapat dipisah
+           ketika diberkaskan. */
+        .pemisah-halaman { page-break-before: always; }
     </style>
 </head>
 <body>
+
+{{-- Tampilan ini melayani satu kartu maupun sehimpunan kartu sekaligus: aksi
+     per barang mengirim satu, ekspor halaman Kartu Kendali mengirim seluruh
+     barang pada kategori terpilih. Keduanya memakai satu tampilan supaya tata
+     letaknya tidak pernah menyimpang satu sama lain. --}}
+@foreach ($kartu as $isi)
+    @php
+        $barang  = $isi['barang'];
+        $mutasi  = $isi['mutasi'];
+        $tahun   = $isi['tahun'];
+        $periode = $isi['periode'];
+        $awal    = $isi['awal'];
+        $akhir   = $isi['akhir'];
+    @endphp
+
+    @if (! $loop->first)
+        <div class="pemisah-halaman"></div>
+    @endif
 
 <div class="judul">
     <h1>Kartu Kendali Barang Persediaan (ATK/ARK)</h1>
@@ -185,6 +208,7 @@
     @endif
     &middot; Dihasilkan otomatis oleh SIMPBI dari buku besar mutasi stok.
 </div>
+@endforeach
 
 </body>
 </html>
