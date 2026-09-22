@@ -1,0 +1,28 @@
+name: Sync to Private Repo
+
+on:
+  push:
+    branches:
+      - main # Ganti dengan nama branch utama teman Anda (misal: 'master' atau 'main')
+
+jobs:
+  git-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Private Repo
+        run: |
+          # Mengatur kredensial Git sementara
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "actions@github.com"
+          
+          # Menambahkan repositori pribadi Anda sebagai target remote baru
+          # Ganti 'username-anda/nama-repo-pribadi' sesuai dengan akun Anda
+          git remote add target https://${{ secrets.API_TOKEN_GITHUB }}@github.com/sincostanhan/simpbi.git
+          
+          # Memaksa perubahan untuk sinkron ke repositori pribadi Anda
+          git push target HEAD:main --force
