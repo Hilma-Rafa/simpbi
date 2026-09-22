@@ -1458,6 +1458,10 @@
     background-color: var(--gray-50);
 }
 
+.dark .fi-ta-row:hover .fi-ta-cell {
+    background-color: rgb(255 255 255 / 0.04);
+}
+
 /* ================= Kartu yang sedang dimuat =================
  *
  * Panel dasbor dimuat menyusul (lazy), dan selama itu Filament memasang
