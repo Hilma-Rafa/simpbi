@@ -22,7 +22,7 @@ jobs:
           
           # Menambahkan repositori pribadi Anda sebagai target remote baru
           # Ganti 'username-anda/nama-repo-pribadi' sesuai dengan akun Anda
-          git remote add target https://${{ secrets.API_TOKEN_GITHUB }}@://github.com
+          git remote add target https://${{ secrets.API_TOKEN_GITHUB }}@github.com/sincostanhan/simpbi.git
           
           # Memaksa perubahan untuk sinkron ke repositori pribadi Anda
           git push target HEAD:main --force
