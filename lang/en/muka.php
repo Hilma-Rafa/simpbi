@@ -125,6 +125,16 @@ return [
     'kaki' => [
         'satker' => 'General Affairs Sub-Division · BPS West Jakarta',
         'hak_cipta' => '© :tahun BPS-Statistics of West Jakarta Municipality. Internal system.',
+        'bantuan_judul' => 'Having trouble signing in?',
+        'bantuan_tombol' => 'Contact the General Affairs Sub-Division',
+        'hubungi_judul' => 'Contact Us',
+        'hubungi_telepon' => 'Phone',
+        'hubungi_email' => 'Email',
+        'alamat_judul' => 'Office Address',
+        'alamat_satker' => 'BPS-Statistics of West Jakarta Municipality',
+        'alamat_jalan' => 'Jl. Raya Kebayoran Lama No. 5A, Sukabumi Selatan, Kebun Jeruk, West Jakarta 11550',
+        'alamat_peta' => 'View on map',
+        'medsos_judul' => 'Social Media',
     ],
 
 ];

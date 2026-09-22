@@ -8,6 +8,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Model;
 
 class UserForm
 {
@@ -19,6 +20,15 @@ class UserForm
         'ketua_tim'      => 'Ketua Tim',
         'tim'            => 'Tim',
     ];
+
+    /** Keterangan bagi Admin yang membuka akunnya sendiri, juga pesan penolakan di server. */
+    public const PESAN_AKUN_SENDIRI = 'Anda tidak dapat menonaktifkan atau mengubah peran akun Anda sendiri.';
+
+    /** Akun yang sedang dibuka adalah akun pengguna yang masuk. */
+    protected static function akunSendiri(?Model $record): bool
+    {
+        return $record !== null && $record->is(auth()->user());
+    }
 
     public static function configure(Schema $schema): Schema
     {
@@ -69,7 +79,13 @@ class UserForm
                             ->options(self::ROLE_OPTIONS)
                             ->required()
                             ->native(false)
-                            ->live(),
+                            ->live()
+                            // Admin tidak dapat mengunci dirinya sendiri: kolom tampil
+                            // tetapi tidak dapat diubah, dan EditUser menolak muatan
+                            // yang dimodifikasi.
+                            ->disabled(fn (?Model $record): bool => static::akunSendiri($record))
+                            ->dehydrated(fn (?Model $record): bool => ! static::akunSendiri($record))
+                            ->helperText(fn (?Model $record): ?string => static::akunSendiri($record) ? self::PESAN_AKUN_SENDIRI : null),
                         Select::make('tim_id')
                             ->label('Tim Kerja')
                             ->relationship('tim', 'nama_tim')
@@ -81,7 +97,10 @@ class UserForm
                         Toggle::make('status_aktif')
                             ->label('Akun Aktif')
                             ->default(true)
-                            ->inline(false),
+                            ->inline(false)
+                            ->disabled(fn (?Model $record): bool => static::akunSendiri($record))
+                            ->dehydrated(fn (?Model $record): bool => ! static::akunSendiri($record))
+                            ->helperText(fn (?Model $record): ?string => static::akunSendiri($record) ? self::PESAN_AKUN_SENDIRI : null),
                     ]),
             ]);
     }

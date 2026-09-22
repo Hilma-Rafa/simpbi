@@ -14,28 +14,43 @@ use Illuminate\Support\Facades\DB;
 class KontakBantuan
 {
     /**
+     * Nomor WhatsApp bantuan dalam bentuk seragam (E.164 tanpa tanda plus),
+     * atau null bila belum diisi Administrator maupun tidak masuk akal.
+     *
+     * Satu tempat pembacaan `pengaturan.kontak_bantuan_wa`, dipakai baik oleh
+     * tautanWhatsApp() di sini maupun halaman Pusat Bantuan yang perlu nomor
+     * mentahnya sendiri untuk memformat tampilan "+62 xxx-xxxx-xxxx".
+     */
+    public static function nomor(): ?string
+    {
+        return NomorWhatsApp::normalkan(
+            DB::table('pengaturan')->where('kunci', 'kontak_bantuan_wa')->value('nilai')
+        );
+    }
+
+    /**
      * Tautan WhatsApp menuju Sub-Bagian Umum, atau null bila nomornya belum
      * diisi Administrator maupun tidak masuk akal.
      *
      * Nomornya diseragamkan memakai NomorWhatsApp::normalkan(), yang sudah
      * dipakai job pengiriman dan seeder, sebab wa.me menuntut bentuk yang sama
      * dengan gerbang WhatsApp: E.164 tanpa tanda plus.
+     *
+     * $pesan boleh diisi ulang atau dikosongkan (null) oleh pemanggil yang
+     * tidak ingin membawa pesan otomatis — Pusat Bantuan memakai ini, sebab
+     * konteksnya bukan "kendala masuk" seperti halaman masuk. Pemanggil yang
+     * tidak mengisi apa pun (halaman masuk) tetap mendapat pesan bawaan yang
+     * sama seperti sebelumnya.
      */
-    public static function tautanWhatsApp(): ?string
-    {
-        $nomor = NomorWhatsApp::normalkan(
-            DB::table('pengaturan')->where('kunci', 'kontak_bantuan_wa')->value('nilai')
-        );
+    public static function tautanWhatsApp(
+        ?string $pesan = 'Halo, saya mengalami kendala masuk ke SIMPBI dan memerlukan bantuan.'
+    ): ?string {
+        $nomor = static::nomor();
 
         if ($nomor === null) {
             return null;
         }
 
-        // Pesan awal diisikan supaya petugas langsung tahu keperluannya tanpa
-        // perlu bertanya balik, dan pengguna yang sedang panik tidak perlu
-        // menyusun kalimat sendiri.
-        return 'https://wa.me/' . $nomor . '?text=' . rawurlencode(
-            'Halo, saya mengalami kendala masuk ke SIMPBI dan memerlukan bantuan.'
-        );
+        return 'https://wa.me/' . $nomor . (filled($pesan) ? '?text=' . rawurlencode($pesan) : '');
     }
 }

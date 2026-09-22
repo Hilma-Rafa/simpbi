@@ -39,6 +39,12 @@ class StokService
             foreach ($items as $barangId => $jumlah) {
                 $barang = BarangPersediaan::lockForUpdate()->findOrFail($barangId);
 
+                if (! $barang->status_aktif) {
+                    throw new \RuntimeException(
+                        "{$barang->nama_barang} tidak tersedia untuk diminta."
+                    );
+                }
+
                 $tersedia = $barang->stok_fisik - $barang->stok_hold;
 
                 if ($jumlah > $tersedia) {
@@ -59,7 +65,9 @@ class StokService
     {
         DB::transaction(function () use ($permintaan) {
             foreach ($permintaan->detail as $detail) {
-                $jumlah = $detail->jumlah_final ?? $detail->jumlah_diminta;
+                // Kunci milik permintaan ini tidak pernah lebih besar daripada yang
+                // diminta; batas ini menjaga kunci permintaan lain tak ikut terlepas.
+                $jumlah = min($detail->jumlah_final ?? $detail->jumlah_diminta, $detail->jumlah_diminta);
 
                 $barang = BarangPersediaan::lockForUpdate()->find($detail->barang_id);
                 if (! $barang) {
@@ -77,10 +85,44 @@ class StokService
     }
 
     /**
+     * Pesan aturan bisnis untuk pengguna, bila $e memang penolakan yang sengaja
+     * dilemparkan layanan ini; null untuk galat teknis (QueryException,
+     * ModelNotFoundException, dan sejenisnya, yang turunan RuntimeException
+     * tetapi bukan RuntimeException itu sendiri) yang tak boleh tampil mentah.
+     */
+    public static function pesanAturan(\Throwable $e): ?string
+    {
+        return in_array($e::class, [\RuntimeException::class, InvalidArgumentException::class], true)
+            ? $e->getMessage()
+            : null;
+    }
+
+    /**
+     * Jumlah yang disetujui tidak boleh melebihi jumlah yang diminta.
+     *
+     * @param  array<int|string,int|string|null>  $jumlah  [detail_id => jumlah disetujui]; null dilewati
+     * @throws InvalidArgumentException bila ada rincian yang melebihi jumlah diminta
+     */
+    public function pastikanTidakMelebihiDiminta(PermintaanBarang $permintaan, array $jumlah): void
+    {
+        foreach ($permintaan->detail as $detail) {
+            $final = $jumlah[$detail->id] ?? null;
+
+            if ($final !== null && (int) $final > $detail->jumlah_diminta) {
+                throw new InvalidArgumentException(
+                    "Jumlah disetujui tidak boleh melebihi jumlah diminta ({$detail->jumlah_diminta})."
+                );
+            }
+        }
+    }
+
+    /**
      * Menyesuaikan jumlah kunci ketika permintaan disetujui sebagian.
      */
     public function sesuaikanHold(PermintaanBarang $permintaan): void
     {
+        $this->pastikanTidakMelebihiDiminta($permintaan, $permintaan->detail->pluck('jumlah_final', 'id')->all());
+
         DB::transaction(function () use ($permintaan) {
             foreach ($permintaan->detail as $detail) {
                 if ($detail->jumlah_final === null) {
@@ -127,7 +169,7 @@ class StokService
                 // Kunci stok dilepas di sini; stok fisiknya sendiri ditetapkan
                 // oleh hitungUlangSaldo() bersama seluruh kolom Sisa barang ini.
                 $barang->update([
-                    'stok_hold' => max(0, $barang->stok_hold - $jumlah),
+                    'stok_hold' => max(0, $barang->stok_hold - min($jumlah, $detail->jumlah_diminta)),
                 ]);
 
                 MutasiStok::create([
@@ -223,9 +265,13 @@ class StokService
 
         $tahun = (int) now()->year;
 
+        // MySQL dan MariaDB tidak mengenal CAST(... AS INTEGER); tipe bilangan
+        // bulatnya SIGNED. Percabangan mengikuti KartuKendaliService::petikTahun().
+        $tipeAngka = DB::connection()->getDriverName() === 'sqlite' ? 'INTEGER' : 'SIGNED';
+
         $terakhir = (int) PermintaanBarang::query()
             ->where('tahun_bon', $tahun)
-            ->orderByRaw('CAST(nomor_bon AS INTEGER) DESC')
+            ->orderByRaw("CAST(nomor_bon AS {$tipeAngka}) DESC")
             ->value('nomor_bon');
 
         $nomor = str_pad((string) ($terakhir + 1), 3, '0', STR_PAD_LEFT);

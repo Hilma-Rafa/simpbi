@@ -10,33 +10,48 @@
         <x-slot name="heading">
             <a href="{{ $this->tautanSemua }}"
                class="transition hover:text-primary-600 dark:hover:text-primary-400">
-                Permintaan per Tim Kerja
+                {{ $this->judul }}
             </a>
         </x-slot>
 
         <x-slot name="description">
-            Jumlah permintaan per tim kerja
+            {{ $this->keterangan }}
         </x-slot>
 
-        <x-slot name="afterHeader">
-            <div class="flex h-9 w-44 items-center justify-end">
-                <x-filament::input.wrapper class="w-full">
-                    <x-filament::input.select wire:model.live="periode">
-                        @foreach ($this->pilihanPeriode as $nilai => $label)
-                            <option value="{{ $nilai }}">{{ $label }}</option>
-                        @endforeach
-                    </x-filament::input.select>
-                </x-filament::input.wrapper>
-            </div>
-        </x-slot>
+
+        {{-- Penyaring diletakkan sebagai satu baris di atas isi panel, bukan
+             di sebelah judul. Pada panel selebar setengah kisi, judul dan
+             keterangan kehilangan hampir seluruh ruangnya bila harus berbagi
+             satu baris dengan kotak pilihan. --}}
+        <div class="mb-4 flex flex-wrap items-center gap-2">
+            <x-filament::input.wrapper class="min-w-36 flex-1">
+                <x-filament::input.select wire:model.live="metrik">
+                    @foreach ($this->pilihanMetrik as $nilai => $label)
+                        <option value="{{ $nilai }}">{{ $label }}</option>
+                    @endforeach
+                </x-filament::input.select>
+            </x-filament::input.wrapper>
+
+            <x-filament::input.wrapper class="min-w-36 flex-1">
+                <x-filament::input.select wire:model.live="periode">
+                    @foreach ($this->pilihanPeriode as $nilai => $label)
+                        <option value="{{ $nilai }}">{{ $label }}</option>
+                    @endforeach
+                </x-filament::input.select>
+            </x-filament::input.wrapper>
+        </div>
 
         {{-- Tinggi disamakan dengan panel Kondisi Stok di sebelahnya. --}}
         <div class="fi-simpbi-panel-scroll -mx-2 h-72 overflow-y-auto px-2">
 
             @forelse ($daftar as $t)
-                <a href="{{ $t['tautan'] }}"
+                {{-- Baris menjadi tautan hanya ketika ada halaman yang mewakili
+                     angkanya; lihat PermintaanPerTim::tautanTim(). --}}
+                <{{ $t['tautan'] ? 'a' : 'div' }}
+                   @if ($t['tautan']) href="{{ $t['tautan'] }}" @endif
                    @class([
-                       '-mx-2 block rounded-lg px-2 py-2.5 transition hover:bg-gray-50 dark:hover:bg-white/5',
+                       '-mx-2 block rounded-lg px-2 py-2.5',
+                       'transition hover:bg-gray-50 dark:hover:bg-white/5' => (bool) $t['tautan'],
                        'border-t border-gray-100 dark:border-gray-800' => ! $loop->first,
                    ])>
 
@@ -46,7 +61,7 @@
                         </span>
                         <span class="shrink-0 text-xs text-gray-500 dark:text-gray-400">
                             <span class="font-semibold text-gray-900 dark:text-white">{{ $t['jumlah'] }}</span>
-                            permintaan
+                            {{ $this->satuan }}
                         </span>
                     </div>
 
@@ -57,7 +72,7 @@
                         @endif
                     </div>
 
-                </a>
+                </{{ $t['tautan'] ? 'a' : 'div' }}>
             @empty
 
                 <div class="py-6 text-center">
@@ -81,7 +96,7 @@
                 <span>Total {{ $daftar->count() }} tim kerja</span>
                 <span>
                     <span class="font-semibold text-gray-900 dark:text-white">{{ $total }}</span>
-                    permintaan pada periode ini
+                    {{ $this->satuan }} pada periode ini
                 </span>
             </div>
         </x-slot>

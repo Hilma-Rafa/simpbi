@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -12,6 +13,7 @@ use Filament\Schemas\Concerns\InteractsWithSchemas;
 use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 
 /**
@@ -46,6 +48,38 @@ class GantiKataSandi extends Page implements HasSchemas
         $this->form->fill();
     }
 
+    /**
+     * Aturan: kata sandi baru tidak boleh sama dengan yang sedang berlaku.
+     * Dipakai juga oleh halaman Pengaturan.
+     */
+    public static function aturanBerbedaDariSaatIni(): \Closure
+    {
+        return function (string $attribute, $value, \Closure $fail): void {
+            if (filled($value) && Hash::check((string) $value, (string) auth()->user()?->password)) {
+                $fail('Kata sandi baru harus berbeda dari kata sandi saat ini.');
+            }
+        };
+    }
+
+    /**
+     * Memperbarui hash kata sandi di sesi perangkat yang sedang dipakai.
+     *
+     * Middleware AuthenticateSession memutus sesi yang hash-nya tidak lagi
+     * sama dengan kata sandi akun. Pada permintaan Livewire middleware itu
+     * berjalan sebagai middleware persisten SEBELUM komponen bekerja, jadi
+     * hash yang tersimpan di sesi tetap hash lama begitu komponen mengganti
+     * kata sandi, dan permintaan berikutnya menendang pengguna ke halaman
+     * masuk. Polanya sama dengan halaman profil bawaan Filament
+     * (Filament\Auth\Pages\EditProfile). Sesi di perangkat lain tidak
+     * disentuh, sehingga tetap tidak berlaku.
+     */
+    public static function perbaruiHashSesi(): void
+    {
+        session()->put([
+            'password_hash_' . Filament::getAuthGuard() => auth()->user()->getAuthPassword(),
+        ]);
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema
@@ -63,6 +97,7 @@ class GantiKataSandi extends Page implements HasSchemas
                             ->revealable()
                             ->required()
                             ->rule(Password::default())
+                            ->rule(fn (): \Closure => static::aturanBerbedaDariSaatIni())
                             ->autocomplete('new-password')
                             ->confirmed(),
 
@@ -97,8 +132,10 @@ class GantiKataSandi extends Page implements HasSchemas
             'harus_ganti_sandi' => false,
         ])->save();
 
+        static::perbaruiHashSesi();
+
         Notification::make()
-            ->title('Kata sandi tersimpan')
+            ->title('Kata sandi berhasil diubah')
             ->body('Selamat datang di SIMPBI.')
             ->success()
             ->send();

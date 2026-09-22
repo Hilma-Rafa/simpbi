@@ -139,6 +139,50 @@ class NomorBonPengeluaranTest extends TestCase
     }
 
     /**
+     * Regresi A-001: kueri pencari nomor terakhir harus sah di SQLite maupun
+     * MySQL/MariaDB, dan urutannya numerik pada batas satu ke dua digit
+     * (009, 010, 011), bukan urutan teks.
+     */
+    public function test_penomoran_berurutan_melewati_batas_satu_ke_dua_digit(): void
+    {
+        $tim     = $this->buatTim();
+        $pengaju = $this->buatPengguna('tim', $tim);
+
+        $this->buatPermintaan($tim, $pengaju, [
+            ['barang' => $this->buatBarang(), 'diminta' => 1],
+        ])->forceFill(['nomor_bon' => '008', 'tahun_bon' => (int) now()->year])->save();
+
+        $nomor = [];
+
+        foreach (range(1, 3) as $urut) {
+            $nomor[] = $this->keluarkan([
+                ['barang' => $this->buatBarang(stokFisik: 20, stokHold: 5), 'diminta' => 5],
+            ])->nomor_bon;
+        }
+
+        $this->assertSame(['009', '010', '011'], $nomor);
+    }
+
+    /** Nomor lama yang belum berlapis nol tetap dibandingkan sebagai angka: 10 di atas 9. */
+    public function test_nomor_tanpa_lapis_nol_dibandingkan_sebagai_angka(): void
+    {
+        $tim     = $this->buatTim();
+        $pengaju = $this->buatPengguna('tim', $tim);
+
+        foreach (['9', '10'] as $lama) {
+            $this->buatPermintaan($tim, $pengaju, [
+                ['barang' => $this->buatBarang(), 'diminta' => 1],
+            ])->forceFill(['nomor_bon' => $lama, 'tahun_bon' => (int) now()->year])->save();
+        }
+
+        $berikutnya = $this->keluarkan([
+            ['barang' => $this->buatBarang(stokFisik: 20, stokHold: 5), 'diminta' => 5],
+        ]);
+
+        $this->assertSame('011', $berikutnya->nomor_bon, 'Sebagai teks "9" berada di atas "10".');
+    }
+
+    /**
      * Permintaan yang berakhir tanpa pengeluaran barang tidak boleh
      * menghabiskan nomor: bon hanya lahir ketika barang benar-benar keluar.
      */

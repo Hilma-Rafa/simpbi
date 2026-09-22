@@ -12,6 +12,7 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -51,7 +52,7 @@ class Riwayat extends Page implements HasTable
 
     protected string $view = 'filament.pages.riwayat';
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedArchiveBox;
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Monitoring';
 
@@ -371,7 +372,7 @@ class Riwayat extends Page implements HasTable
                 TextColumn::make('kode_permintaan')->label('Kode')->searchable()->sortable(),
                 TextColumn::make('tim.nama_tim')->label('Tim Pemohon')->searchable()->sortable(),
                 TextColumn::make('nama_pemohon')->label('Pemohon')->searchable(),
-                TextColumn::make('detail_count')->label('Item')->counts('detail')->alignEnd(),
+                TextColumn::make('detail_count')->label('Jumlah Item')->counts('detail')->alignEnd(),
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
@@ -385,6 +386,26 @@ class Riwayat extends Page implements HasTable
                 TextColumn::make('pengesahan_at')->label('Disahkan')->dateTime('d-m-Y H:i')->placeholder('—')->sortable(),
             ])
             ->filters([
+                // Sama dengan penyaring pada Daftar Permintaan Barang, sehingga
+                // tautan notifikasi/WhatsApp yang menyaring sebuah permintaan
+                // riwayat mendarat dengan daftar yang sudah tersaring pula,
+                // lalu pop-up Rincian terbuka lewat parameter tableAction.
+                Filter::make('kode_permintaan')
+                    ->label('Kode Permintaan')
+                    ->schema([
+                        TextInput::make('value')
+                            ->label('Kode Permintaan')
+                            ->placeholder('Masukkan kode permintaan...')
+                            ->maxLength(50),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => $query->when(
+                        filled($data['value'] ?? null),
+                        fn (Builder $query) => $query->where('kode_permintaan', $data['value']),
+                    ))
+                    ->indicateUsing(fn (array $data): ?string => filled($data['value'] ?? null)
+                        ? 'Kode: ' . $data['value']
+                        : null),
+
                 SelectFilter::make('status')
                     ->label('Status')
                     ->multiple()

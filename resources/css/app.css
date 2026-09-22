@@ -4,7 +4,6 @@
 @source '../../storage/framework/views/*.php';
 @source "../**/*.blade.php";
 @source "../**/*.js";
-@source "../**/*.vue";
 
 /*
  * SIMPBI design tokens — sumber tunggal warna & tipografi untuk halaman Blade
@@ -22,6 +21,22 @@
     --color-brand-light: #EAF3FB;
     --color-accent: #F59E0B;
     --color-accent-light: #FFF7E6;
+
+    /*
+     * Oranye dan hijau identitas BPS, disampel langsung dari piksel
+     * public/images/logo-bps.png (bukan ditebak) — lihat catatan pengambilan
+     * sampel pada resources/css/filament/admin/theme.css. Token terpisah dari
+     * `accent`/`success` di atas, sebab keduanya sudah dipakai secara khusus
+     * sebagai warna CTA landing page dan status semantik tabel; mengubahnya
+     * akan menggeser hal-hal di luar cakupan pembenahan visual ini. Dipakai
+     * hanya untuk aksen kaki halaman dan kotak tint ikon (Instruksi bagian B).
+     */
+    --color-bps-orange: #E18939;
+    --color-bps-orange-dark: #AE611A; /* kontras 4.64:1 terhadap putih */
+    --color-bps-orange-light: #FBF1E7; /* tint ~12% */
+    --color-bps-green: #75B547;
+    --color-bps-green-dark: #548233; /* kontras 4.55:1 terhadap putih */
+    --color-bps-green-light: #EEF6E9; /* tint ~12% */
 
     /* Semantik status */
     --color-success: #16A34A;

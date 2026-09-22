@@ -109,11 +109,24 @@ class AksiImpor
             }
         }
 
+        /*
+         * Catatan bukan kegagalan, melainkan keterangan bahwa sebagian isi
+         * berkas sengaja tidak dipakai. Ia ikut ditampilkan dan membuat
+         * pemberitahuannya menetap, sebab keterangan semacam ini justru tidak
+         * berguna bila hilang sendiri sebelum sempat dibaca.
+         */
+        if ($hasil->adaCatatan()) {
+            $badan .= "
+
+" . implode("
+", $hasil->catatan);
+        }
+
         $pemberitahuan = Notification::make()
             ->title($hasil->judul())
             ->body($badan);
 
-        $hasil->adaGalat()
+        $hasil->adaGalat() || $hasil->adaCatatan()
             ? $pemberitahuan->warning()->persistent()
             : $pemberitahuan->success();
 

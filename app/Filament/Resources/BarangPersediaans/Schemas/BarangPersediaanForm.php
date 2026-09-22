@@ -53,7 +53,10 @@ class BarangPersediaanForm
                             ->numeric()
                             ->minValue(0)
                             ->default(0)
-                            ->required(),
+                            // Hanya tampil: kunci stok dikelola mekanisme HOLD. Barang baru
+                            // memakai nilai bawaan kolom (0).
+                            ->disabled()
+                            ->dehydrated(false),
                         TextInput::make('stok_minimum')
                             ->label('Stok Minimum')
                             ->helperText('Isi 0 bila barang tidak dipantau terhadap stok minimum.')

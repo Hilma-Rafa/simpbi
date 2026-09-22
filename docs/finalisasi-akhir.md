@@ -7,8 +7,14 @@ Menggantikan `docs/pekerjaan-tertunda.md`.
 
 ## 1. Executive Summary
 
-**Vonis: NOT READY TO FREEZE** — tertahan oleh **satu** temuan, bukan oleh
-kondisi sistem secara umum.
+**Vonis saat audit dijalankan: NOT READY TO FREEZE** — tertahan oleh **satu**
+temuan, bukan oleh kondisi sistem secara umum.
+
+> **Keadaan sekarang: READY TO FREEZE.** Seluruh temuan P0 dan P1 di bawah sudah
+> diselesaikan pada commit `b79831d`; lihat bagian 25. Isi laporan ini
+> dipertahankan apa adanya sebagai riwayat audit — temuan awal, keputusan, lalu
+> commit penyelesaiannya. Dua temuan baru, **W-1** dan **W-2**, masih terbuka
+> dan tercatat pada bagian 23b.
 
 Sistemnya sendiri dalam keadaan baik. Seluruh 26 use case terimplementasi, ERD
 terpasang utuh, kelima peran terpisah dengan benar sampai ke tingkat menu, alur
@@ -414,7 +420,8 @@ P0-1.
 | `APP_URL` | `http://192.168.68.144:8000` | → domain sebenarnya; ini yang tertanam di setiap QR |
 | `APP_TIMEZONE` | `Asia/Jakarta` | ✅ siap |
 | Basis data | SQLite | → MySQL 8 (target Instruksi); jalur cadangan/pemulihan MySQL **sudah diuji nyata** |
-| `storage:link` | belum | `php artisan storage:link` |
+| `storage:link` | belum | **Tidak diperlukan untuk dokumen.** Bukti permintaan dan BAST kini disimpan di disk privat (`storage/app/private`) dan hanya dilayani rute yang dijaga, tidak pernah lewat `/storage`. Aplikasi ini tidak memakai aset lain dari `storage/app/public`, jadi `storage:link` tidak perlu dijalankan (bila sudah terlanjur, hapus tautan `public/storage`). Lihat bagian "Dokumen di disk privat" di bawah. |
+| Dokumen lama | tersimpan di `storage/app/public` | `php artisan simpbi:pindah-dokumen` (rencana), lalu `--jalankan`, lalu `--jalankan --hapus-asli` — urutan lengkap di bawah |
 | Antrean | `database`, **24 pekerjaan menumpuk** | jalankan `queue:work` lewat Supervisor/systemd |
 | Penjadwal | 1 perintah terdaftar | pasang cron `* * * * * php artisan schedule:run` |
 | WhatsApp | `WHATSAPP_DRIVER=catat` | daftarkan gerbang sungguhan, uji dengan nomor nyata |
@@ -423,11 +430,31 @@ P0-1.
 | HTTPS | — | wajib: token QR dan sesi melintas jaringan |
 | `max_execution_time` | bawaan | naikkan bila katalog jauh bertambah (lihat bagian 18) |
 
+### Dokumen di disk privat (perbaikan C-001)
+
+Bukti permintaan (`bukti-permintaan/KODE.pdf` dan `KODE-berfootnote.pdf`) dan BAST (`bast-mutasi/NOMOR.pdf`, termasuk draf) memuat gambar tanda tangan. Sebelumnya berkas itu ditulis ke disk `public`; setelah `storage:link`, siapa pun dapat membukanya tanpa login lewat `/storage/...` dengan nama berkas yang mudah ditebak. Sekarang seluruhnya ditulis dan dibaca dari disk privat `local` (`storage/app/private`, sama dengan tanda tangan dan panduan) dan hanya dilayani rute yang dijaga (`/bukti-permintaan/{id}`, `/dokumen-bast/{id}`) atau rute bertoken. Path pada basis data tetap relatif dan sama.
+
+Urutan saat pemasangan pada mesin yang sudah punya dokumen lama:
+
+1. **Sebelum** kode baru dipasang, dengan kode lama: `php artisan simpbi:backup` (cadangan ini masih memuat dokumen di lokasi lama).
+2. Pasang kode baru. Dokumen lama belum terbaca (404) sampai langkah 4.
+3. `php artisan simpbi:pindah-dokumen` — hanya menampilkan rencana (yang akan disalin, yang sudah ada, yang hilang). Periksa keluarannya.
+4. `php artisan simpbi:pindah-dokumen --jalankan` — menyalin ke disk privat dan memverifikasi ukuran dan sha256 tiap berkas. Berkas asli belum dihapus.
+5. Buka satu bukti permintaan dan satu BAST dari aplikasi untuk memastikan terbaca.
+6. `php artisan simpbi:pindah-dokumen --jalankan --hapus-asli` — menghapus berkas di `storage/app/public` hanya setelah verifikasinya berhasil. Aman diulang.
+7. `php artisan simpbi:backup` lagi (kini mencakup lokasi baru). Arsip lama tetap dapat dipulihkan dengan `simpbi:restore`; dokumen di dalamnya dipulihkan ke lokasi privat yang baru.
+
+Pada mesin baru tanpa dokumen lama, langkah 3–6 tidak diperlukan. `simpbi:reset-demo` kini menyapu folder dokumen di disk privat.
+
 ---
 
 ## 21. P0 — Critical
 
-### P0-1 · Menghapus barang persediaan memusnahkan buku besarnya secara diam-diam
+> **Status golongan ini: SELESAI** — diperbaiki pada commit `b79831d`
+> (*Fix final audit findings*). Catatan temuan aslinya dipertahankan utuh di
+> bawah agar jejak *temuan → keputusan → perbaikan* tetap dapat dibaca.
+
+### ✅ P0-1 · Menghapus barang persediaan memusnahkan buku besarnya secara diam-diam
 
 - **Lokasi:** `app/Filament/Resources/BarangPersediaans/Pages/EditBarangPersediaan.php:16`
   (`DeleteAction`), `.../Tables/BarangPersediaansTable.php:181` (`DeleteBulkAction`);
@@ -451,11 +478,24 @@ P0-1.
   dan arahkan ke penonaktifan. Perubahan terbatas pada dua berkas Filament.
 - **Perlu diperbaiki sebelum freeze?** **Ya.**
 
+**✅ SELESAI — commit `b79831d`.** Penolakan dipasang pada peristiwa `deleting`
+model (`App\Models\Concerns\DilindungiRiwayat` beserta
+`BarangPersediaan::punyaRiwayat()`), bukan pada tombol, sehingga aksi tunggal,
+aksi massal, permintaan langsung, dan perintah konsol sama-sama terjaga.
+`DeleteBulkAction` dipaku pada `fetchSelectedRecords()` agar tidak memakai jalur
+kueri massal yang melewati peristiwa model. Dijaga
+`tests/Feature/PerlindunganHapusTest.php`. Skema basis data tidak disentuh;
+pengguna diarahkan ke kolom `status_aktif` yang sudah ada.
+
 ---
 
 ## 22. P1 — Important
 
-### P1-1 · Catatan kaki dokumen mengklaim "sertifikat elektronik" yang tidak ada
+> **Status golongan ini: SELESAI** — kelima temuan diperbaiki pada commit
+> `b79831d`. Catatan aslinya dipertahankan; penyelesaiannya ditulis di akhir
+> masing-masing temuan.
+
+### ✅ P1-1 · Catatan kaki dokumen mengklaim "sertifikat elektronik" yang tidak ada
 
 - **Lokasi:** `resources/views/pdf/bukti-permintaan.blade.php:336`,
   `resources/views/pdf/bast-mutasi.blade.php:221`.
@@ -473,7 +513,13 @@ P0-1.
 - **Perlu sebelum freeze?** Sebaiknya ya — murah dan menyangkut kejujuran
   dokumen.
 
-### P1-2 · Menghapus pengguna atau tim yang punya riwayat menampilkan galat mentah
+**✅ SELESAI — commit `b79831d`.** Kalimatnya menjadi *"Dokumen ini telah
+disahkan secara elektronik melalui Sistem Informasi Manajemen Permintaan Barang
+dan Inventaris."* pada kedua templat. Kode QR, token, dan rute verifikasi tidak
+disentuh. Dijaga pengujian pada `DokumenBuktiTest` dan `DokumenBastTest` yang
+menuntut teks baru hadir dan menolak kemunculan kata "sertifikat elektronik".
+
+### ✅ P1-2 · Menghapus pengguna atau tim yang punya riwayat menampilkan galat mentah
 
 - **Lokasi:** `app/Filament/Resources/Users/Pages/EditUser.php:16` dan
   `Tables/UsersTable.php:87`; `Resources/Tims/Pages/EditTim.php:16` dan
@@ -488,7 +534,13 @@ P0-1.
 - **Perlu sebelum freeze?** Sebaiknya ya — satu pola perbaikan yang sama dengan
   P0-1.
 
-### P1-3 · Impor pengguna membolehkan email kosong, padahal masuk memakai email
+**✅ SELESAI — commit `b79831d`.** Pola yang sama dengan P0-1:
+`User::punyaRiwayat()` memeriksa lima rujukan penolak, `Tim::punyaRiwayat()`
+memeriksa empat. Rujukan yang mengosongkan diri sengaja tidak dihitung.
+Penghapusan kini mengembalikan `false` disertai keterangan yang dapat dibaca,
+bukan `QueryException` mentah.
+
+### ✅ P1-3 · Impor pengguna membolehkan email kosong, padahal masuk memakai email
 
 - **Lokasi:** `app/Services/Impor/ImporPengguna.php:176–198`.
 - **Masalah:** halaman masuk memakai **email** (`App\Filament\Auth\Login`,
@@ -503,7 +555,13 @@ P0-1.
 - **Perlu sebelum freeze?** Ya bila impor akan dipakai untuk menyiapkan akun
   pegawai sungguhan.
 
-### P1-4 · Status `bermasalah` berwarna berbeda di dua halaman
+**✅ SELESAI — commit `b79831d`.** Baris tanpa surel ditolak dengan keterangan
+yang menyebut alasannya. Ditemukan pula pada tinjauan bahwa templat impor masih
+menandai Email sebagai kolom tidak wajib dan menyebut Username sebagai
+kredensial masuk — keduanya ikut diperbaiki pada commit yang sama (W-3 dan W-4
+pada catatan tinjauan).
+
+### ✅ P1-4 · Status `bermasalah` berwarna berbeda di dua halaman
 
 - **Lokasi:** `app/Filament/Pages/Riwayat.php:381` (`danger`) vs
   `app/Filament/Resources/PermintaanBarangs/PermintaanBarangResource.php:146`
@@ -516,7 +574,11 @@ P0-1.
   dan dasbor Petugas Gudang sudah menandainya `danger`.
 - **Perlu sebelum freeze?** Sebaiknya — perbaikannya satu baris.
 
-### P1-5 · Dokumentasi akun demo menyebut username, padahal masuk memakai email
+**✅ SELESAI — commit `b79831d`.** `bermasalah` kini `danger` pada daftar
+permintaan, seragam dengan halaman Riwayat dan KPI dasbor Petugas Gudang.
+`kedaluwarsa` tetap `gray`.
+
+### ✅ P1-5 · Dokumentasi akun demo menyebut username, padahal masuk memakai email
 
 - **Lokasi:** `docs/pemeliharaan-data.md` bagian C, dan keluaran
   `app/Console/Commands/ResetDemo.php:82`.
@@ -532,6 +594,12 @@ P0-1.
   data pegawai sebenarnya.
 - **Perlu sebelum freeze?** Ya — dokumentasi yang salah lebih berbahaya daripada
   tidak ada dokumentasi.
+
+**✅ SELESAI — commit `b79831d`.** `simpbi:reset-demo` kini membaca akun dari
+basis data sesudah seeder berjalan dan menampilkan **surel** per peran, sehingga
+daftarnya tidak dapat basi lagi. `docs/pemeliharaan-data.md` menyatakan tegas
+bahwa masuk memakai surel, dan menerangkan mengapa surel Ketua Tim mengikuti
+data pegawai.
 
 ---
 
@@ -569,12 +637,75 @@ disentuh.
 Berisi `undefined/login-fokus.png` tertanggal 10 September — lintasan yang salah
 tulis saat menyimpan tangkapan layar.
 
-### P2-8 · Pekerjaan belum dikomit
+### ✅ P2-8 · Pekerjaan belum dikomit
 **92 berkas** berubah atau baru sejak komit terakhir `7ac12ac` (11 September).
 Di dalamnya: Kartu Kendali, impor data, ganti kata sandi paksa, tanda tangan
 pengguna, perbaikan dokumen dan e-TTD, zona waktu, perkakas pemeliharaan, dan
 ekspor PDF kartu kendali. **Tidak ada titik pulih.** Ini bukan cacat sistem,
 tetapi risiko nyata bagi pekerjaan Anda — dan yang paling murah dikerjakan.
+
+**✅ SELESAI — commit `901b02d`** (*Finalize SIMPBI before final audit fixes*),
+90 berkas. Bukti visual pengujian dan berkas kerja dikecualikan lewat
+`.gitignore`; berkas acuan Sub-Bagian Umum tetap dilacak karena seeder
+membacanya.
+
+---
+
+## 23b. W — Temuan terbuka yang belum dikerjakan
+
+Dua temuan ini **tidak ada pada audit awal** dan baru muncul ketika perbaikan
+P0-1 dan P1-2 ditinjau ulang. Keduanya bersifat pra-ada — bukan akibat perbaikan
+mana pun — dan sengaja dibiarkan pada tahap ini atas keputusan pengguna.
+
+Keduanya adalah **kembaran** dari temuan yang sudah diperbaiki: pola cacatnya
+sama persis, hanya tabelnya yang berbeda. Perbaikan P0-1 dan P1-2 tidak
+menutupinya, sebab penjaganya dipasang per model.
+
+### W-1 · Menghapus Aset Tetap ikut menghapus riwayat penempatannya
+
+- **Lokasi:** `database/migrations/2026_08_26_000008_create_riwayat_penempatan_aset_table.php:13`
+  — `aset_id` memakai `cascadeOnDelete()`. Aksinya ada di
+  `app/Filament/Resources/AsetTetaps/Pages/EditAsetTetap.php:16` dan
+  `.../Tables/AsetTetapsTable.php:124`, keduanya tanpa penjaga.
+- **Masalah:** menghapus aset tetap yang punya riwayat penempatan **berhasil**,
+  dan baris `riwayat_penempatan_aset` miliknya ikut terhapus tanpa peringatan.
+- **Bukti:** dibuktikan lewat pengujian di dalam transaksi basis data yang
+  digulung balik:
+
+  ```
+  aset: Laptop Lenovo ThinkPad E14 | riwayat penempatan: 1
+    delete() -> true
+    aset masih ada: false
+    riwayat_penempatan_aset: 13 -> 12
+  ```
+
+- **Dampak:** jejak historis penempatan aset hilang — ke tim mana sebuah aset
+  pernah ditempatkan, dan sejak kapan. Tidak dapat dipulihkan kecuali dari
+  cadangan. `bast_mutasi_aset.aset_id` memakai `restrictOnDelete()`, sehingga
+  aset yang pernah masuk BAST terlindungi; yang rawan adalah aset yang hanya
+  punya riwayat penempatan.
+- **Ini pola yang sama dengan P0-1**, pada tabel yang berbeda.
+- **Status:** pekerjaan terbuka / *technical debt*.
+- **Catatan:** perlu diperbaiki **sebelum sistem digunakan secara operasional
+  atau dipasang di produksi**.
+- **Tidak diperbaiki sekarang** atas keputusan pengguna.
+
+### W-2 · Menghapus Kategori yang masih dipakai Barang menampilkan galat mentah
+
+- **Lokasi:** `app/Filament/Resources/Kategoris/Pages/EditKategori.php:16` dan
+  `.../Tables/KategorisTable.php:65`, keduanya tanpa penjaga.
+  `barang_persediaan.kategori_id` memakai `restrictOnDelete()`.
+- **Masalah:** menghapus kategori yang masih memiliki barang persediaan
+  melempar `QueryException` mentah, bukan keterangan yang dapat dibaca
+  pengguna.
+- **Bukti:** dibuktikan lewat pengujian di dalam transaksi yang digulung balik —
+  `kategori berbarang -> QueryException`.
+- **Dampak:** terbatas pada pengalaman pemakaian. **Tidak ada kehilangan data:**
+  batasan basis data justru bekerja sebagaimana mestinya dan menolak
+  penghapusannya.
+- **Ini pola yang sama dengan P1-2**, pada tabel yang berbeda.
+- **Status:** pekerjaan terbuka / *technical debt*.
+- **Tidak diperbaiki sekarang** atas keputusan pengguna.
 
 ---
 
@@ -603,24 +734,50 @@ tetapi risiko nyata bagi pekerjaan Anda — dan yang paling murah dikerjakan.
 
 ## 25. Final Verdict
 
-> ## NOT READY TO FREEZE
+> ## READY TO FREEZE
 
-Satu hal yang benar-benar menghalangi:
+**Vonis semula NOT READY TO FREEZE**, tertahan oleh P0-1. Vonis itu berlaku pada
+keadaan sistem saat audit dijalankan, 15 September 2026, dan dipertahankan di
+sini sebagai riwayat.
 
-**P0-1 — menghapus barang persediaan memusnahkan seluruh buku besar mutasinya
-secara diam-diam.** Sistem yang keluaran utamanya adalah Kartu Kendali tidak
-boleh menyediakan satu klik yang menghapus sumber kartu itu tanpa peringatan,
-apalagi ketika kolom `status_aktif` untuk menonaktifkan barang sudah tersedia.
-Perbaikannya terbatas pada dua berkas Filament dan tidak menyentuh basis data,
-alur, maupun peran.
+**Penghalangnya sudah hilang.** Seluruh temuan P0 dan P1 diselesaikan pada commit
+`b79831d` (*Fix final audit findings*), didahului titik pulih `901b02d`:
 
-Selebihnya tidak menghalangi. Empat temuan P1 sebaiknya dikerjakan sebelum
-freeze karena murah dan menyangkut kejujuran dokumen serta ketepatan
-dokumentasi; delapan temuan P2 boleh ditunda tanpa akibat — kecuali **P2-8**,
-yang bukan soal kualitas sistem melainkan keselamatan pekerjaan Anda sendiri.
+| Temuan | Keadaan |
+|---|---|
+| P0-1 · penghapusan barang memusnahkan buku besar | ✅ selesai `b79831d` |
+| P1-1 · klaim sertifikat elektronik pada PDF | ✅ selesai `b79831d` |
+| P1-2 · galat mentah saat menghapus Pengguna/Tim | ✅ selesai `b79831d` |
+| P1-3 · impor pengguna membolehkan surel kosong | ✅ selesai `b79831d` |
+| P1-4 · warna status `bermasalah` tidak seragam | ✅ selesai `b79831d` |
+| P1-5 · dokumentasi akun demo menyebut username | ✅ selesai `b79831d` |
+| P2-8 · pekerjaan belum dikomit | ✅ selesai `901b02d` |
 
-**Urutan yang saya sarankan:** P2-8 (komit dulu, agar ada titik pulih) → P0-1 →
-P1-5 → P1-1 → P1-2 → P1-3 → P1-4.
+Perbaikannya tidak menyentuh skema basis data, migrasi, alur permintaan, status,
+otorisasi lima peran, mekanisme QR/e-TTD, maupun data yang ada. Rangkaian uji
+otomatis naik dari 271 menjadi **286 lulus, 2.530 assertion, nol gagal**, dengan
+angka yang sama pada larian berulang.
 
-Tidak ada satu pun rekomendasi di atas yang menambah fitur, mengubah alur,
-menyentuh skema, atau mengubah data.
+### Yang tetap terbuka, dan mengapa itu tidak menghalangi
+
+**W-1 dan W-2** (bagian 23b) adalah temuan yang baru muncul ketika perbaikan di
+atas ditinjau ulang. Keduanya **belum dikerjakan** dan tetap tercatat sebagai
+*technical debt*:
+
+- **W-1 — Aset Tetap dapat menghapus riwayat penempatannya.** Pola yang sama
+  dengan P0-1, pada tabel yang berbeda. **Perlu diperbaiki sebelum sistem
+  digunakan secara operasional atau dipasang di produksi.** Ia tidak menghalangi
+  pembekuan kode karena sifatnya pra-ada dan tidak terhubung dengan perbaikan
+  mana pun di atas — tetapi ia tetap utang yang harus dibayar.
+- **W-2 — penghapusan Kategori yang masih dipakai menampilkan galat mentah.**
+  Terbatas pada pengalaman pemakaian; tidak ada kehilangan data.
+
+**P2-1 sampai P2-7 tetap ditunda** tanpa akibat: label bahasa Inggris tersisa,
+istilah campur, keadaan kosong tabel yang belum seragam, warna peran, N+1 yang
+terukur kecil, metode `tautan()` yang kembar, dan direktori `undefined/`.
+
+### Yang tetap harus dikerjakan saat pemasangan
+
+Seluruh butir pada bagian 20 — `APP_ENV`, `APP_DEBUG`, `APP_URL`, pindah ke
+MySQL 8, `simpbi:pindah-dokumen` (bila ada dokumen lama; `storage:link` tidak lagi diperlukan), cron penjadwal, pekerja antrean, gerbang WhatsApp, dan
+HTTPS — berikut **W-1** di atas.

@@ -57,8 +57,11 @@ class Cadangan
      */
     public const DATA = [
         'storage/private/tanda-tangan'   => 'app/private/tanda-tangan',
-        'storage/public/bukti-permintaan' => 'app/public/bukti-permintaan',
-        'storage/public/bast-mutasi'      => 'app/public/bast-mutasi',
+        // Dokumen kini disimpan di disk privat. Kunci arsipnya sengaja tetap
+        // berbentuk lama ("storage/public/..."), supaya arsip yang dibuat
+        // sebelum pemindahan tetap dapat dipulihkan — ke lokasi baru ini.
+        'storage/public/bukti-permintaan' => 'app/private/bukti-permintaan',
+        'storage/public/bast-mutasi'      => 'app/private/bast-mutasi',
     ];
 
     /** Lintasan direktori arsip. */

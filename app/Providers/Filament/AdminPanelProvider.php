@@ -6,6 +6,7 @@ use App\Http\Middleware\SapuPermintaanKedaluwarsa;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use App\Filament\Pages\Dashboard;
 use Filament\Panel;
@@ -82,7 +83,10 @@ class AdminPanelProvider extends PanelProvider
                 'gray' => Color::Slate,
             ])
             // Typography (Instruksi §26): Inter, system-ui, sans-serif.
-            ->font('Inter')
+            // Nama keluarga tetap "Inter"; berkasnya lokal (partial
+            // filament.fonts), bukan dari fonts.bunny.net (A-019). Penyedia
+            // lokal tanpa alamat tidak memuat apa pun.
+            ->font('Inter', provider: LocalFontProvider::class)
             // Huruf judul dan wordmark halaman muka ikut dimuat, supaya
             // tampilan sesudah masuk mengalir dari halaman sebelum masuk
             // dan bukan terasa seperti aplikasi yang berbeda.
@@ -101,31 +105,39 @@ class AdminPanelProvider extends PanelProvider
                 'Administrasi',
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
+            // Halaman penggantian kata sandi didaftarkan tanpa muncul di menu:
+            // ia bukan tempat yang dituju, melainkan tempat yang menahan.
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
             ])
-            // Halaman penggantian kata sandi didaftarkan tanpa muncul di menu:
-            // ia bukan tempat yang dituju, melainkan tempat yang menahan.
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([])
+            // Kolom pencarian global dihapus dari bilah atas. Yang dimatikan
+            // hanya tampilannya; rute dan kode sisi server Filament tidak
+            // disentuh.
+            ->globalSearch(false)
+            // Menu pengguna bawaan Filament dimatikan karena templatnya tidak
+            // bisa memisahkan blok identitas dari item menu. Penggantinya
+            // (toggle tema, lonceng, dan dropdown profil) dirender satu partial
+            // pada hook di bawah, tepat di tempat kolom pencarian dulu berada.
+            //
             // Pengaturan diletakkan di dalam menu profil, bukan menu samping,
             // agar konfigurasi tidak bercampur dengan menu operasional.
-            // Lonceng notifikasi diletakkan tepat sebelum menu profil pada
-            // bilah atas, memakai tabel `notifikasi` milik proyek.
+            ->userMenu(false)
             ->renderHook(
-                \Filament\View\PanelsRenderHook::USER_MENU_BEFORE,
-                fn (): string => \Illuminate\Support\Facades\Blade::render(
-                    '@livewire(\'lonceng-notifikasi\')'
-                ),
+                \Filament\View\PanelsRenderHook::GLOBAL_SEARCH_AFTER,
+                fn (): string => auth()->check()
+                    ? view('filament.partials.aksi-bilah-atas')->render()
+                    : '',
             )
-            ->userMenuItems([
-                'pengaturan' => \Filament\Navigation\MenuItem::make()
-                    ->label('Pengaturan')
-                    ->icon('heroicon-m-cog-6-tooth')
-                    ->url(fn (): string => \App\Filament\Pages\Pengaturan::getUrl()),
-            ])
+            // Dialog konfirmasi keluar berada di level layout, di luar dropdown.
+            ->renderHook(
+                \Filament\View\PanelsRenderHook::BODY_END,
+                fn (): string => auth()->check()
+                    ? view('filament.partials.dialog-keluar')->render()
+                    : '',
+            )
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
@@ -146,6 +158,11 @@ class AdminPanelProvider extends PanelProvider
                 // Menahan pemilik akun yang masih memakai kata sandi awal dari
                 // impor massal, sampai ia menggantinya sendiri.
                 \App\Http\Middleware\PaksaGantiKataSandi::class,
+                // Sesudah kata sandi diganti, menahan pengguna yang belum
+                // melengkapi nomor WhatsApp dan tanda tangan yang diwajibkan
+                // perannya. Diletakkan sesudah gerbang kata sandi agar urutan
+                // pelengkapan jelas: ganti sandi dulu, baru lengkapi data.
+                \App\Http\Middleware\PaksaLengkapiAkun::class,
             ]);
     }
 }

@@ -2,9 +2,11 @@
 
 namespace App\Filament\Resources\Kategoris\Tables;
 
+use App\Filament\Resources\Kategoris\KategoriResource;
+use App\Filament\Support\AksiHapusTerlindung;
+use App\Filament\Support\KeadaanKosong;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use App\Filament\Support\AksiUbah;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -20,6 +22,18 @@ class KategorisTable
     {
         return $table
             ->defaultSort('nama_kategori')
+            /**
+             * Kalimat keadaan kosong dibedakan: daftar yang memang belum berisi
+             * memerlukan ajakan mengisi, sedangkan pencarian yang tidak
+             * menemukan apa pun memerlukan jalan keluar dari penyaringnya.
+             */
+            ->emptyStateIcon('heroicon-o-tag')
+            ->emptyStateHeading(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Tidak ada kategori yang cocok'
+                : 'Belum ada kategori')
+            ->emptyStateDescription(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Coba longgarkan penyaringnya, atau periksa kembali ejaan kata yang dicari.'
+                : 'Kategori menaungi barang persediaan dan aset tetap. Tambahkan kategori lebih dulu sebelum mengisi katalog.')
             ->columns([
                 TextColumn::make('nama_kategori')
                     ->label('Nama Kategori')
@@ -48,7 +62,7 @@ class KategorisTable
 
                 TextColumn::make('created_at')
                     ->label('Dibuat')
-                    ->dateTime('d M Y')
+                    ->dateTime('d-m-Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -58,11 +72,11 @@ class KategorisTable
                     ->options(self::TIPE_LABEL),
             ])
             ->recordActions([
-                EditAction::make(),
+                AksiUbah::buat(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    AksiHapusTerlindung::massal(KategoriResource::ALASAN_TAK_DAPAT_DIHAPUS),
                 ]),
             ]);
     }

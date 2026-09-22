@@ -74,7 +74,7 @@ class RiwayatTabTest extends TestCase
      */
     public function test_tautan_panel_menuju_halaman_yang_terbuka_bagi_gudang(): void
     {
-        $gudang = $this->buatPengguna('petugas_gudang');
+        $gudang = $this->lengkapiAkun($this->buatPengguna('petugas_gudang'));
         $this->actingAs($gudang);
 
         $this->assertTrue(BarangPerluPerhatian::canView());

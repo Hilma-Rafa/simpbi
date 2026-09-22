@@ -8,11 +8,13 @@ use App\Support\JamKerja;
 use App\Models\RiwayatPersetujuan;
 use App\Services\NotifikasiService;
 use App\Services\StokService;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -37,6 +39,14 @@ class KatalogBarang extends Page implements HasTable
     public ?array $tableFilters = null;
 
     protected string $view = 'filament.pages.katalog-barang';
+
+    /**
+     * Keranjang belanja, bukan gudang — memakai ikon yang sama dengan
+     * lambang keranjang pada bilah bawah halaman ini (lihat
+     * katalog-barang.blade.php), bukan ArchiveBox yang sudah dipakai
+     * Barang Persediaan.
+     */
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedShoppingCart;
 
     protected static string|\UnitEnum|null $navigationGroup = 'Permintaan & Distribusi';
     protected static ?string $navigationLabel = 'Katalog Barang';
@@ -148,8 +158,17 @@ class KatalogBarang extends Page implements HasTable
                     ->label('Nama Pemohon')
                     ->required(),
 
+                // Opsional seperti semula. Bila diisi: 18 angka, spasi diabaikan
+                // saat memeriksa dan dibuang saat disimpan (G-006). Diperiksa di
+                // server sebagai bagian validasi formulir aksi.
                 TextInput::make('nip_pemohon')
-                    ->label('NIP Pemohon'),
+                    ->label('NIP Pemohon')
+                    ->rule(fn (): \Closure => function (string $attribute, $value, \Closure $fail): void {
+                        if (filled($value) && ! preg_match('/^[0-9]{18}$/', preg_replace('/\s+/u', '', (string) $value))) {
+                            $fail('NIP pemohon harus terdiri atas angka dengan format yang benar.');
+                        }
+                    })
+                    ->dehydrateStateUsing(fn (?string $state): string => preg_replace('/\s+/u', '', (string) $state)),
 
                 Textarea::make('keperluan')
                     ->label('Keperluan')
@@ -240,7 +259,7 @@ class KatalogBarang extends Page implements HasTable
         $permintaan = null;
 
         try {
-            DB::transaction(function () use ($keranjang, $user, $adalahKetua, $data, &$permintaan) {
+            $this->ulangiBilaBentrok(fn () => DB::transaction(function () use ($keranjang, $user, $adalahKetua, $data, &$permintaan) {
                 app(StokService::class)->hold(
                     array_map(fn ($i) => $i['jumlah'], $keranjang)
                 );
@@ -270,7 +289,7 @@ class KatalogBarang extends Page implements HasTable
                     ]);
                 }
 
-                // Baris pertama riwayat menandakan pengajuan oleh unit pemohon
+                // Baris pertama riwayat menandakan pengajuan oleh tim kerja pemohon
                 RiwayatPersetujuan::create([
                     'permintaan_id' => $permintaan->id,
                     'tahap'         => 'pengajuan',
@@ -291,11 +310,19 @@ class KatalogBarang extends Page implements HasTable
                         'waktu'         => now(),
                     ]);
                 }
-            });
+            }));
         } catch (\Throwable $e) {
+            // Penolakan aturan bisnis (mis. stok tidak mencukupi) tampil apa adanya;
+            // galat teknis dicatat dan diganti pesan umum, bukan teks SQL.
+            $pesan = StokService::pesanAturan($e);
+
+            if ($pesan === null) {
+                report($e);
+            }
+
             Notification::make()
                 ->title('Permintaan gagal diajukan')
-                ->body($e->getMessage())
+                ->body($pesan ?? 'Coba lagi, atau hubungi Sub-Bagian Umum bila berulang.')
                 ->danger()
                 ->send();
             return;
@@ -315,6 +342,26 @@ class KatalogBarang extends Page implements HasTable
             ->body('Stok telah dikunci sementara menunggu proses persetujuan.')
             ->success()
             ->send();
+    }
+
+    /**
+     * Menjalankan penyimpanan; bentrok UNIQUE (dua pengajuan yang menerima kode
+     * sama) diulang dengan kode baru, paling banyak tiga kali. Bentrok ketiga
+     * dilempar kembali dan berakhir pada pesan umum.
+     */
+    protected function ulangiBilaBentrok(\Closure $simpan): void
+    {
+        for ($percobaan = 1; ; $percobaan++) {
+            try {
+                $simpan();
+
+                return;
+            } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+                if ($percobaan >= 3) {
+                    throw $e;
+                }
+            }
+        }
     }
 
     protected function buatKode(): string

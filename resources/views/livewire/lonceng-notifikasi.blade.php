@@ -17,7 +17,7 @@
     <button
         type="button"
         x-on:click="terbuka = ! terbuka"
-        class="fi-icon-btn relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 outline-none transition hover:bg-gray-100 hover:text-gray-700 focus-visible:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
+        class="fi-icon-btn relative flex h-10 w-10 items-center justify-center rounded-lg text-gray-500 outline-none transition hover:bg-gray-100 hover:text-gray-700 focus-visible:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-200"
         :aria-expanded="terbuka.toString()"
         aria-haspopup="true"
         aria-label="Notifikasi{{ $belum > 0 ? ' — ' . $belum . ' belum dibaca' : '' }}"
@@ -28,7 +28,7 @@
             <span
                 class="absolute -right-0.5 -top-0.5 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-danger-600 px-1 text-[0.65rem] font-semibold leading-[1.15rem] text-white ring-2 ring-white dark:ring-gray-900"
             >
-                {{ $belum > 99 ? '99+' : $belum }}
+                {{ $belum > 9 ? '9+' : $belum }}
             </span>
         @endif
     </button>

@@ -222,6 +222,15 @@ class ImporPengguna
                 'status_aktif' => $aktif,
             ];
 
+            // Penjaga akun Admin (G-002), terhadap keadaan basis data pada saat
+            // baris ini diproses: baris yang ditolak dilaporkan seperti galat
+            // baris lainnya, sedangkan baris berikutnya tetap diproses.
+            if ($pesan = $this->pesanPenjagaAdmin(User::where('username', $username)->first(), $atribut)) {
+                $hasil->catatGalat($b['nomor'], $pesan);
+
+                continue;
+            }
+
             DB::transaction(function () use ($username, $atribut, $peran, $tim, $hasil): void {
                 $pengguna = User::where('username', $username)->first();
 
@@ -248,6 +257,38 @@ class ImporPengguna
         }
 
         return $hasil;
+    }
+
+    /**
+     * Alasan sebuah baris tidak boleh mengubah akun yang sudah ada, atau null.
+     *
+     * Berkas impor kerap diunggah ulang, sehingga dua hal dijaga di sini: baris
+     * tidak mengubah peran atau status aktif akun pengimpornya sendiri, dan
+     * tidak menurunkan atau menonaktifkan Admin aktif terakhir. Perubahan kolom
+     * lain pada akun yang sama tidak dilarang.
+     *
+     * @param  array<string, mixed>  $atribut
+     */
+    protected function pesanPenjagaAdmin(?User $pengguna, array $atribut): ?string
+    {
+        if (! $pengguna) {
+            return null;
+        }
+
+        if ($pengguna->is(auth()->user())
+            && ($atribut['role'] !== $pengguna->role || (bool) $atribut['status_aktif'] !== (bool) $pengguna->status_aktif)) {
+            return 'Baris ini mengubah peran atau status aktif akun Anda sendiri, sehingga tidak diproses. Ubah lewat menu Pengguna.';
+        }
+
+        $adminAktif = $pengguna->role === 'admin' && $pengguna->status_aktif;
+
+        if ($adminAktif
+            && ($atribut['role'] !== 'admin' || ! $atribut['status_aktif'])
+            && ! User::where('role', 'admin')->where('status_aktif', true)->whereKeyNot($pengguna->getKey())->exists()) {
+            return 'Baris ini akan menurunkan peran atau menonaktifkan Admin aktif terakhir, sehingga tidak diproses. Harus ada minimal satu Admin aktif.';
+        }
+
+        return null;
     }
 
     /** Mengikuti aturan yang sama dengan impor tim kerja. */

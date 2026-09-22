@@ -41,7 +41,7 @@ class AksesPanelTest extends TestCase
 
     public function test_akun_aktif_dapat_membuka_panel(): void
     {
-        $this->actingAs($this->buatPengguna('kasubbag'))
+        $this->actingAs($this->lengkapiAkun($this->buatPengguna('kasubbag')))
             ->get(Dashboard::getUrl())
             ->assertOk();
     }
@@ -62,7 +62,7 @@ class AksesPanelTest extends TestCase
      */
     public function test_penonaktifan_berlaku_pada_sesi_yang_sedang_berjalan(): void
     {
-        $pengguna = $this->buatPengguna('petugas_gudang');
+        $pengguna = $this->lengkapiAkun($this->buatPengguna('petugas_gudang'));
 
         $this->actingAs($pengguna)->get(Dashboard::getUrl())->assertOk();
 

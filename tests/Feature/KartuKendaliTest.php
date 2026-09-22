@@ -282,11 +282,15 @@ class KartuKendaliTest extends TestCase
 
         [, $html] = $this->eksporPdf($barang);
 
-        $this->assertStringContainsString($barang->nama_barang, $html);
+        // Nama barang ditulis dengan huruf besar seluruhnya, sama seperti sel
+        // C4 pada lembar master; katalog sendiri menyimpannya apa adanya.
+        $this->assertStringContainsString(mb_strtoupper($barang->nama_barang), $html);
         $this->assertStringContainsString($barang->kode_lengkap, $html);
         $this->assertStringContainsString($barang->satuan, $html);
         $this->assertStringContainsString('34/F/HI/VIII/2026', $html, 'Nomor dasar transaksi harus tercantum.');
-        $this->assertStringContainsString(now()->format('d-m-Y'), $html, 'Tanggal ditulis dd-mm-yyyy.');
+        // Tanggal mengikuti format berkas Excel (numFmt dd/MM/yyyy), bukan
+        // format layar dd-mm-yyyy, sebab PDF harus seidentik mungkin dengannya.
+        $this->assertStringContainsString(now()->format('d/m/Y'), $html, 'Tanggal ditulis dd/MM/yyyy seperti Excel.');
     }
 
     /**
@@ -316,7 +320,14 @@ class KartuKendaliTest extends TestCase
         );
     }
 
-    /** Barang yang tidak bergerak tetap mendapat kartunya, sebagaimana pada XLSX. */
+    /**
+     * Barang yang tidak bergerak tetap mendapat kartunya, sebagaimana pada XLSX.
+     *
+     * Kartunya bukan diberi kalimat "tidak ada transaksi": berkas master tidak
+     * memuat kalimat seperti itu, melainkan grid kosong yang siap diisi tangan.
+     * Karena itu kartu kosong tetap menggambar Stok Awal, kedua puluh slot, dan
+     * Stok Akhir apa adanya.
+     */
     public function test_barang_tanpa_transaksi_tetap_mendapat_kartu(): void
     {
         $diam = $this->buatBarang(stokFisik: 0, tambahan: ['kode_barang' => '000999', 'nama_barang' => 'Barang Diam']);
@@ -324,8 +335,11 @@ class KartuKendaliTest extends TestCase
         [$pdf, $html] = $this->eksporPdf($diam);
 
         $this->assertStringStartsWith('%PDF', $pdf);
-        $this->assertStringContainsString('Barang Diam', $html);
-        $this->assertStringContainsString('Tidak ada transaksi tercatat pada periode ini.', $html);
+        $this->assertStringContainsString(mb_strtoupper('Barang Diam'), $html);
+        $this->assertStringContainsString('Stok Awal', $html);
+        $this->assertStringContainsString('Stok Akhir', $html);
+        // Slot ke-20 tetap tergambar dan bernomor meski kartunya kosong.
+        $this->assertMatchesRegularExpression('/>\s*20\s*</', $html, 'Grid dua puluh slot tetap utuh.');
     }
 
     /** Satu kartu per halaman, sebab kartu diarsipkan per barang. */
@@ -343,8 +357,8 @@ class KartuKendaliTest extends TestCase
             substr_count($html, 'class="pemisah-halaman"'),
             'Dua kartu dipisahkan tepat satu pemisah halaman.',
         );
-        $this->assertStringContainsString($satu->nama_barang, $html);
-        $this->assertStringContainsString('Barang Diam', $html);
+        $this->assertStringContainsString(mb_strtoupper($satu->nama_barang), $html);
+        $this->assertStringContainsString(mb_strtoupper('Barang Diam'), $html);
     }
 
     /**

@@ -1,6 +1,10 @@
 @php
     $daftar  = $this->kategori;
     $ringkas = $this->ringkas;
+
+    // Tanpa hak membuka daftar barang, nama kategori tampil sebagai teks biasa.
+    $bolehTautan = $this->bolehMenautkan;
+    $tag         = $bolehTautan ? 'a' : 'div';
 @endphp
 
 <x-filament-widgets::widget>
@@ -8,10 +12,14 @@
 
         {{-- Judul menjadi tautan ke daftar barang tanpa penyaring kategori. --}}
         <x-slot name="heading">
-            <a href="{{ $this->tautanSemua }}"
-               class="transition hover:text-primary-600 dark:hover:text-primary-400">
+            @if ($bolehTautan)
+                <a href="{{ $this->tautanSemua }}"
+                   class="transition hover:text-primary-600 dark:hover:text-primary-400">
+                    Kondisi Stok per Kategori
+                </a>
+            @else
                 Kondisi Stok per Kategori
-            </a>
+            @endif
         </x-slot>
 
         <x-slot name="description">
@@ -35,9 +43,10 @@
         <div class="fi-simpbi-panel-scroll -mx-2 h-72 overflow-y-auto px-2">
 
             @forelse ($daftar as $k)
-                <a href="{{ $k['tautan'] }}"
+                <{{ $tag }} @if ($bolehTautan) href="{{ $k['tautan'] }}" @endif
                    @class([
-                       '-mx-2 block rounded-lg px-2 py-2.5 transition hover:bg-gray-50 dark:hover:bg-white/5',
+                       '-mx-2 block rounded-lg px-2 py-2.5',
+                       'transition hover:bg-gray-50 dark:hover:bg-white/5' => $bolehTautan,
                        'border-t border-gray-100 dark:border-gray-800' => ! $loop->first,
                    ])>
 
@@ -131,7 +140,7 @@
                         </span>
                     </div>
 
-                </a>
+                </{{ $tag }}>
             @empty
 
                 <div class="py-6 text-center">

@@ -19,8 +19,8 @@ php artisan simpbi:backup
 |---|---|
 | Curahan basis data | `mysqldump` (MySQL) atau `VACUUM INTO` (SQLite) |
 | Tanda tangan pegawai | `storage/app/private/tanda-tangan/` |
-| Bukti permintaan yang sudah terbit | `storage/app/public/bukti-permintaan/` |
-| BAST mutasi aset | `storage/app/public/bast-mutasi/` |
+| Bukti permintaan yang sudah terbit | `storage/app/private/bukti-permintaan/` |
+| BAST mutasi aset | `storage/app/private/bast-mutasi/` |
 | `manifes.json` | keterangan arsip |
 
 Berkas di luar basis data ikut dicadangkan karena basis data hanya menyimpan
@@ -97,7 +97,7 @@ Argumennya boleh berupa lintasan lengkap atau sekadar nama berkas di dalam
 
 Seluruh isi basis data, tanda tangan, dan dokumen yang tersimpan sekarang akan
 diganti oleh isi arsip. Berkas yang tidak ada di dalam arsip ikut tersapu.
-
+   
 ### Urutan aman
 
 1. **Matikan pekerja antrean dan penjadwal.** Tanpa ini, pekerjaan lama berjalan
@@ -202,6 +202,54 @@ bukan daftar di atas, bila keduanya berbeda.
 ada di seeder, serta pengaturan batas jam dan WhatsApp yang kembali ke nilai
 bawaan migrasi. Bila data itu ingin dipertahankan, jalankan `simpbi:backup`
 lebih dulu.
+
+---
+
+## D. Aset tetap tanpa riwayat penempatan
+
+Sejak perbaikan temuan audit **T-10**, setiap aset tetap memperoleh satu baris
+`riwayat_penempatan_aset` berjenis `penempatan_awal` pada saat ia pertama kali
+memiliki tim kerja — baik ketika asetnya ditambahkan dengan tim yang sudah
+terisi, maupun ketika tim yang semula kosong diisi lewat penyuntingan.
+
+`tanggal_mulai` baris itu adalah **tanggal penempatannya dicatat**, bukan
+tanggal asetnya dibuat. Keduanya sama ketika aset ditambahkan lengkap dengan tim
+kerjanya. Keduanya berbeda ketika aset dicatat lebih dulu tanpa tim lalu
+ditempatkan kemudian, dan dalam keadaan itu tanggal pencatatan penempatanlah
+yang benar — memakai tanggal pembuatan aset akan menyatakan tim tersebut
+memegangnya sejak sebelum penempatannya diputuskan.
+
+Pencatatan itu **tidak berlaku surut**. Pada pemasangan yang sudah berjalan
+sebelum perbaikan ini, dapat tersisa aset yang sudah punya tim kerja tetapi
+belum punya baris riwayat. Aset semacam itu tetap terbuka dan tetap aman: dialog
+**Riwayat Penempatan** menampilkannya sebagai riwayat kosong beserta
+keterangannya, dan alur BAST tetap menutup serta membuka barisnya seperti biasa
+begitu aset itu dimutasikan.
+
+Yang hilang hanya titik awalnya, sehingga lama penempatan pertama aset tersebut
+tidak dapat dihitung.
+
+### Memeriksa
+
+```bash
+php artisan tinker --execute="echo App\Models\AsetTetap::whereNotNull('tim_penempatan_id')->whereDoesntHave('riwayatPenempatan')->count();"
+```
+
+Nilai `0` berarti tidak ada yang tertinggal.
+
+### Bila ada yang tertinggal
+
+Pengisian riwayat bagi aset lama adalah **prosedur tersendiri yang belum
+dibuatkan perintahnya**, dan sengaja tidak dijalankan sebagai efek samping
+penyuntingan formulir — menyimpan formulir aset lama tidak menambal riwayat yang
+memang belum pernah ada.
+
+Prosedur itu memerlukan keputusan yang belum diambil, yaitu tanggal mana yang
+dipakai sebagai `tanggal_mulai` bagi aset lama. Untuk aset yang ditempatkan
+melalui sistem, tanggalnya adalah saat penempatan itu dicatat; bagi aset lama
+yang penempatannya sudah berlangsung sebelum sistem dipakai, tanggal itu tidak
+tersimpan di mana pun. Sampai keputusan itu ada, jangan menulis baris riwayat
+secara manual ke basis data.
 
 ---
 

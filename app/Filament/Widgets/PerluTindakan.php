@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource;
 use App\Models\PermintaanBarang;
+use App\Support\TindakanPermintaan;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Collection;
 
@@ -38,16 +39,18 @@ class PerluTindakan extends Widget
         return in_array(auth()->user()?->role, ['kasubbag', 'ketua_tim', 'petugas_gudang', 'tim']);
     }
 
-    /** Status yang membutuhkan tindakan, menurut peran pengguna. */
+    /**
+     * Status yang membutuhkan tindakan, menurut peran pengguna.
+     *
+     * Dibaca dari {@see TindakanPermintaan}, sumber yang sama dengan syarat
+     * tampil tombol aksi pada Daftar Permintaan Barang. Dengan begitu panel ini
+     * tidak akan lagi menyembunyikan pekerjaan yang tombolnya benar-benar ada di
+     * halaman daftar — misalnya "Konfirmasi Penerimaan" milik Ketua Tim pada
+     * permintaan berstatus `siap_diambil`.
+     */
     protected function statusMenurutPeran(): array
     {
-        return match (auth()->user()->role) {
-            'kasubbag'       => ['menunggu_kasubbag', 'menunggu_pengesahan'],
-            'ketua_tim'      => ['menunggu_ketua'],
-            'petugas_gudang' => ['menunggu_verifikasi', 'siap_diproses'],
-            'tim'            => ['siap_diambil'],
-            default          => [],
-        };
+        return TindakanPermintaan::statusUntuk(auth()->user());
     }
 
     protected function kueri()
@@ -106,24 +109,16 @@ class PerluTindakan extends Widget
     }
 
     /**
-     * Tautan menuju halaman Permintaan Barang yang telah disaring pada
-     * satu permintaan tertentu, sehingga pengguna tidak perlu mencarinya
-     * kembali di dalam daftar.
-     *
-     * Penyaringan memakai penyaring tabel bawaan Filament. Kuncinya harus
-     * `filters` (bukan `tableFilters`) karena itulah nama parameter URL yang
-     * dikenali ListRecords, dan nama penyaringnya harus sama dengan yang
-     * didaftarkan pada PermintaanBarangResource::table().
+     * Tautan menuju Daftar Permintaan Barang yang tersaring pada satu
+     * permintaan, sekaligus membuka pop-up Rincian permintaan itu secara
+     * otomatis — gerbang tunggal sebelum tombol aksi tahapan, sama dengan
+     * jalur notifikasi lonceng dan pesan WhatsApp. Susunannya dipusatkan di
+     * {@see PermintaanBarangResource::urlRincian()} agar ketiga kanal tidak
+     * berbeda tujuan.
      */
     protected function tautanKe(PermintaanBarang $permintaan): string
     {
-        return PermintaanBarangResource::getUrl('index', [
-            'filters' => [
-                'kode_permintaan' => [
-                    'value' => $permintaan->kode_permintaan,
-                ],
-            ],
-        ]);
+        return PermintaanBarangResource::urlRincian($permintaan);
     }
 
     /** Nama tahap yang membutuhkan tindakan. */
@@ -132,7 +127,7 @@ class PerluTindakan extends Widget
         return match ($status) {
             'menunggu_ketua'       => 'Persetujuan Ketua Tim',
             'menunggu_verifikasi'  => 'Verifikasi Ketersediaan',
-            'menunggu_kasubbag'    => 'Persetujuan Akhir',
+            'menunggu_kasubbag'    => 'Persetujuan akhir Kasubbag',
             'siap_diproses'        => 'Penyiapan Barang',
             'siap_diambil'         => 'Konfirmasi Penerimaan',
             'menunggu_pengesahan'  => 'Pengesahan Akhir',

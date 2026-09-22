@@ -3,25 +3,23 @@
 namespace App\Filament\Resources\PermintaanBarangs\Pages;
 
 use App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource;
-use Filament\Actions\Action;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
-use Filament\Support\Enums\IconPosition;
 
 /**
- * Halaman rincian satu permintaan barang (Instruksi §41).
+ * Pengalih tautan rincian lama menuju pop-up Rincian pada daftar.
  *
- * Dari dalam aplikasi, rincian dibuka sebagai dialog di atas daftar sesuai
- * Instruksi §41. Halaman ini dipertahankan untuk tautan yang datang dari luar
- * daftar dan tidak dapat membuka dialog: pranala pada pesan WhatsApp dan pada
- * lonceng notifikasi. Keduanya memakai partial yang sama,
- * filament.partials.detail-permintaan, sehingga isi yang dibaca pengguna
- * persis sama lewat jalur mana pun — status, informasi permintaan, daftar
- * barang, ketidaksesuaian, dan riwayat proses dalam satu tampilan.
+ * Rincian permintaan kini selalu dibuka sebagai pop-up di atas Daftar
+ * Permintaan Barang (Instruksi §41), termasuk ketika dituju dari notifikasi
+ * lonceng maupun pesan WhatsApp. Halaman rincian `/{id}` tersendiri tidak lagi
+ * dipakai, tetapi routenya dipertahankan sebagai pengalih agar tautan lama yang
+ * masih beredar tetap mendarat di tempat yang benar — Daftar Permintaan yang
+ * tersaring pada permintaan itu dengan pop-up Rincian yang langsung terbuka.
  *
- * Kewenangan mengikuti PermintaanBarangResource, termasuk pembatasan tim pada
- * getEloquentQuery(), sehingga Tim dan Ketua Tim tidak dapat membuka permintaan
- * milik tim lain walaupun menebak alamat halamannya.
+ * Kewenangan tetap ditegakkan lebih dulu lewat resolveRecord(), yang memakai
+ * getEloquentQuery() milik resource — termasuk pembatasan tim — sehingga Tim
+ * dan Ketua Tim tidak dapat mengalihkan diri ke permintaan milik tim lain
+ * walau menebak alamatnya.
  */
 class DetailPermintaanBarang extends Page
 {
@@ -35,36 +33,6 @@ class DetailPermintaanBarang extends Page
     {
         $this->record = $this->resolveRecord($record);
 
-        $this->record->load([
-            'tim',
-            'detail.barang',
-            'ketidaksesuaian',
-            'persetujuan.pelaksana',
-        ]);
-    }
-
-    public function getTitle(): string
-    {
-        return 'Permintaan ' . $this->record->kode_permintaan;
-    }
-
-    public function getBreadcrumb(): string
-    {
-        return $this->record->kode_permintaan;
-    }
-
-    protected function getHeaderActions(): array
-    {
-        return [
-            Action::make('kembali')
-                ->label('Kembali')
-                ->icon('heroicon-m-arrow-left')
-                ->iconPosition(IconPosition::Before)
-                ->color('gray')
-                ->outlined()
-                ->url(PermintaanBarangResource::getUrl('index')),
-
-            PermintaanBarangResource::aksiUnduhBukti(),
-        ];
+        $this->redirect(PermintaanBarangResource::urlRincian($this->record));
     }
 }

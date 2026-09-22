@@ -20,7 +20,10 @@
          teknisnya juga menyambung dengan animasi galat pada nama panjang di
          bawahnya. Pemakaiannya sengaja dibatasi hanya pada wordmark; panel
          aplikasi tetap sepenuhnya memakai Inter. --}}
-    <link href="https://fonts.bunny.net/css?family=inter:400,500,600,700,800|plus-jakarta-sans:600,700,800|space-grotesk:500,700" rel="stylesheet" />
+    {{-- Inter dari berkas lokal; dua keluarga lainnya belum tersedia lokal dan
+         masih dimuat dari fonts.bunny.net (A-019). --}}
+    @include('partials.font-inter-lokal')
+    <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:600,700,800|space-grotesk:500,700" rel="stylesheet" />
 
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css'])
@@ -744,21 +747,11 @@
         </div>
     </section>
 
-    {{-- ============================ FOOTER ============================ --}}
-    <footer class="border-t border-hairline bg-white px-4 py-12">
-        <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 sm:flex-row">
-            <div class="flex items-center gap-3">
-                <span class="grid h-10 w-10 place-items-center rounded-lg bg-navy p-1.5">
-                    <img src="{{ asset('images/logo-bps.png') }}" alt="Logo BPS" class="h-full w-full object-contain">
-                </span>
-                <div class="text-sm leading-tight">
-                    <p class="font-bold text-navy">SIMPBI</p>
-                    <p class="text-muted">{{ __('muka.kaki.satker') }}</p>
-                </div>
-            </div>
-            <p class="text-xs text-muted">{{ __('muka.kaki.hak_cipta', ['tahun' => date('Y')]) }}</p>
-        </div>
-    </footer>
+    {{-- ============================ FOOTER ============================
+         Hanya tampil di halaman publik ini (dan halaman publik lain yang
+         sengaja memuat partial yang sama) — tidak pernah dipasang pada
+         kerangka aplikasi sesudah masuk. --}}
+    @include('partials.footer-publik')
 
     {{-- Penampakan saat gulir, keadaan navbar, penanda gulir, dan menu layar
          kecil. Ditulis tanpa pustaka tambahan agar halaman tetap ringan. --}}

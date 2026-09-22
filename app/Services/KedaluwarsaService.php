@@ -75,9 +75,28 @@ class KedaluwarsaService
             ->with('detail')
             ->get();
 
-        return $kedaluwarsa->map(function (PermintaanBarang $permintaan): array {
+        return $kedaluwarsa->map(function (PermintaanBarang $permintaan): ?array {
             try {
-                DB::transaction(function () use ($permintaan) {
+                $diubah = false;
+
+                DB::transaction(function () use (&$permintaan, &$diubah) {
+                    // Status diperiksa ulang di dalam transaksi, dengan kunci baris:
+                    // sapuan dapat berjalan berulang dan tumpang tindih, dan permintaan
+                    // ini mungkin sudah ditangani sapuan lain atau oleh pengguna sejak
+                    // daftar di atas dibaca.
+                    $segar = PermintaanBarang::query()->whereKey($permintaan->id)->lockForUpdate()->first();
+
+                    if (
+                        ! $segar
+                        || ! in_array($segar->status, self::STATUS_BERJALAN, true)
+                        || $segar->hold_expired_at === null
+                        || $segar->hold_expired_at->gte(now())
+                    ) {
+                        return;
+                    }
+
+                    $permintaan = $segar->load('detail');
+
                     // Tahap dibaca SEBELUM status diperbarui. Bila dibaca
                     // sesudahnya, statusnya sudah menjadi "kedaluwarsa"
                     // sehingga seluruh permintaan tercatat berhenti di tahap
@@ -111,13 +130,29 @@ class KedaluwarsaService
                             . 'Anda dapat mengajukan kembali kapan saja.',
                         'waktu'         => $batasTerlewat,
                     ]);
+
+                    $diubah = true;
                 });
+
+                // Bukan permintaan yang diubah sapuan ini: tidak dilaporkan dan tidak
+                // diberi tahu, supaya tidak ada notifikasi ganda.
+                if (! $diubah) {
+                    return null;
+                }
+
+                // Sesudah transaksi selesai. Kegagalan pemberitahuan tidak boleh
+                // membatalkan sapuan maupun membuat permintaan panel gagal.
+                try {
+                    app(NotifikasiService::class)->permintaanBerubah($permintaan->refresh());
+                } catch (\Throwable $e) {
+                    report($e);
+                }
 
                 return ['kode' => $permintaan->kode_permintaan, 'berhasil' => true, 'pesan' => null];
             } catch (\Throwable $e) {
                 return ['kode' => $permintaan->kode_permintaan, 'berhasil' => false, 'pesan' => $e->getMessage()];
             }
-        });
+        })->filter()->values();
     }
 
     /** Menentukan tahap yang dicatat pada riwayat berdasarkan status terakhir. */

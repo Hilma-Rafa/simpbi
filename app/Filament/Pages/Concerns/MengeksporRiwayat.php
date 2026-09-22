@@ -27,38 +27,38 @@ trait MengeksporRiwayat
         return [
             ActionGroup::make(array_filter([
                 Action::make('eksporPdf')
-                    ->label('Export PDF')
+                    ->label('Ekspor PDF')
                     ->icon('heroicon-m-document-arrow-down')
                     ->action(fn () => $this->ekspor('pdf', false)),
 
                 Action::make('eksporSpreadsheet')
-                    ->label('Export Excel')
+                    ->label('Ekspor Excel')
                     ->icon('heroicon-m-table-cells')
                     ->action(fn () => $this->ekspor('xlsx', false)),
 
                 $banyakJenis
                     ? Action::make('eksporSemuaPdf')
-                        ->label('Export Semua (PDF)')
+                        ->label('Ekspor Semua (PDF)')
                         ->icon('heroicon-m-document-duplicate')
                         ->requiresConfirmation()
-                        ->modalHeading('Export seluruh jenis riwayat')
+                        ->modalHeading('Ekspor seluruh jenis riwayat')
                         ->modalDescription('Seluruh jenis riwayat yang boleh Anda lihat akan direkap tanpa penyaring. Lanjutkan?')
-                        ->modalSubmitActionLabel('Export PDF')
+                        ->modalSubmitActionLabel('Ekspor PDF')
                         ->action(fn () => $this->ekspor('pdf', true))
                     : null,
 
                 $banyakJenis
                     ? Action::make('eksporSemuaSpreadsheet')
-                        ->label('Export Semua (Excel)')
+                        ->label('Ekspor Semua (Excel)')
                         ->icon('heroicon-m-rectangle-stack')
                         ->requiresConfirmation()
-                        ->modalHeading('Export seluruh jenis riwayat')
+                        ->modalHeading('Ekspor seluruh jenis riwayat')
                         ->modalDescription('Setiap jenis riwayat menjadi satu lembar tersendiri di dalam satu berkas. Lanjutkan?')
-                        ->modalSubmitActionLabel('Export Excel')
+                        ->modalSubmitActionLabel('Ekspor Excel')
                         ->action(fn () => $this->ekspor('xlsx', true))
                     : null,
             ]))
-                ->label('Export')
+                ->label('Ekspor')
                 ->icon('heroicon-m-arrow-down-tray')
                 ->button()
                 ->color('primary'),

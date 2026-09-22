@@ -81,6 +81,21 @@ class TandaTangan
     }
 
     /**
+     * Apakah pengguna sudah pernah mendaftarkan tanda tangan.
+     *
+     * Berbeda dengan {@see tersedia()}, pemeriksaan ini hanya melihat kolomnya
+     * terisi, bukan apakah berkasnya masih ada di cakram. Dipakai oleh gerbang
+     * pelengkapan akun: yang ditanya di sana adalah "sudah didaftarkan atau
+     * belum", bukan "masih dapat dibubuhkan ke PDF atau tidak" — sehingga
+     * pengguna tidak dikirim mengulang pendaftaran hanya karena berkasnya
+     * kebetulan hilang, keadaan yang penanganannya sudah diurus tempat lain.
+     */
+    public static function terdaftar(?User $pengguna): bool
+    {
+        return filled($pengguna?->tanda_tangan_path);
+    }
+
+    /**
      * Tanda tangan tersimpan sebagai data URI, siap disematkan ke tampilan
      * maupun ke PDF — DomPDF tidak dapat mengambil berkas lewat jaringan,
      * sehingga gambar harus ikut sebagai data URI.

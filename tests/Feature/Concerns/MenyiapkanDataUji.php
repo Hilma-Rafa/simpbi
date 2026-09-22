@@ -36,11 +36,36 @@ trait MenyiapkanDataUji
             'username'     => $peran . $urutan,
             'password'     => Hash::make('password'),
             'name'         => ucfirst(str_replace('_', ' ', $peran)) . ' ' . $urutan,
+            'nip'          => '19800101' . str_pad((string) $urutan, 10, '0', STR_PAD_LEFT),
             'role'         => $peran,
             'tim_id'       => $tim?->id,
             'status_aktif' => true,
             ...$tambahan,
         ]);
+    }
+
+    /**
+     * Menandai pelengkapan akun pengguna sudah tuntas.
+     *
+     * Dipakai uji yang membuka halaman lewat HTTP nyata: tanpa ini, gerbang
+     * {@see \App\Http\Middleware\PaksaLengkapiAkun} mengalihkan pengguna yang
+     * nomor WhatsApp atau tanda tangannya belum terisi ke halaman pelengkapan,
+     * sehingga halaman yang hendak diuji tidak pernah terbuka. Lintasan tanda
+     * tangan diisi apa adanya — {@see \App\Support\Onboarding} hanya memeriksa
+     * kolomnya terisi, bukan berkasnya ada.
+     */
+    protected function lengkapiAkun(User $pengguna): User
+    {
+        $pengguna->forceFill([
+            'harus_ganti_sandi' => false,
+            'no_hp'             => $pengguna->no_hp ?: '6281200000000',
+            'tanda_tangan_path' => \App\Support\Onboarding::butuhTandaTangan($pengguna)
+                ? ($pengguna->tanda_tangan_path ?: 'tanda-tangan/uji.png')
+                : $pengguna->tanda_tangan_path,
+            'tanda_tangan_at'   => $pengguna->tanda_tangan_at ?: now(),
+        ])->save();
+
+        return $pengguna->refresh();
     }
 
     protected function buatBarang(int $stokFisik = 100, int $stokHold = 0, array $tambahan = []): BarangPersediaan

@@ -66,11 +66,20 @@ class PolaPermintaan extends ChartWidget
      * dapat berpindah dari pola yang terlihat menuju permintaan yang
      * membentuknya. Daftar tidak disaring, sebab bagan ini menampilkan
      * seluruh periode terpilih, bukan satu titik tertentu.
+     *
+     * Judulnya menyebut "Tim Saya" bagi Tim dan Ketua Tim, sebab bagi
+     * keduanya daftar yang dituju memang sudah tersaring pada tim mereka
+     * sendiri (lihat cacahPerHari()); Admin, Kasubbag, dan Petugas Gudang
+     * tetap membaca judul lintas kantor karena begitu pula cakupan datanya.
      */
     public function getHeading(): string|Htmlable|null
     {
+        $judul = in_array(auth()->user()?->role, ['ketua_tim', 'tim'])
+            ? 'Pola Permintaan Tim Saya'
+            : 'Pola Permintaan';
+
         return $this->judulBertaut(
-            'Pola Permintaan',
+            $judul,
             PermintaanBarangResource::getUrl('index'),
         );
     }

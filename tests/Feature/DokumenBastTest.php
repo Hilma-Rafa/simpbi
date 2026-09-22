@@ -49,6 +49,7 @@ class DokumenBastTest extends TestCase
         parent::setUp();
 
         Storage::fake('public');
+        Storage::fake('local');
 
         config(['app.url' => static::AKAR_UJI]);
     }
@@ -140,7 +141,7 @@ class DokumenBastTest extends TestCase
      *
      * Kolom pihak penyerah dan penerima hanyalah teks bebas yang diketik
      * operator, sehingga jabatannya tidak tersimpan di mana pun; yang pasti
-     * diketahui sistem hanyalah unit asal dan unit tujuan asetnya.
+     * diketahui sistem hanyalah tim kerja asal dan tim kerja tujuan asetnya.
      */
     public function test_jabatan_kedua_pihak_dibaca_dari_relasi_tim(): void
     {
@@ -189,7 +190,7 @@ class DokumenBastTest extends TestCase
 
         $lintasan = app(DokumenBastService::class)->buat($bast);
 
-        Storage::disk('public')->assertExists($lintasan);
+        Storage::disk('local')->assertExists($lintasan);
         $this->assertSame('bast-mutasi/' . $bast->nomor_bast . '.pdf', $lintasan);
     }
 

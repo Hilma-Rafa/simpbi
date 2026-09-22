@@ -7,6 +7,7 @@ use App\Filament\Resources\BarangPersediaans\BarangPersediaanResource;
 use App\Filament\Resources\BastMutasiAsets\BastMutasiAsetResource;
 use App\Filament\Resources\PermintaanBarangs\PermintaanBarangResource;
 use App\Models\Notifikasi;
+use App\Models\PermintaanBarang;
 use Filament\Notifications\Notification as PemberitahuanLayar;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -150,8 +151,13 @@ class LoncengNotifikasi extends Component
     public function tautan(Notifikasi $notifikasi): ?string
     {
         return match ($notifikasi->referensi_tabel) {
+            // Rincian permintaan dibuka sebagai pop-up di atas Daftar Permintaan
+            // Barang, bukan halaman detail /{id}. Susunan tautannya dipusatkan di
+            // resource agar sama dengan pesan WhatsApp dan panel dasbor.
             'permintaan_barang' => PermintaanBarangResource::canAccess()
-                ? PermintaanBarangResource::getUrl('detail', ['record' => $notifikasi->referensi_id])
+                ? (($permintaan = PermintaanBarang::find($notifikasi->referensi_id))
+                    ? PermintaanBarangResource::urlRincian($permintaan)
+                    : null)
                 : null,
 
             'barang_persediaan' => BarangPersediaanResource::canAccess()

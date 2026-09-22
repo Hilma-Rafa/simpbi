@@ -275,7 +275,9 @@ class ImporPenggunaTest extends TestCase
 
     public function test_pengguna_biasa_tidak_terganggu(): void
     {
-        $pengguna = $this->buatPengguna('kasubbag');
+        // Akunnya sudah lengkap, sehingga gerbang pelengkapan akun pun tidak
+        // menahannya — yang diuji di sini murni gerbang kata sandi.
+        $pengguna = $this->lengkapiAkun($this->buatPengguna('kasubbag'));
 
         $this->actingAs($pengguna)
             ->get(Dashboard::getUrl())

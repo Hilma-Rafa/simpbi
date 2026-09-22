@@ -25,7 +25,10 @@ class StatusPermintaanTim extends ChartWidget
 {
     use JudulPanelBertaut;
 
-    protected static ?int $sort = 5;
+    // Dipasangkan pada baris kedua bersama Tren Konsumsi Tim Saya (Instruksi
+    // dasbor Ketua Tim/Tim), sedangkan baris pertama diisi Kondisi Aset Tetap
+    // Tim Saya dan Pola Permintaan Tim Saya.
+    protected static ?int $sort = 9;
 
     protected int|string|array $columnSpan = [
         'default' => 'full',

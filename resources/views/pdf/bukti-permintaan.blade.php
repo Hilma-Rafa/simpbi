@@ -291,7 +291,7 @@
         <td class="kol-sekat"></td>
         <td class="kol-pihak">
             Yang Menerima,<br>
-            Ketua Tim {{ $permintaan->tim?->nama_tim ?? 'Unit Pemohon' }}
+            Ketua Tim {{ $permintaan->tim?->nama_tim ?? 'Pemohon' }}
             <div class="ruang-ttd">
                 @if ($ttdPenerima)
                     <img class="ttd-gambar" src="{{ $ttdPenerima }}" alt="">

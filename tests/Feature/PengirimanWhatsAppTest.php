@@ -369,7 +369,9 @@ class PengirimanWhatsAppTest extends TestCase
     // =====================================================================
 
     /**
-     * Tautan hanya disertakan bila penerima memang harus mengerjakan sesuatu.
+     * Tautan pesan alur permintaan menuju Daftar Permintaan Barang yang
+     * tersaring pada permintaan itu, dengan pop-up Rincian yang langsung
+     * terbuka lewat parameter tableAction — bukan halaman detail /{id}.
      */
     #[DataProvider('statusPerluTindakan')]
     public function test_permintaan_yang_masih_berjalan_disertai_tautan(string $status): void
@@ -385,7 +387,11 @@ class PengirimanWhatsAppTest extends TestCase
         (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
 
         Http::assertSent(fn (Request $r) => str_contains($r['text'], 'Buka: ')
-            && str_contains($r['text'], '/admin/permintaan-barangs/' . $permintaan->id));
+            && str_contains($r['text'], 'permintaan-barangs')
+            && str_contains($r['text'], 'tableAction=detail')
+            && str_contains($r['text'], 'tableActionRecord=' . $permintaan->id)
+            // Bukan lagi tautan ke halaman detail /{id}.
+            && ! str_contains($r['text'], 'permintaan-barangs/' . $permintaan->id));
     }
 
     /** @return array<string, array{string}> */
@@ -401,8 +407,14 @@ class PengirimanWhatsAppTest extends TestCase
         ];
     }
 
+    /**
+     * Setiap pesan alur permintaan membawa tautan, termasuk yang sudah menjadi
+     * riwayat: penerimanya masih perlu melihat rinciannya atau mengunduh
+     * dokumen bukti. Permintaan riwayat tidak tampil pada daftar aktif, sehingga
+     * tautannya menuju halaman Riwayat yang memakai pop-up Rincian yang sama.
+     */
     #[DataProvider('statusTanpaTindakan')]
-    public function test_permintaan_yang_sudah_berakhir_tidak_disertai_tautan(string $status): void
+    public function test_permintaan_yang_sudah_berakhir_pun_disertai_tautan(string $status): void
     {
         Http::fake(['*' => Http::response(['messageId' => 'x'], 201)]);
 
@@ -414,7 +426,11 @@ class PengirimanWhatsAppTest extends TestCase
 
         (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
 
-        Http::assertSent(fn (Request $r) => ! str_contains($r['text'], 'Buka: '));
+        Http::assertSent(fn (Request $r) => str_contains($r['text'], 'Buka: ')
+            && str_contains($r['text'], 'riwayat')
+            && str_contains($r['text'], 'tableAction=detail')
+            && str_contains($r['text'], 'tableActionRecord=' . $permintaan->id)
+            && ! str_contains($r['text'], 'permintaan-barangs/' . $permintaan->id));
     }
 
     /** @return array<string, array{string}> */
@@ -478,7 +494,7 @@ class PengirimanWhatsAppTest extends TestCase
 
         (new KirimPesanWhatsApp($notifikasi->id))->handle($this->pengirim());
 
-        Http::assertSent(fn (Request $r) => str_contains($r['text'], 'https://simpbi.contoh.go.id/admin/permintaan-barangs/'));
+        Http::assertSent(fn (Request $r) => str_contains($r['text'], 'https://simpbi.contoh.go.id/admin/permintaan-barangs'));
     }
 
     public function test_susunan_pesan_tetap_utuh_ketika_ada_tautan(): void

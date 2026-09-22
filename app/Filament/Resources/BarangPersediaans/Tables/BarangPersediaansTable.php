@@ -4,23 +4,15 @@ namespace App\Filament\Resources\BarangPersediaans\Tables;
 
 use App\Filament\Resources\BarangPersediaans\BarangPersediaanResource;
 use App\Filament\Support\AksiHapusTerlindung;
+use App\Filament\Support\AksiUbah;
 use App\Filament\Support\KeadaanKosong;
 use App\Models\BarangPersediaan;
-use App\Services\EksporRiwayatService;
-use App\Services\KartuKendaliService;
-use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
-use Filament\Actions\EditAction;
-use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class BarangPersediaansTable
 {
@@ -120,62 +112,14 @@ class BarangPersediaansTable
             ])
             ->recordActions([
 
-                /**
-                 * Kartu kendali persediaan per barang.
-                 *
-                 * Menyajikan buku besar pergerakan barang beserta saldo berjalan,
-                 * mengikuti kolom Kartu Kendali Barang Persediaan yang digunakan
-                 * Sub-Bagian Umum, sehingga dapat dipakai sebagai bahan rekonsiliasi.
+                /*
+                 * Tombol "Kartu Kendali" per baris dihapus: melihat dan
+                 * menerbitkan kartu kendali kini dipusatkan pada halaman
+                 * Kartu Kendali, yang menyediakan pratinjau ledger rinci per
+                 * barang sekaligus ekspornya. Menaruh keduanya di dua tempat
+                 * hanya menggandakan satu fungsi yang sama.
                  */
-                Action::make('kartuKendali')
-                    ->label('Kartu Kendali')
-                    ->icon('heroicon-m-clipboard-document-list')
-                    ->color('gray')
-                    ->outlined()
-                    ->modalHeading(fn ($record) => 'Kartu Kendali — ' . $record->nama_barang)
-                    ->modalSubmitActionLabel('Cetak PDF')
-                    ->modalCancelActionLabel('Tutup')
-                    ->modalWidth('5xl')
-                    /**
-                     * Isi modal ditempatkan pada schema, bukan pada
-                     * modalContent(), karena data aksi baru terisi ketika
-                     * aksinya dijalankan sehingga modalContent() tidak ikut
-                     * berubah saat tahun dipilih. Komponen schema sebaliknya
-                     * memang dirender ulang setiap keadaannya berubah.
-                     */
-                    ->schema(fn ($record) => [
-                        Select::make('tahun')
-                            ->label('Tahun')
-                            ->options(app(KartuKendaliService::class)->tahunTersedia($record))
-                            ->default(now()->year)
-                            ->selectablePlaceholder(false)
-                            ->native(false)
-                            ->live()
-                            ->helperText('Kartu kendali diterbitkan per tahun, sesuai kebiasaan pengarsipan Sub-Bagian Umum.'),
-
-                        Placeholder::make('bukuBesar')
-                            ->hiddenLabel()
-                            ->content(fn (Get $get) => view(
-                                'filament.partials.riwayat-mutasi',
-                                app(KartuKendaliService::class)->data($record, (int) ($get('tahun') ?: now()->year)),
-                            )),
-                    ])
-                    ->action(function ($record, array $data) {
-                        $tahun = (int) ($data['tahun'] ?? now()->year);
-
-                        $judul = 'Kartu Kendali ' . $record->nama_barang . ' ' . $tahun;
-
-                        // Tampilan kartu kendali melayani sehimpunan kartu,
-                        // sebab ekspor dari halaman Kartu Kendali menerbitkan
-                        // seluruh barang sekaligus. Di sini himpunannya berisi
-                        // satu kartu saja.
-                        return app(EksporRiwayatService::class)->pdfTampilan($judul, 'pdf.kartu-kendali', [
-                            'judul' => $judul,
-                            'kartu' => [app(KartuKendaliService::class)->data($record, $tahun)],
-                        ]);
-                    }),
-
-                EditAction::make(),
+                AksiUbah::buat(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\BastMutasiAset;
 use App\Support\KodeQrBerlogo;
+use App\Support\TandaTangan;
+use App\Support\TautanVerifikasi;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -20,7 +22,37 @@ class DokumenBastService
 {
     public function buat(BastMutasiAset $bast): string
     {
-        $bast->loadMissing(['aset.kategori', 'timAsal', 'timTujuan', 'dibuatOleh', 'disahkanOleh']);
+        $bast->loadMissing([
+            'aset.kategori', 'timAsal.ketuaTim', 'timTujuan.ketuaTim',
+            'dibuatOleh', 'disahkanOleh', 'dikonfirmasiOleh',
+        ]);
+
+        /*
+         * Identitas dan tanda tangan kedua pihak diambil dari akun masing-masing
+         * — nama, sekaligus tanda tangannya — bukan dari kolom pihak_penyerah /
+         * pihak_penerima yang diketik operator. Operator pembuat BAST bukan
+         * otomatis pemilik tanda tangan; ia hanya mencatat transaksinya.
+         *
+         * Pihak penyerah adalah Ketua Tim kerja asal. Pihak penerima adalah
+         * Ketua Tim kerja tujuan; sesudah konfirmasi, dirujuk lewat user_id yang
+         * benar-benar mengkonfirmasi (dikonfirmasi_oleh_id) sebagai rujukan yang
+         * stabil, dan sebelum konfirmasi cukup dari Ketua Tim tim tujuan agar
+         * namanya sudah terbaca. Tanda tangan penerima baru dibubuhkan setelah
+         * ia mengkonfirmasi (UC-18) — ia tidak menggambar apa pun.
+         *
+         * Susunan, tata letak, wording, urutan, QR, nomor, dan e-TTD Kasubbag
+         * tidak berubah: hanya sumber nama dan tanda tangan pihak yang dibetulkan.
+         */
+        $penyerah = $bast->timAsal?->ketuaTim;
+        $penerima = $bast->dikonfirmasiOleh ?? $bast->timTujuan?->ketuaTim;
+
+        $namaPenyerah = $penyerah?->name ?? '';
+        $namaPenerima = $penerima?->name ?? '';
+
+        $ttdPenyerah = TandaTangan::dataUri($penyerah);
+        $ttdPenerima = $bast->dikonfirmasi_at
+            ? TandaTangan::dataUri($penerima)
+            : null;
 
         /*
          * Kedua kode pada dokumen ini menuju alamat yang sama, yaitu halaman
@@ -33,19 +65,25 @@ class DokumenBastService
          * yang kebetulan menghasilkan hal serupa.
          */
         $tautan = $bast->disahkan_at
-            ? $this->tautan('verifikasi.bast', $this->pastikanToken($bast))
+            ? TautanVerifikasi::untuk('verifikasi.bast', $this->pastikanToken($bast))
             : null;
 
         $pdf = Pdf::loadView('pdf.bast-mutasi', [
-            'bast'       => $bast,
-            'qr'         => $tautan ? $this->kodeQr($tautan) : '',
-            'qrFootnote' => $tautan ? $this->kodeQr($tautan, berlambang: false) : '',
-            'logo'       => $this->logoBase64(),
+            'bast'        => $bast,
+            'qr'          => $tautan ? $this->kodeQr($tautan) : '',
+            'qrFootnote'  => $tautan ? $this->kodeQr($tautan, berlambang: false) : '',
+            'logo'         => $this->logoBase64(),
+            'namaPenyerah' => $namaPenyerah,
+            'namaPenerima' => $namaPenerima,
+            'ttdPenyerah'  => $ttdPenyerah ?? '',
+            'ttdPenerima'  => $ttdPenerima ?? '',
         ])->setPaper('a4', 'portrait');
 
         $nama = 'bast-mutasi/' . $bast->nomor_bast . '.pdf';
 
-        Storage::disk('public')->put($nama, $pdf->output());
+        // Disk privat: dokumen memuat tanda tangan dan hanya dilayani rute yang
+        // dijaga (routes/web.php), tidak pernah lewat /storage.
+        Storage::disk('local')->put($nama, $pdf->output());
 
         return $nama;
     }
@@ -78,32 +116,6 @@ class DokumenBastService
             $tautan,
             $berlambang ? public_path('images/logo-bps.png') : null,
         );
-    }
-
-    /**
-     * Alamat verifikasi yang disandikan ke dalam kode QR.
-     *
-     * Dibentuk dari `config('app.url')`, bukan dari `route()` apa adanya.
-     * `route()` mengambil akar alamat dari permintaan HTTP yang sedang
-     * berjalan, sehingga BAST yang disahkan lewat panel di `127.0.0.1:8000`
-     * membawa alamat itu ke dalam kodenya — alamat yang pada ponsel pemindainya
-     * menunjuk balik ke ponsel itu sendiri. Dokumen BAST beredar ke luar sistem
-     * dan membeku begitu disahkan, jadi alamatnya harus berasal dari tetapan
-     * pemasangan, bukan dari mesin yang kebetulan menekan tombolnya.
-     *
-     * Kembarannya ada di {@see DokumenPermintaanService::tautan()}. Keduanya
-     * sengaja berdiri sendiri: dokumen bukti permintaan sudah terbukti benar
-     * dan tidak disentuh untuk keperluan BAST.
-     */
-    protected function tautan(string $rute, string $token): string
-    {
-        $akar = rtrim((string) config('app.url'), '/');
-
-        if ($akar === '') {
-            return route($rute, ['token' => $token]);
-        }
-
-        return $akar . route($rute, ['token' => $token], absolute: false);
     }
 
     protected function logoBase64(): string

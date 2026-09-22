@@ -21,6 +21,8 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
+use Filament\Support\Exceptions\Halt;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -74,7 +76,7 @@ class StokMasuk extends Page implements HasTable
             ->columns([
                 TextColumn::make('tanggal')
                     ->label('Tanggal')
-                    ->date('d M Y')
+                    ->date('d-m-Y')
                     ->sortable(),
                 TextColumn::make('barang.nama_barang')
                     ->label('Barang')
@@ -253,15 +255,7 @@ class StokMasuk extends Page implements HasTable
                                  */
                                 ->distinct()
                                 ->createOptionForm(self::borangBarangBaru())
-                                ->createOptionUsing(fn (array $data): int => BarangPersediaan::create([
-                                    ...$data,
-                                    // Barang baru selalu lahir berstok nol;
-                                    // isinya datang dari nota yang sedang
-                                    // dicatat ini, bukan diketik langsung.
-                                    'stok_fisik'   => 0,
-                                    'stok_hold'    => 0,
-                                    'status_aktif' => true,
-                                ])->id)
+                                ->createOptionUsing(fn (array $data): int => static::simpanBarangBaru($data))
                                 ->createOptionModalHeading('Barang Baru')
                                 ->columnSpan(6),
 
@@ -391,6 +385,42 @@ class StokMasuk extends Page implements HasTable
             ->send();
     }
 
+    /** Apakah kode itu (tanpa spasi ujung) sudah dipakai barang lain pada kategori yang sama. */
+    public static function kodeBarangSudahDipakai(int $kategoriId, string $kode): bool
+    {
+        return BarangPersediaan::where('kategori_id', $kategoriId)
+            ->where('kode_barang', trim($kode))
+            ->exists();
+    }
+
+    /**
+     * Membuat Barang Persediaan dari dialog Barang Baru. Pelanggaran UNIQUE yang
+     * lolos dari aturan form (mis. dua pembuatan bersamaan) berujung pesan yang
+     * sama dengan aturan itu, bukan galat basis data; dialog tetap terbuka.
+     */
+    public static function simpanBarangBaru(array $data): int
+    {
+        try {
+            return BarangPersediaan::create([
+                ...$data,
+                'kode_barang'  => trim((string) ($data['kode_barang'] ?? '')),
+                // Barang baru selalu lahir berstok nol;
+                // isinya datang dari nota yang sedang
+                // dicatat ini, bukan diketik langsung.
+                'stok_fisik'   => 0,
+                'stok_hold'    => 0,
+                'status_aktif' => true,
+            ])->id;
+        } catch (UniqueConstraintViolationException) {
+            Notification::make()
+                ->title('Kode barang sudah dipakai pada kategori ini.')
+                ->danger()
+                ->send();
+
+            throw new Halt;
+        }
+    }
+
     /**
      * Borang barang baru, dipakai ketika barang yang diterima belum ada di
      * katalog.
@@ -422,6 +452,14 @@ class StokMasuk extends Page implements HasTable
                 ->label('Kode Barang')
                 ->required()
                 ->maxLength(30)
+                // Spasi di ujung dipangkas sebelum disimpan dan dibandingkan, sebab
+                // MySQL mengabaikannya pada pembanding unik sedangkan SQLite tidak.
+                ->dehydrateStateUsing(fn (?string $state): string => trim((string) $state))
+                ->rule(fn (Get $get) => function (string $attribute, $value, \Closure $fail) use ($get): void {
+                    if (static::kodeBarangSudahDipakai((int) $get('kategori_id'), (string) $value)) {
+                        $fail('Kode barang sudah dipakai pada kategori ini.');
+                    }
+                })
                 ->helperText('Kode hanya perlu unik di dalam kategorinya, mengikuti penomoran Sub-Bagian Umum.'),
 
             TextInput::make('nama_barang')

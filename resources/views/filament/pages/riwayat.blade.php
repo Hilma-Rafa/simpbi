@@ -51,7 +51,7 @@
                 @default
                     Permintaan barang yang telah mencapai status akhir
             @endswitch
-            &middot; tombol Export mengikuti penyaring yang sedang aktif
+            &middot; tombol Ekspor mengikuti penyaring yang sedang aktif
         </p>
     </div>
 

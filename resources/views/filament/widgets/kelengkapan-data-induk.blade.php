@@ -36,10 +36,25 @@
                 </div>
 
                 @if ($item['tautan'])
-                    <a href="{{ $item['tautan'] }}"
-                       class="shrink-0 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400">
-                        Lengkapi &rarr;
-                    </a>
+                    {{--
+                        Memakai tombol bergaris merek yang sama dengan aksi lain
+                        di sistem (mis. "Unduh Bukti", "Ubah"), bukan tautan
+                        berteks bergaris bawah yang dulu terbaca berbeda sendiri
+                        di antara tombol-tombol panel. Ukuran kecil agar tetap
+                        ringan pada baris daftar yang padat.
+                    --}}
+                    <x-filament::button
+                        tag="a"
+                        :href="$item['tautan']"
+                        size="xs"
+                        color="primary"
+                        icon="heroicon-m-arrow-right"
+                        icon-position="after"
+                        outlined
+                        class="shrink-0"
+                    >
+                        Lengkapi
+                    </x-filament::button>
                 @endif
             </div>
         @empty

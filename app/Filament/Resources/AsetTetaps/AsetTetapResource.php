@@ -32,6 +32,13 @@ class AsetTetapResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'nama_aset';
 
+    /** Keterangan yang dibaca pengguna ketika penghapusan ditolak. */
+    public const ALASAN_TAK_DAPAT_DIHAPUS =
+        'Aset yang sudah memiliki riwayat penempatan atau pernah tercantum pada BAST mutasi tidak '
+        . 'dapat dihapus, sebab riwayat itulah jejak ke tim mana aset pernah ditempatkan dan sejak '
+        . 'kapan. Nonaktifkan asetnya lewat Status Aktif agar tidak lagi muncul pada daftar aktif, '
+        . 'sementara jejaknya tetap utuh.';
+
     public static function canAccess(): bool
     {
         return in_array(auth()->user()?->role, ['admin', 'kasubbag']);

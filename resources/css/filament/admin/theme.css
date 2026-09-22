@@ -18,6 +18,76 @@
     --color-brand-light: #EAF3FB;
     --color-accent: #F59E0B;
     --color-accent-light: #FFF7E6;
+
+    /*
+     * Oranye dan hijau identitas BPS, disampel langsung dari piksel
+     * public/images/logo-bps.png — rerata warna solid pada bentuk oranye dan
+     * hijau lambang, dibaca lewat GD (imagecolorat), bukan ditebak dari mata.
+     * Hasil sampel: oranye #E18939, hijau #75B547. Varian gelap dihitung
+     * dengan menurunkan lightness HSL sampai kontras ≥4.5:1 terhadap putih
+     * (WCAG), dan varian tint dengan mencampur ~12% warna ke atas putih.
+     *
+     * Terpisah dari `accent`/`success` di atas: keduanya sudah dipakai
+     * sebagai warna CTA landing page dan status semantik tabel/badge di
+     * seluruh sistem, dan mengubahnya akan menggeser tampilan di luar
+     * cakupan pembenahan visual ini. Token baru ini hanya dipakai untuk
+     * kotak tint ikon (empat kategori) dan status sinkronisasi.
+     */
+    --color-bps-orange: #E18939;
+    --color-bps-orange-dark: #AE611A;
+    --color-bps-orange-light: #FBF1E7;
+    --color-bps-green: #75B547;
+    --color-bps-green-dark: #548233;
+    --color-bps-green-light: #EEF6E9;
+}
+
+/* ================= Kotak tint ikon, empat kategori =================
+ * Kotak persegi kecil berlatar tint lembut (~11-12%) di belakang sebuah
+ * ikon 14-16px, dipakai untuk menonjolkan satu ikon tanpa menambah warna
+ * baru di luar palet: biru memakai `--color-brand`, hijau dan oranye
+ * memakai token identitas BPS di atas, dan slate memakai abu-abu netral
+ * yang sudah dipakai badge/teks bantu. Kontras ikon terhadap latar tint
+ * dijaga di atas 3:1 (AA untuk elemen grafis non-teks).
+ *
+ * Dipakai secara terbatas — hanya pada strip status sinkronisasi — bukan
+ * pada tiap item sidebar/dropdown. Menata ulang ikon sidebar/dropdown
+ * bawaan Filament ke dalam kotak semacam ini menuntut menimpa templat
+ * navigasi/menu-pengguna Filament sendiri, bukan sekadar CSS, dan itu
+ * berarti refactor besar pada komponen bawaan yang sengaja dihindari.
+ */
+.simpbi-tint-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 0.375rem;
+    flex-shrink: 0;
+}
+
+.simpbi-tint-icon svg {
+    width: 0.875rem;
+    height: 0.875rem;
+}
+
+.simpbi-tint-icon--green {
+    background-color: var(--color-bps-green-light);
+    color: var(--color-bps-green-dark);
+}
+
+.simpbi-tint-icon--slate {
+    background-color: color-mix(in oklab, var(--gray-500) 11%, white);
+    color: var(--gray-600);
+}
+
+.dark .simpbi-tint-icon--green {
+    background-color: color-mix(in oklab, var(--color-bps-green) 22%, black);
+    color: #A9D68C;
+}
+
+.dark .simpbi-tint-icon--slate {
+    background-color: var(--gray-800);
+    color: var(--gray-300);
 }
 
 /* Modal terasa lebih fokus (institutional, tidak ramai). */
@@ -42,6 +112,9 @@
  * serta batas kolom isian ditegaskan di sini untuk seluruh keadaan.
  */
 .fi-simpbi-login {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
     min-height: 100dvh;
 }
 
@@ -71,7 +144,8 @@
 .fi-simpbi-login-form .fi-input-wrp {
     background-color: var(--gray-50);
     box-shadow: inset 0 0 0 1px var(--gray-300);
-    border-radius: 0.625rem;
+    border-radius: 0.75rem;
+    min-height: 3rem;
     transition: box-shadow 150ms ease, background-color 150ms ease;
 }
 
@@ -135,7 +209,7 @@
 
 /* Isian dan teks bayangan */
 .fi-simpbi-login-form .fi-input {
-    padding-block: 0.6rem;
+    padding-block: 0.75rem;
     font-size: 0.9375rem;
 }
 
@@ -166,6 +240,8 @@
     justify-content: center;
     background-color: var(--color-brand);
     color: #fff;
+    min-height: 3rem;
+    border-radius: 0.75rem;
     padding-block: 0.6rem;
     font-weight: 600;
     box-shadow: 0 1px 2px rgb(11 42 91 / 0.16);
@@ -333,7 +409,7 @@
     }
 }
 
-.fi-simpbi-login-tampil > * {
+.fi-simpbi-login-tampil>* {
     animation: simpbi-masuk-naik 260ms var(--simpbi-lengkung-masuk) var(--tunda, 0ms) both;
 }
 
@@ -360,9 +436,10 @@
 
 /* ---------- Menghormati preferensi pengurangan gerak ---------- */
 @media (prefers-reduced-motion: reduce) {
+
     /* Urutan kemunculannya dipertahankan karena membantu membaca halaman;
        yang dilepas hanya perpindahan posisinya. */
-    .fi-simpbi-login-tampil > *,
+    .fi-simpbi-login-tampil>*,
     .fi-simpbi-login-form .fi-ac {
         animation-name: simpbi-masuk-pudar;
     }
@@ -395,36 +472,23 @@
 }
 
 /* ---------- Layar pemuatan ----------
- * Tanda SIMPBI berputar pada sumbu Y sambil bergeser mendatar, memberi kesan
- * kepingan yang dibalik. Memakai perspektif tiga dimensi dan durasi 880ms
- * dengan pelambatan halus, dibuat berulang tanpa terasa terburu-buru.
+ * Urutan "SIMPBI reveal + garis data" (Instruksi bagian H2): tanda BPS
+ * muncul halus, wordmark memudar masuk, garis tipis menyapu, lalu satu
+ * baris status statis. Seluruhnya sekali jalan (bukan diulang), hanya
+ * memakai opacity dan transform — tanpa perspektif 3D, tanpa cahaya
+ * berpendar, dan tanpa spinner besar.
  */
-.fi-simpbi-pemuatan {
-    perspective: 640px;
-}
-
 .fi-simpbi-pemuatan-tanda {
-    position: relative;
-    transform-style: preserve-3d;
-    animation: simpbi-balik-kepingan 880ms cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
-    will-change: transform, opacity;
+    opacity: 0;
+    transform: scale(0.92);
+    animation: simpbi-pemuatan-tanda 520ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
 }
 
-/* Cahaya lembut yang berdenyut di belakang tanda, seirama dengan putarannya. */
-.fi-simpbi-pemuatan-tanda::before {
-    content: '';
-    position: absolute;
-    inset: -35%;
-    border-radius: 9999px;
-    background: radial-gradient(circle, rgb(245 158 11 / 0.22), transparent 68%);
-    transform: translateZ(-1px);
-    animation: simpbi-denyut-cahaya 1760ms cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
-    pointer-events: none;
-}
-
-@keyframes simpbi-denyut-cahaya {
-    0%, 100% { opacity: 0.35; transform: translateZ(-1px) scale(0.92); }
-    50%      { opacity: 0.75; transform: translateZ(-1px) scale(1.06); }
+@keyframes simpbi-pemuatan-tanda {
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 /* Nama sistem masuk dengan pudar dan geseran ringan, sekali saja. */
@@ -439,39 +503,37 @@
 }
 
 @keyframes simpbi-pemuatan-teks {
-    to { opacity: 1; transform: none; }
-}
-
-@keyframes simpbi-balik-kepingan {
-    0% {
-        transform: translateX(0) rotateY(0deg) scale(1);
+    to {
         opacity: 1;
-    }
-    35% {
-        transform: translateX(0.6rem) rotateY(180deg) scale(0.93);
-        opacity: 0.82;
-    }
-    70% {
-        transform: translateX(-0.35rem) rotateY(340deg) scale(1.03);
-        opacity: 1;
-    }
-    100% {
-        transform: translateX(0) rotateY(360deg) scale(1);
-        opacity: 1;
+        transform: none;
     }
 }
 
-/* Titik denyut di bawah tanda, sebagai penanda proses masih berjalan. */
-.fi-simpbi-pemuatan-titik span {
-    animation: simpbi-denyut 1.2s ease-in-out infinite;
+/* Garis tipis yang menyapu dari kiri, menandai proses masih berjalan tanpa
+ * meniru progress bar (lebarnya tetap, hanya kemunculannya yang disapu). */
+.fi-simpbi-pemuatan-garis {
+    transform-origin: left center;
+    transform: scaleX(0);
+    opacity: 0;
+    animation: simpbi-pemuatan-garis 560ms cubic-bezier(.22, .61, .36, 1) 520ms forwards;
 }
 
-.fi-simpbi-pemuatan-titik span:nth-child(2) { animation-delay: 0.15s; }
-.fi-simpbi-pemuatan-titik span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes simpbi-pemuatan-garis {
+    to {
+        transform: scaleX(1);
+        opacity: 1;
+    }
+}
 
-@keyframes simpbi-denyut {
-    0%, 100% { opacity: 0.25; transform: scale(0.85); }
-    50%      { opacity: 1;    transform: scale(1); }
+.fi-simpbi-pemuatan-status {
+    opacity: 0;
+    animation: simpbi-pemuatan-status 420ms ease-out 760ms forwards;
+}
+
+@keyframes simpbi-pemuatan-status {
+    to {
+        opacity: 1;
+    }
 }
 
 /* Layar pemuatan menghilang setelah halaman siap. */
@@ -485,19 +547,17 @@
     transition: opacity 320ms ease, visibility 0s linear 320ms;
 }
 
-/* Menghormati preferensi pengguna yang membatasi gerak. */
+/* Menghormati preferensi pengguna yang membatasi gerak: tanda dan teks
+ * langsung tampak penuh, garis tanpa sapuan. */
 @media (prefers-reduced-motion: reduce) {
-    .fi-simpbi-pemuatan-tanda,
-    .fi-simpbi-pemuatan-tanda::before,
-    .fi-simpbi-pemuatan-titik span {
-        animation-duration: 0.01ms;
-        animation-iteration-count: 1;
-    }
 
-    .fi-simpbi-pemuatan-teks {
+    .fi-simpbi-pemuatan-tanda,
+    .fi-simpbi-pemuatan-teks,
+    .fi-simpbi-pemuatan-garis,
+    .fi-simpbi-pemuatan-status {
+        animation: none;
         opacity: 1;
         transform: none;
-        animation: none;
     }
 
     .fi-simpbi-login-form .fi-sc-actions .fi-btn {
@@ -521,8 +581,9 @@
 
 /* ============== Tinggi panel bagan (Instruksi §45) ==============
  * Sepasang bagan pada satu baris kisi — Pola Permintaan dengan Kondisi Aset
- * Tetap bagi Admin dan Kasubbag, atau dengan Status Permintaan Tim Saya bagi
- * Tim dan Ketua Tim — harus berakhir pada garis yang sama.
+ * Tetap bagi Admin dan Kasubbag, atau dengan Kondisi Aset Tetap Tim Saya bagi
+ * Tim dan Ketua Tim, dan pada baris berikutnya Tren Konsumsi (Tim Saya)
+ * dengan Status Permintaan Tim Saya — harus berakhir pada garis yang sama.
  *
  * Tanpa aturan ini tinggi kanvas dihitung Chart.js dari lebar kolomnya
  * masing-masing dikali perbandingan sisi bagan. Karena kolomnya tidak sama
@@ -591,7 +652,7 @@
 }
 
 .fi-topbar .fi-icon-btn,
-.fi-topbar .fi-dropdown-trigger > button {
+.fi-topbar .fi-dropdown-trigger>button {
     color: var(--simpbi-teks-terang);
 }
 
@@ -599,23 +660,6 @@
 .fi-topbar .fi-icon-btn:focus-visible {
     color: #fff;
     background-color: rgb(255 255 255 / 0.10);
-}
-
-/* Kolom pencarian: mengikuti gaya tombol pada bilah halaman muka, yaitu
- * permukaan putih tipis dengan garis putih, bukan kotak putih pekat. */
-.fi-topbar .fi-global-search-field .fi-input-wrp,
-.fi-topbar .fi-global-search-field .fi-input-wrp:has(input:focus) {
-    background-color: rgb(255 255 255 / 0.08);
-    --tw-ring-color: rgb(255 255 255 / 0.18);
-}
-
-.fi-topbar .fi-global-search-field input {
-    color: #fff;
-}
-
-.fi-topbar .fi-global-search-field input::placeholder,
-.fi-topbar .fi-global-search-field .fi-icon {
-    color: var(--simpbi-teks-redup);
 }
 
 /* Lingkaran akun diberi cincin tipis supaya tidak lebur ke dalam navy. */
@@ -628,6 +672,557 @@
 .fi-topbar .fi-logo .simpbi-wordmark {
     font-family: var(--simpbi-huruf-wordmark);
     letter-spacing: 0.14em;
+}
+
+/* ================= Toggle tema, dropdown profil, dialog keluar =================
+ *
+ * Kelompok kanan bilah atas: [toggle tema] [lonceng] [avatar]. Markup-nya ada
+ * pada resources/views/filament/partials/aksi-bilah-atas.blade.php dan
+ * dialog-keluar.blade.php. Semua warna berasal dari token yang sudah ada
+ * (navy, brand, accent, danger, gray Filament); variasinya hanya berupa
+ * transparansi dari token itu, sehingga mengikuti mode terang dan gelap.
+ */
+:root {
+    --sp-permukaan: #fff;
+    --sp-permukaan-redup: var(--gray-50);
+    --sp-permukaan-hover: var(--gray-100);
+    --sp-garis: var(--gray-200);
+    --sp-teks: var(--gray-950);
+    --sp-teks-redup: var(--gray-600);
+    --sp-cincin-fokus: var(--color-brand);
+}
+
+.dark {
+    --sp-permukaan: var(--gray-900);
+    --sp-permukaan-redup: rgb(255 255 255 / 0.04);
+    --sp-permukaan-hover: rgb(255 255 255 / 0.06);
+    --sp-garis: rgb(255 255 255 / 0.10);
+    --sp-teks: #fff;
+    --sp-teks-redup: var(--gray-400);
+    --sp-cincin-fokus: var(--primary-300);
+}
+
+/* ---------- Toggle tema ----------
+ * Trek 56x30 dengan thumb 24px yang bergeser 26px. Garis trek digambar dengan
+ * bayangan sisi dalam, bukan border, supaya ukuran 56x30 dan jarak 3px ke
+ * thumb tetap persis. Tombolnya sendiri 44px tinggi (area sentuh), trek-nya
+ * yang berukuran 30px. Posisi thumb dibaca dari kelas `dark` pada <html>,
+ * yang sama dengan skrip anti-kedip pada <head>. */
+.simpbi-tema {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 56px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.simpbi-tema-trek {
+    position: relative;
+    display: block;
+    width: 56px;
+    height: 30px;
+    border-radius: 9999px;
+    background-color: rgb(255 255 255 / 0.14);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.22);
+    transition: background-color 120ms ease;
+}
+
+.simpbi-tema:hover .simpbi-tema-trek {
+    background-color: rgb(255 255 255 / 0.22);
+}
+
+.simpbi-tema:focus-visible .simpbi-tema-trek {
+    outline: 2px solid rgb(255 255 255 / 0.6);
+    outline-offset: 2px;
+}
+
+.simpbi-tema-ikon {
+    position: absolute;
+    top: 8px;
+    width: 14px;
+    height: 14px;
+    color: rgb(255 255 255 / 0.65);
+}
+
+.simpbi-tema-ikon-kiri {
+    left: 8px;
+}
+
+.simpbi-tema-ikon-kanan {
+    left: 34px;
+}
+
+.simpbi-tema-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+    background-color: rgb(255 255 255 / 0.96);
+    transform: translateX(0);
+    transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dark .simpbi-tema-thumb {
+    transform: translateX(26px);
+}
+
+.simpbi-tema:active .simpbi-tema-thumb {
+    transform: translateX(0) scaleX(1.08);
+}
+
+.dark .simpbi-tema:active .simpbi-tema-thumb {
+    transform: translateX(26px) scaleX(1.08);
+}
+
+.simpbi-tema-thumb-ikon {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    width: 14px;
+    height: 14px;
+    transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.simpbi-tema-thumb-matahari {
+    color: var(--color-accent);
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+.simpbi-tema-thumb-bulan {
+    color: var(--color-navy);
+    opacity: 0;
+    transform: rotate(-90deg);
+}
+
+.dark .simpbi-tema-thumb-matahari {
+    opacity: 0;
+    transform: rotate(90deg);
+}
+
+.dark .simpbi-tema-thumb-bulan {
+    opacity: 1;
+    transform: rotate(0deg);
+}
+
+/* Layar sempit: tidak ada bentuk khusus. Di bawah 480px Filament menyembunyikan
+ * logo bilah atas, sehingga trek 56px + lonceng + avatar (sekitar 176px)
+ * masih muat di 320px tanpa menggulir. Bentuk bulat 40px yang diminta untuk
+ * kasus "tidak muat" karena itu tidak dipakai. */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .simpbi-tema-trek,
+    .simpbi-tema-thumb,
+    .simpbi-tema-thumb-ikon {
+        transition: none;
+    }
+
+    .simpbi-tema:active .simpbi-tema-thumb {
+        transform: translateX(0);
+    }
+
+    .dark .simpbi-tema:active .simpbi-tema-thumb {
+        transform: translateX(26px);
+    }
+}
+
+/* ---------- Dropdown profil ---------- */
+.simpbi-profil-akar {
+    display: contents;
+}
+
+/* Panel dipindah ke <body> oleh dropdown bawaan, sehingga gayanya berdiri
+ * sendiri. max-width bawaan Filament bernilai !important di dalam layer, yang
+ * tidak bisa ditimpa dari luar layer; karena itu batas itu dihapus lewat kelas
+ * `fi-width-none` (dipasang dari templat) dan lebarnya diatur langsung:
+ * 320px, tetapi tidak pernah melebihi lebar layar dikurangi 16px.
+ * Garis pembagi otomatis panel (divide-y) dinolkan, sebab garisnya dua buah,
+ * berupa <hr> yang ditulis sendiri. */
+.fi-dropdown-panel.simpbi-profil-panel {
+    width: min(320px, calc(100vw - 16px));
+    max-height: calc(100dvh - 80px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    border: 1px solid var(--sp-garis);
+    border-radius: 16px;
+    background-color: var(--sp-permukaan);
+    box-shadow: 0 10px 15px -3px rgb(11 42 91 / 0.10), 0 4px 6px -4px rgb(11 42 91 / 0.10);
+}
+
+.fi-dropdown-panel.simpbi-profil-panel>* {
+    border-width: 0;
+}
+
+/* Blok 1 — identitas. Non-interaktif: tanpa hover, fokus, transisi, atau
+ * kursor tangan. Teksnya tetap bisa diseleksi dan disalin. */
+.simpbi-profil-identitas {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background-color: var(--sp-permukaan-redup);
+    cursor: default;
+}
+
+/*
+ * Avatar berinisial lokal (A-019), pengganti gambar dari ui-avatars.com pada
+ * pemicu dropdown profil dan kartu Ringkasan Akun. Warna dan huruf sama dengan
+ * .simpbi-profil-avatar di bawah; bentuknya lingkaran seperti avatar bawaan
+ * Filament. Murni CSS, tanpa permintaan jaringan.
+ */
+.simpbi-avatar-inisial {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    background-color: var(--color-navy);
+    color: #fff;
+    font-size: 0.75rem;
+    line-height: 1;
+    font-weight: 700;
+    user-select: none;
+}
+
+.simpbi-avatar-inisial--besar {
+    width: 3rem;
+    height: 3rem;
+    font-size: 1.125rem;
+}
+
+.simpbi-profil-avatar {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background-color: var(--color-navy);
+    color: #fff;
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 700;
+    box-shadow: 0 1px 2px 0 rgb(11 42 91 / 0.20), 0 6px 14px -8px rgb(11 42 91 / 0.45);
+    user-select: none;
+}
+
+.dark .simpbi-profil-avatar {
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.14), 0 6px 14px -8px rgb(0 0 0 / 0.6);
+}
+
+.simpbi-profil-teks {
+    min-width: 0;
+}
+
+.simpbi-profil-nama,
+.simpbi-profil-email {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.simpbi-profil-nama {
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 700;
+    color: var(--sp-teks);
+}
+
+.simpbi-profil-email {
+    margin-top: 2px;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 400;
+    color: var(--sp-teks-redup);
+}
+
+/* Garis pemisah: 1px, penuh dari tepi ke tepi. */
+.simpbi-profil-garis {
+    display: block;
+    height: 1px;
+    margin: 0;
+    border: 0;
+    background-color: var(--sp-garis);
+}
+
+/* Blok 2 dan 3 — item menu. */
+.simpbi-profil-blok {
+    display: grid;
+    gap: 4px;
+    padding: 8px;
+}
+
+.simpbi-profil-item {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-height: 60px;
+    padding: 8px 12px;
+    border: 0;
+    border-radius: 12px;
+    background-color: transparent;
+    color: var(--sp-teks);
+    font: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    outline: none;
+    transition: background-color 120ms ease;
+}
+
+.simpbi-profil-item:hover {
+    background-color: var(--sp-permukaan-hover);
+}
+
+.simpbi-profil-item:focus-visible {
+    outline: 2px solid var(--sp-cincin-fokus);
+    outline-offset: -2px;
+}
+
+.simpbi-profil-ikon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+}
+
+.simpbi-profil-ikon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.simpbi-profil-ikon-amber {
+    background-color: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    color: var(--warning-700);
+}
+
+.simpbi-profil-ikon-biru {
+    background-color: color-mix(in srgb, var(--color-brand) 11%, transparent);
+    color: var(--color-brand);
+}
+
+.dark .simpbi-profil-ikon-amber {
+    background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+    color: var(--warning-300);
+}
+
+.dark .simpbi-profil-ikon-biru {
+    background-color: color-mix(in srgb, var(--color-brand) 30%, transparent);
+    color: var(--primary-300);
+}
+
+.simpbi-profil-item-teks {
+    display: block;
+    min-width: 0;
+}
+
+.simpbi-profil-judul,
+.simpbi-profil-subjudul {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.simpbi-profil-judul {
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 600;
+    color: var(--sp-teks);
+}
+
+.simpbi-profil-subjudul {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sp-teks-redup);
+}
+
+/* Keluar: blok merah lembut. */
+.simpbi-profil-item-keluar {
+    background-color: color-mix(in srgb, var(--danger-600) 10%, transparent);
+}
+
+.simpbi-profil-item-keluar:hover {
+    background-color: color-mix(in srgb, var(--danger-600) 16%, transparent);
+}
+
+/* Warna danger sistem ini koral muda, jadi teks di atas tint-nya memakai
+ * langkah yang lebih gelap agar kontrasnya tetap di atas 4.5:1. Subjudul
+ * sedikit lebih ringan dari judulnya lewat selisih satu langkah warna,
+ * bukan lewat opasitas, yang justru menurunkan kontras di bawah batas. */
+.simpbi-profil-item-keluar .simpbi-profil-judul {
+    color: var(--danger-800);
+}
+
+.simpbi-profil-item-keluar .simpbi-profil-subjudul {
+    color: var(--danger-700);
+}
+
+.simpbi-profil-ikon-merah {
+    background-color: color-mix(in srgb, var(--danger-600) 16%, transparent);
+    color: var(--danger-700);
+}
+
+.dark .simpbi-profil-item-keluar {
+    background-color: color-mix(in srgb, var(--danger-500) 14%, transparent);
+}
+
+.dark .simpbi-profil-item-keluar:hover {
+    background-color: color-mix(in srgb, var(--danger-500) 22%, transparent);
+}
+
+.dark .simpbi-profil-item-keluar .simpbi-profil-judul {
+    color: var(--danger-200);
+}
+
+.dark .simpbi-profil-item-keluar .simpbi-profil-subjudul {
+    color: var(--danger-300);
+}
+
+.dark .simpbi-profil-ikon-merah {
+    background-color: color-mix(in srgb, var(--danger-500) 24%, transparent);
+    color: var(--danger-300);
+}
+
+/* ---------- Dialog konfirmasi keluar ----------
+ * Kerangka, backdrop, jebakan fokus, dan penguncian gulir milik modal bawaan
+ * Filament; di sini hanya ukuran ikon dan huruf, jarak, dan lamanya animasi. */
+.simpbi-dialog-keluar>.fi-modal-window-ctn>.fi-modal-window .fi-modal-header {
+    align-items: flex-start;
+    gap: 16px;
+    padding: 24px 24px 0;
+}
+
+.simpbi-dialog-keluar .fi-modal-icon-bg {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    margin: 0;
+    padding: 0;
+    border-radius: 14px;
+    background-color: color-mix(in srgb, var(--danger-600) 12%, transparent);
+    color: var(--danger-600);
+}
+
+.dark .simpbi-dialog-keluar .fi-modal-icon-bg {
+    background-color: color-mix(in srgb, var(--danger-500) 22%, transparent);
+    color: var(--danger-300);
+}
+
+.simpbi-dialog-keluar .fi-modal-heading {
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 700;
+    color: var(--sp-teks);
+}
+
+.simpbi-dialog-keluar .fi-modal-description {
+    margin-top: 6px;
+    font-size: 15px;
+    line-height: 22px;
+    color: var(--sp-teks-redup);
+}
+
+.simpbi-dialog-keluar>.fi-modal-window-ctn>.fi-modal-window .fi-modal-footer {
+    padding: 24px;
+}
+
+.simpbi-dialog-aksi {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.simpbi-dialog-tombol {
+    min-height: 44px;
+    padding-inline: 20px;
+    user-select: none;
+}
+
+/* Mode gelap: tombol bahaya bawaan (latar danger-600, teks putih) hanya
+ * mencapai kontras 4.32:1, jadi di dialog ini latarnya turun satu langkah. */
+.dark .simpbi-dialog-tombol.fi-color-danger {
+    background-color: var(--danger-700);
+}
+
+.dark .simpbi-dialog-tombol.fi-color-danger:hover {
+    background-color: var(--danger-800);
+}
+
+.simpbi-dialog-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgb(255 255 255 / 0.4);
+    border-top-color: #fff;
+    border-radius: 9999px;
+    animation: simpbi-putar 700ms linear infinite;
+}
+
+@keyframes simpbi-putar {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Backdrop memudar 150ms; jendela memudar dan membesar 0.96 → 1 selama 180ms.
+ * Filament memakai properti `scale`, bukan `transform`, jadi yang ditimpa
+ * juga `scale`. Alpine menulis durasi backdrop lewat gaya sebaris, maka
+ * !important. */
+.simpbi-dialog-keluar>.fi-modal-close-overlay {
+    transition-duration: 150ms !important;
+}
+
+.simpbi-dialog-keluar>.fi-modal-window-ctn>.fi-modal-window.fi-transition-enter,
+.simpbi-dialog-keluar>.fi-modal-window-ctn>.fi-modal-window.fi-transition-leave {
+    transition-duration: 180ms;
+    transition-property: opacity, scale;
+}
+
+.simpbi-dialog-keluar>.fi-modal-window-ctn>.fi-modal-window.fi-transition-enter-start,
+.simpbi-dialog-keluar>.fi-modal-window-ctn>.fi-modal-window.fi-transition-leave-end {
+    scale: 0.96;
+}
+
+/* Layar sempit: dua tombol bertumpuk selebar penuh, "Ya, Keluar" di atas. */
+@media (max-width: 479.98px) {
+    .simpbi-dialog-aksi {
+        flex-direction: column-reverse;
+    }
+
+    .simpbi-dialog-tombol {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .simpbi-dialog-keluar>.fi-modal-close-overlay,
+    .simpbi-dialog-keluar>.fi-modal-window-ctn>.fi-modal-window.fi-transition-enter,
+    .simpbi-dialog-keluar>.fi-modal-window-ctn>.fi-modal-window.fi-transition-leave {
+        transition: none !important;
+    }
+
+    .simpbi-dialog-spinner {
+        animation-duration: 1.6s;
+    }
 }
 
 /* ---- Sisi kiri ---- */
@@ -652,20 +1247,20 @@
     color: var(--simpbi-teks-redup);
 }
 
-.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:hover,
-.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:focus-visible {
+.fi-sidebar-item.fi-sidebar-item-has-url>.fi-sidebar-item-btn:hover,
+.fi-sidebar-item.fi-sidebar-item-has-url>.fi-sidebar-item-btn:focus-visible {
     background-color: rgb(255 255 255 / 0.08);
     color: #fff;
 }
 
 /* Menu yang sedang dibuka ditandai permukaan biru aksi (Instruksi §25),
  * bukan abu-abu muda bawaan Filament yang tidak terbaca di atas navy. */
-.fi-sidebar-item.fi-active > .fi-sidebar-item-btn {
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn {
     background-color: var(--color-brand, #1557A6);
 }
 
-.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-label,
-.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-icon {
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn>.fi-sidebar-item-label,
+.fi-sidebar-item.fi-active>.fi-sidebar-item-btn>.fi-icon {
     color: #fff;
 }
 
@@ -675,9 +1270,28 @@
 .fi-sidebar-group-label {
     font-size: 0.6875rem;
     font-weight: 600;
-    letter-spacing: 0.09em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--simpbi-teks-redup);
+}
+
+/* Kepadatan baris menu (Instruksi bagian C3): tinggi ~40px, jarak ikon-teks
+ * 12px, jarak antar-item 2px, jarak antar-kelompok 16px. */
+.fi-sidebar-item-btn {
+    min-height: 2.5rem;
+    gap: 0.75rem;
+}
+
+.fi-sidebar-group-btn {
+    gap: 0.75rem;
+}
+
+.fi-sidebar-item+.fi-sidebar-item {
+    margin-top: 0.125rem;
+}
+
+.fi-sidebar-group+.fi-sidebar-group {
+    margin-top: 1rem;
 }
 
 /* Batang gulir sisi kiri disamarkan agar tidak memotong permukaan navy. */
@@ -686,15 +1300,26 @@
     scrollbar-color: rgb(255 255 255 / 0.18) transparent;
 }
 
-/* ---- Judul halaman dan kartu ---- */
+/* ---- Judul halaman dan kartu ----
+ * Ukuran mengikuti hierarki tipografi (28/34 700 untuk judul halaman,
+ * 18/26 600 untuk judul kartu/section). Angka besar pada widget dasbor
+ * sengaja tidak disentuh di sini — Dashboard tiap peran berada di luar
+ * cakupan pembenahan visual ini.
+ */
 .fi-header-heading {
     font-family: var(--simpbi-huruf-judul);
+    font-size: 1.75rem;
+    line-height: 2.125rem;
+    font-weight: 700;
     letter-spacing: -0.02em;
-    color: var(--color-navy, #0B2A5B);
+    color: var(--color-navy, #2f5ba3);
 }
 
 .fi-section-header-heading {
     font-family: var(--simpbi-huruf-judul);
+    font-size: 1.125rem;
+    line-height: 1.625rem;
+    font-weight: 600;
     letter-spacing: -0.01em;
 }
 
@@ -727,18 +1352,26 @@
     }
 }
 
-.fi-wi > .fi-wi-widget {
+.fi-wi>.fi-wi-widget {
     animation: simpbi-panel-masuk 320ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
-.fi-wi > .fi-wi-widget:nth-child(2) { animation-delay: 60ms; }
-.fi-wi > .fi-wi-widget:nth-child(3) { animation-delay: 120ms; }
-.fi-wi > .fi-wi-widget:nth-child(n + 4) { animation-delay: 180ms; }
+.fi-wi>.fi-wi-widget:nth-child(2) {
+    animation-delay: 60ms;
+}
+
+.fi-wi>.fi-wi-widget:nth-child(3) {
+    animation-delay: 120ms;
+}
+
+.fi-wi>.fi-wi-widget:nth-child(n + 4) {
+    animation-delay: 180ms;
+}
 
 /* Pengguna yang meminta gerak dikurangi tetap mendapat tampilan yang sama,
  * hanya tanpa perpindahan (Instruksi §45: tata letak stabil). */
 @media (prefers-reduced-motion: reduce) {
-    .fi-wi > .fi-wi-widget {
+    .fi-wi>.fi-wi-widget {
         animation: none;
     }
 }
@@ -761,10 +1394,8 @@
 
 /* Tidak ada pekerjaan — keterangan tanpa warna, atau berwarna success.
  * Angkanya diredupkan supaya kartu ini menepi dari perhatian. */
-.fi-wi-stats-overview-stat:not(:has(.fi-wi-stats-overview-stat-description.fi-color))
-    .fi-wi-stats-overview-stat-value,
-.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-success)
-    .fi-wi-stats-overview-stat-value {
+.fi-wi-stats-overview-stat:not(:has(.fi-wi-stats-overview-stat-description.fi-color)) .fi-wi-stats-overview-stat-value,
+.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-success) .fi-wi-stats-overview-stat-value {
     /* gray-500, bukan yang lebih muda: angka ini tetap teks yang harus
      * terbaca, jadi peredupannya dibatasi sampai rasio kontras AA. */
     color: var(--gray-500);
@@ -773,13 +1404,11 @@
 /* Menunggu tindakan, dan tidak dapat dilayani — angka memakai warna
  * keadaannya sendiri, ditambah garis tipis di tepi kiri kartu sebagai
  * penanda yang terbaca bahkan dari sudut mata. */
-.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-warning)
-    .fi-wi-stats-overview-stat-value {
+.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-warning) .fi-wi-stats-overview-stat-value {
     color: var(--warning-600);
 }
 
-.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-danger)
-    .fi-wi-stats-overview-stat-value {
+.fi-wi-stats-overview-stat:has(.fi-wi-stats-overview-stat-description.fi-color-danger) .fi-wi-stats-overview-stat-value {
     color: var(--danger-600);
 }
 
@@ -839,18 +1468,21 @@
  * panel yang akan menggantikannya.
  */
 @keyframes simpbi-sapuan {
-    from { background-position: -150% 0; }
-    to   { background-position: 250% 0; }
+    from {
+        background-position: -150% 0;
+    }
+
+    to {
+        background-position: 250% 0;
+    }
 }
 
 .fi-loading-section {
-    background-image: linear-gradient(
-        100deg,
-        transparent 20%,
-        rgb(11 42 91 / 0.05) 40%,
-        rgb(11 42 91 / 0.05) 60%,
-        transparent 80%
-    );
+    background-image: linear-gradient(100deg,
+            transparent 20%,
+            rgb(11 42 91 / 0.05) 40%,
+            rgb(11 42 91 / 0.05) 60%,
+            transparent 80%);
     background-size: 200% 100%;
     background-repeat: no-repeat;
     animation: simpbi-sapuan 1.6s linear infinite;
@@ -1041,6 +1673,1134 @@
  * pembungkusnya sendiri (fi-wi-stats-overview) dan sengaja dibiarkan setinggi
  * isinya, sebab keempatnya memang selalu sama tinggi.
  */
-.fi-wi-widget > .fi-section {
+.fi-wi-widget>.fi-section {
     height: 100%;
+}
+
+/* ================= Wizard pelengkapan akun =================
+ *
+ * Stepper aktivasi akun memakai komponen Wizard bawaan Filament apa adanya —
+ * lingkaran bernomor, penghubung, dan centang tahap selesai seluruhnya sudah
+ * bergaya panel. Yang ditambahkan di sini hanya penghalusan perpindahan
+ * keadaannya: ketika satu tahap selesai, warna lingkaran dan penghubung ke
+ * tahap berikutnya berpindah dengan lembut, bukan berganti mendadak.
+ *
+ * Hanya transition warna, bukan animasi berkeyframe, supaya tidak terpicu ulang
+ * pada tiap render Livewire dan tetap tenang. Semuanya luruh bila pengguna
+ * meminta pengurangan gerak.
+ */
+.fi-sc-wizard-header-step-icon-ctn,
+.fi-sc-wizard-header-step-separator {
+    transition:
+        color 260ms var(--simpbi-lengkung-masuk, ease),
+        background-color 260ms var(--simpbi-lengkung-masuk, ease),
+        border-color 260ms var(--simpbi-lengkung-masuk, ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .fi-sc-wizard-header-step-icon-ctn,
+    .fi-sc-wizard-header-step-separator {
+        transition: none;
+    }
+}
+
+
+/* ================= Bingkai halaman masuk, panel kiri, dan ilustrasi alur =================
+ *
+ * Lebar ≥1024px: halaman diberi ruang 16px di sekelilingnya, sisi kiri menjadi
+ * kartu navy berradius 24px yang menjorok dari tepi layar, dan sisi kanan
+ * tetap latar halaman (bukan kartu kedua) dengan formulir di tengahnya. Tinggi
+ * kartu hanya batas bawah (min-height), bukan tinggi paksa, sehingga isi yang
+ * lebih panjang justru memanjangkan halaman dan tidak terpotong; overflow
+ * tersembunyi ada pada kartunya saja, jadi tidak ada penggulung ganda.
+ *
+ * Lebar <1024px: bingkai dilepas. Sisi kiri menjadi pita navy setinggi 72px
+ * berisi lambang, SIMPBI, dan nama satuan kerja saja; hiasan, judul besar,
+ * ilustrasi, dan kaki disembunyikan.
+ */
+.fi-simpbi-login-panel {
+    display: flex;
+    align-items: center;
+    min-height: 4.5rem;
+    padding: 0.75rem 1.5rem;
+    animation: simpbi-masuk-pudar 320ms ease-out both;
+}
+
+.fi-simpbi-login-narasi,
+.fi-simpbi-login-kaki,
+.fi-simpbi-login-berlian,
+.fi-alur {
+    display: none;
+}
+
+.fi-simpbi-login-utama {
+    min-width: 0;
+}
+
+@media (min-width: 1024px) {
+    .fi-simpbi-login {
+        grid-template-columns: 1.05fr 1fr;
+        grid-template-rows: none;
+        padding: 1rem;
+    }
+
+    .fi-simpbi-login-panel {
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: space-between;
+        gap: 1.5rem;
+        min-height: calc(100dvh - 2rem);
+        padding: 2.5rem;
+        border-radius: 1.5rem;
+    }
+
+    .fi-simpbi-login-narasi,
+    .fi-simpbi-login-kaki,
+    .fi-alur {
+        display: block;
+    }
+
+    .fi-simpbi-login-berlian {
+        display: grid;
+    }
+}
+
+@media (min-width: 1280px) {
+    .fi-simpbi-login-panel {
+        padding: 3.5rem;
+    }
+}
+
+/* Layar pendek: ilustrasi dirampingkan, lalu dihilangkan sama sekali. */
+@media (min-width: 1024px) and (max-height: 800px) {
+    .fi-simpbi-login-panel {
+        gap: 1rem;
+        padding-block: 2rem;
+    }
+
+    .fi-simpbi-login .fi-alur {
+        --alur-tinggi-baris: 2.75rem;
+        --alur-jarak: 0.375rem;
+    }
+
+    .fi-simpbi-login .fi-alur-label {
+        font-size: 0.875rem;
+    }
+
+    .fi-simpbi-login-utama {
+        padding-block: 1.5rem;
+    }
+}
+
+@media (min-width: 1024px) and (max-height: 720px) {
+    .fi-alur {
+        display: none;
+    }
+}
+
+/* ---------- Kelompok berlian 3×3 ----------
+ * Hiasan datar (tanpa perspektif) di pojok kanan atas kartu. Warnanya putih
+ * sangat transparan dan geraknya hanya opacity, pelan, dengan jeda berbeda
+ * pada tiap berlian agar denyutnya tidak serempak.
+ */
+.fi-simpbi-login-berlian {
+    position: absolute;
+    top: 2.5rem;
+    right: 2.5rem;
+    grid-template-columns: repeat(3, 2.25rem);
+    grid-auto-rows: 2.25rem;
+    place-items: center;
+    pointer-events: none;
+}
+
+.fi-simpbi-login-berlian span {
+    width: 1rem;
+    height: 1rem;
+    border: 1px solid rgb(255 255 255 / 0.16);
+    background-color: rgb(255 255 255 / 0.03);
+    transform: rotate(45deg);
+    animation: simpbi-berlian 9s ease-in-out infinite alternate;
+    animation-delay: calc(var(--n, 0) * -1.1s);
+}
+
+.fi-simpbi-login-berlian span:nth-child(1) {
+    --n: 0;
+}
+
+.fi-simpbi-login-berlian span:nth-child(2) {
+    --n: 3;
+}
+
+.fi-simpbi-login-berlian span:nth-child(3) {
+    --n: 6;
+}
+
+.fi-simpbi-login-berlian span:nth-child(4) {
+    --n: 2;
+}
+
+.fi-simpbi-login-berlian span:nth-child(5) {
+    --n: 5;
+}
+
+.fi-simpbi-login-berlian span:nth-child(6) {
+    --n: 8;
+}
+
+.fi-simpbi-login-berlian span:nth-child(7) {
+    --n: 4;
+}
+
+.fi-simpbi-login-berlian span:nth-child(8) {
+    --n: 7;
+}
+
+.fi-simpbi-login-berlian span:nth-child(9) {
+    --n: 1;
+}
+
+@keyframes simpbi-berlian {
+    from {
+        opacity: 0.35;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@media (min-width: 1280px) {
+    .fi-simpbi-login-berlian {
+        top: 3.5rem;
+        right: 3.5rem;
+    }
+}
+
+/* ---------- Kotak ikon di atas judul formulir ---------- */
+.fi-simpbi-login-ikon {
+    box-shadow: 0 1px 2px rgb(11 42 91 / 0.06);
+}
+
+/* ---------- Penanda Caps Lock di bawah kolom kata sandi ----------
+ * Barisnya selalu setinggi 20px, tampak maupun tidak, sehingga munculnya pesan
+ * tidak menggeser apa pun di bawahnya. Warnanya amber peringatan panel
+ * (`warning`), diambil pada tingkat gelap agar teks 13px tetap terbaca di atas
+ * putih; amber terang `accent` hanya sekitar 2:1 terhadap putih.
+ */
+.fi-simpbi-caps-pesan {
+    height: 1.25rem;
+    margin-top: 0.25rem;
+    /* Menumpang pada jarak antarkolom yang sudah ada, supaya ruang 20px ini
+       tidak menambah tinggi formulir sebesar seluruhnya. */
+    margin-bottom: -0.5rem;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+}
+
+.fi-simpbi-caps-isi {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    color: var(--warning-700);
+    font-weight: 500;
+}
+
+.fi-simpbi-caps-ikon {
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+}
+
+.dark .fi-simpbi-caps-isi {
+    color: var(--warning-400);
+}
+
+/* ---------- Sasaran sentuh di bawah 1024px ----------
+ * Baris "Tetap masuk" dan tombol mata pada kolom kata sandi sekecil 16–32px
+ * secara bawaan; di layar sentuh keduanya dibesarkan sampai 44px tanpa
+ * mengubah tampilan tandanya.
+ */
+@media (max-width: 1023.98px) {
+    .fi-simpbi-login-form .fi-fo-field-label:has(.fi-checkbox-input) {
+        display: flex;
+        align-items: center;
+        min-height: 2.75rem;
+    }
+
+    .fi-simpbi-login-form .fi-input-wrp-actions .fi-icon-btn {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+    }
+}
+
+/* ---------- Tombol bantuan (sekunder, bergaris tepi) ---------- */
+.fi-simpbi-login-bantuan {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    box-shadow: inset 0 0 0 1px var(--gray-300);
+    color: var(--color-navy);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 150ms ease, box-shadow 150ms ease, color 150ms ease;
+}
+
+.fi-simpbi-login-bantuan:hover {
+    background-color: var(--gray-50);
+    box-shadow: inset 0 0 0 1px var(--color-brand);
+    color: var(--color-brand);
+}
+
+.fi-simpbi-login-bantuan:focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+}
+
+.dark .fi-simpbi-login-bantuan {
+    box-shadow: inset 0 0 0 1px var(--gray-600);
+    color: var(--gray-100);
+}
+
+.dark .fi-simpbi-login-bantuan:hover {
+    background-color: color-mix(in oklab, var(--gray-950) 40%, transparent);
+    box-shadow: inset 0 0 0 1px var(--primary-400);
+    color: var(--primary-300);
+}
+
+/* ---------- Isian yang diisi otomatis peramban ----------
+ * Peramban mewarnai kolom hasil isi-otomatis dengan biru atau kuning bawaannya,
+ * yang merusak latar kolom. Warna itu tidak bisa ditimpa langsung, sehingga
+ * dilapisi bayangan sebelah dalam sewarna latar kolom (bukan warna baru), dan
+ * transisi latarnya ditahan lama supaya peramban tidak sempat mewarnainya.
+ */
+.fi-simpbi-login-form .fi-input:-webkit-autofill,
+.fi-simpbi-login-form .fi-input:-webkit-autofill:hover {
+    -webkit-box-shadow: 0 0 0 100rem var(--gray-50) inset;
+    -webkit-text-fill-color: var(--gray-950);
+    caret-color: var(--gray-950);
+    transition: background-color 9999s ease-out 0s;
+}
+
+.fi-simpbi-login-form .fi-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 100rem #fff inset;
+}
+
+.dark .fi-simpbi-login-form .fi-input:-webkit-autofill,
+.dark .fi-simpbi-login-form .fi-input:-webkit-autofill:hover {
+    -webkit-box-shadow: 0 0 0 100rem color-mix(in oklab, var(--gray-950) 60%, var(--gray-900)) inset;
+    -webkit-text-fill-color: #fff;
+    caret-color: #fff;
+}
+
+.dark .fi-simpbi-login-form .fi-input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0 100rem color-mix(in oklab, var(--gray-950) 35%, var(--gray-900)) inset;
+}
+
+/* ---------- Pesan galat di bawah kolom ----------
+ * Pesan server tetap apa adanya; hanya wadahnya yang dibuat jelas, sebagai kotak
+ * bernada bahaya, bukan teks merah tipis yang mudah terlewat.
+ */
+.fi-simpbi-login-form .fi-fo-field-wrp-error-message {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.625rem;
+    background-color: color-mix(in oklab, var(--danger-500) 7%, #fff);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--danger-500) 30%, transparent);
+    color: var(--danger-700);
+    font-size: 0.8125rem;
+    line-height: 1.35;
+}
+
+.dark .fi-simpbi-login-form .fi-fo-field-wrp-error-message {
+    background-color: color-mix(in oklab, var(--danger-500) 14%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--danger-400) 35%, transparent);
+    color: var(--danger-200);
+}
+
+/* ---------- Ilustrasi alur permintaan ----------
+ *
+ * Satu putaran = --alur-durasi (14 dtk) dan seluruh elemennya berbagi durasi
+ * serta jeda mulai yang sama, jadi fasenya tidak bergeser dari putaran ke
+ * putaran. Lini masa (dtk):
+ *   0,0–0,8     semua Menunggu
+ *   0,8–10,8    tahap 1…5 bergantian Diproses, masing-masing 2,0 dtk
+ *   10,8–12,6   semua Selesai
+ *   12,6–13,2   seluruh modul memudar keluar bersama
+ *   13,2–14,0   memudar masuk dalam keadaan Menunggu, lalu mengulang
+ * Penyetelan ulang tiap tahap dilakukan pada 13,2 dtk, ketika modul sedang
+ * transparan penuh, sehingga tidak terlihat.
+ *
+ * Yang digerakkan hanya opacity dan transform. Tiga keadaan tiap tahap
+ * bertumpuk pada posisi yang sama dan bergantian lewat opacity, jadi lebar dan
+ * tinggi baris tidak pernah berubah. Keyframes tiap tahap berbeda hanya pada
+ * waktunya, sehingga masing-masing ditulis sendiri (lihat "Tahap 1–5" di bawah).
+ */
+.fi-alur {
+    --alur-durasi: 14s;
+    --alur-mulai: 1.2s;
+    --alur-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --alur-tinggi-baris: 3.5rem;
+    --alur-jarak: 0.5rem;
+    animation: simpbi-masuk-naik 360ms var(--simpbi-lengkung-masuk) 700ms both;
+}
+
+.fi-alur-keterangan {
+    margin-bottom: 0.75rem;
+    color: rgb(255 255 255 / 0.55);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.fi-alur-siklus {
+    display: flex;
+    flex-direction: column;
+    gap: var(--alur-jarak);
+    animation: alur-siklus var(--alur-durasi) linear var(--alur-mulai) infinite backwards;
+}
+
+@keyframes alur-siklus {
+
+    0%,
+    90% {
+        opacity: 1;
+    }
+
+    94.286% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}
+
+.fi-alur-baris {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) 5.75rem;
+    align-items: center;
+    column-gap: 0.75rem;
+    height: var(--alur-tinggi-baris);
+    padding-inline: 1rem;
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    border-radius: 0.875rem;
+    background-color: rgb(255 255 255 / 0.08);
+    opacity: 0.55;
+    animation: var(--kf-baris) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards;
+}
+
+/* Sorotan tipis pada tahap yang sedang diproses. */
+.fi-alur-baris::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: rgb(255 255 255 / 0.06);
+    opacity: 0;
+    animation: var(--kf-proses) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards;
+}
+
+.fi-alur-baris:nth-child(1) {
+    --kf-baris: alur-baris-1;
+    --kf-menunggu: alur-menunggu-1;
+    --kf-proses: alur-proses-1;
+    --kf-selesai: alur-selesai-1;
+    --kf-garis: alur-garis-1;
+}
+
+.fi-alur-baris:nth-child(2) {
+    --kf-baris: alur-baris-2;
+    --kf-menunggu: alur-menunggu-2;
+    --kf-proses: alur-proses-2;
+    --kf-selesai: alur-selesai-2;
+    --kf-garis: alur-garis-2;
+}
+
+.fi-alur-baris:nth-child(3) {
+    --kf-baris: alur-baris-3;
+    --kf-menunggu: alur-menunggu-3;
+    --kf-proses: alur-proses-3;
+    --kf-selesai: alur-selesai-3;
+    --kf-garis: alur-garis-3;
+}
+
+.fi-alur-baris:nth-child(4) {
+    --kf-baris: alur-baris-4;
+    --kf-menunggu: alur-menunggu-4;
+    --kf-proses: alur-proses-4;
+    --kf-selesai: alur-selesai-4;
+    --kf-garis: alur-garis-4;
+}
+
+.fi-alur-baris:nth-child(5) {
+    --kf-baris: alur-baris-5;
+    --kf-menunggu: alur-menunggu-5;
+    --kf-proses: alur-proses-5;
+    --kf-selesai: alur-selesai-5;
+    --kf-garis: alur-garis-5;
+}
+
+.fi-alur-label {
+    overflow: hidden;
+    color: rgb(255 255 255 / 0.92);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Simpul bernomor: tiga lapis pada posisi yang sama */
+.fi-alur-simpul {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
+}
+
+.fi-alur-simpul>span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.fi-alur-simpul-menunggu {
+    border: 1px solid rgb(255 255 255 / 0.22);
+    color: rgb(255 255 255 / 0.7);
+    animation: var(--kf-menunggu) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards;
+}
+
+.fi-alur-simpul-proses {
+    background-color: var(--color-accent);
+    color: var(--color-navy);
+    opacity: 0;
+    animation: var(--kf-proses) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards;
+}
+
+.fi-alur-simpul-selesai {
+    border: 1px solid color-mix(in oklab, var(--success-500) 70%, transparent);
+    background-color: color-mix(in oklab, var(--success-500) 24%, transparent);
+    color: var(--success-400);
+    opacity: 0;
+    animation: var(--kf-selesai) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards;
+}
+
+/* Cincin kecil di sekeliling simpul yang sedang diproses */
+.fi-alur-cincin {
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid var(--color-accent);
+    border-radius: 9999px;
+    opacity: 0;
+    animation: alur-cincin 1.2s ease-out infinite;
+}
+
+@keyframes alur-cincin {
+    from {
+        opacity: 0.5;
+        transform: scale(1);
+    }
+
+    to {
+        opacity: 0;
+        transform: scale(1.9);
+    }
+}
+
+/* Status: tiga lapis pada luas tetap 92px, rata kanan */
+.fi-alur-status {
+    position: relative;
+    height: 1.25rem;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+}
+
+.fi-alur-status>span {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.fi-alur-status>span>i {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+}
+
+.fi-alur-status-menunggu {
+    color: rgb(255 255 255 / 0.7);
+    animation: var(--kf-menunggu) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards;
+}
+
+.fi-alur-status-menunggu>i {
+    background-color: rgb(255 255 255 / 0.35);
+}
+
+.fi-alur-status-proses {
+    color: #fff;
+    opacity: 0;
+    animation: var(--kf-proses) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards;
+}
+
+.fi-alur-status-proses>i {
+    background-color: var(--color-accent);
+}
+
+.fi-alur-status-selesai {
+    color: rgb(255 255 255 / 0.85);
+    opacity: 0;
+    animation: var(--kf-selesai) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards;
+}
+
+.fi-alur-status-selesai>i {
+    background-color: var(--success-500);
+}
+
+/* Garis kemajuan di dasar baris, hanya tampak selama tahapnya diproses */
+.fi-alur-garis {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background-color: var(--color-accent);
+    opacity: 0;
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation:
+        var(--kf-proses) var(--alur-durasi) var(--alur-ease) var(--alur-mulai) infinite backwards,
+        var(--kf-garis) var(--alur-durasi) linear var(--alur-mulai) infinite backwards;
+}
+
+/* ---------- Lini masa tahap 1–5 (dihasilkan dari lini masa 14 dtk di atas) ---------- */
+
+/* Tahap 1: Diproses 0.8–2.8 dtk */
+@keyframes alur-menunggu-1 {
+
+    0%,
+    5.714% {
+        opacity: 1;
+    }
+
+    7.143%,
+    94.246% {
+        opacity: 0;
+    }
+
+    94.296%,
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes alur-proses-1 {
+
+    0%,
+    5.714% {
+        opacity: 0;
+    }
+
+    7.143%,
+    18.571% {
+        opacity: 1;
+    }
+
+    20%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-selesai-1 {
+
+    0%,
+    18.571% {
+        opacity: 0;
+    }
+
+    20%,
+    94.246% {
+        opacity: 1;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-baris-1 {
+
+    0%,
+    5.714% {
+        opacity: 0.55;
+    }
+
+    7.143%,
+    18.571% {
+        opacity: 1;
+    }
+
+    20%,
+    94.246% {
+        opacity: 0.92;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0.55;
+    }
+}
+
+@keyframes alur-garis-1 {
+
+    0%,
+    5.714% {
+        transform: scaleX(0);
+    }
+
+    20%,
+    100% {
+        transform: scaleX(1);
+    }
+}
+
+/* Tahap 2: Diproses 2.8–4.8 dtk */
+@keyframes alur-menunggu-2 {
+
+    0%,
+    20% {
+        opacity: 1;
+    }
+
+    21.429%,
+    94.246% {
+        opacity: 0;
+    }
+
+    94.296%,
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes alur-proses-2 {
+
+    0%,
+    20% {
+        opacity: 0;
+    }
+
+    21.429%,
+    32.857% {
+        opacity: 1;
+    }
+
+    34.286%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-selesai-2 {
+
+    0%,
+    32.857% {
+        opacity: 0;
+    }
+
+    34.286%,
+    94.246% {
+        opacity: 1;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-baris-2 {
+
+    0%,
+    20% {
+        opacity: 0.55;
+    }
+
+    21.429%,
+    32.857% {
+        opacity: 1;
+    }
+
+    34.286%,
+    94.246% {
+        opacity: 0.92;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0.55;
+    }
+}
+
+@keyframes alur-garis-2 {
+
+    0%,
+    20% {
+        transform: scaleX(0);
+    }
+
+    34.286%,
+    100% {
+        transform: scaleX(1);
+    }
+}
+
+/* Tahap 3: Diproses 4.8–6.8 dtk */
+@keyframes alur-menunggu-3 {
+
+    0%,
+    34.286% {
+        opacity: 1;
+    }
+
+    35.714%,
+    94.246% {
+        opacity: 0;
+    }
+
+    94.296%,
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes alur-proses-3 {
+
+    0%,
+    34.286% {
+        opacity: 0;
+    }
+
+    35.714%,
+    47.143% {
+        opacity: 1;
+    }
+
+    48.571%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-selesai-3 {
+
+    0%,
+    47.143% {
+        opacity: 0;
+    }
+
+    48.571%,
+    94.246% {
+        opacity: 1;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-baris-3 {
+
+    0%,
+    34.286% {
+        opacity: 0.55;
+    }
+
+    35.714%,
+    47.143% {
+        opacity: 1;
+    }
+
+    48.571%,
+    94.246% {
+        opacity: 0.92;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0.55;
+    }
+}
+
+@keyframes alur-garis-3 {
+
+    0%,
+    34.286% {
+        transform: scaleX(0);
+    }
+
+    48.571%,
+    100% {
+        transform: scaleX(1);
+    }
+}
+
+/* Tahap 4: Diproses 6.8–8.8 dtk */
+@keyframes alur-menunggu-4 {
+
+    0%,
+    48.571% {
+        opacity: 1;
+    }
+
+    50%,
+    94.246% {
+        opacity: 0;
+    }
+
+    94.296%,
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes alur-proses-4 {
+
+    0%,
+    48.571% {
+        opacity: 0;
+    }
+
+    50%,
+    61.429% {
+        opacity: 1;
+    }
+
+    62.857%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-selesai-4 {
+
+    0%,
+    61.429% {
+        opacity: 0;
+    }
+
+    62.857%,
+    94.246% {
+        opacity: 1;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-baris-4 {
+
+    0%,
+    48.571% {
+        opacity: 0.55;
+    }
+
+    50%,
+    61.429% {
+        opacity: 1;
+    }
+
+    62.857%,
+    94.246% {
+        opacity: 0.92;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0.55;
+    }
+}
+
+@keyframes alur-garis-4 {
+
+    0%,
+    48.571% {
+        transform: scaleX(0);
+    }
+
+    62.857%,
+    100% {
+        transform: scaleX(1);
+    }
+}
+
+/* Tahap 5: Diproses 8.8–10.8 dtk */
+@keyframes alur-menunggu-5 {
+
+    0%,
+    62.857% {
+        opacity: 1;
+    }
+
+    64.286%,
+    94.246% {
+        opacity: 0;
+    }
+
+    94.296%,
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes alur-proses-5 {
+
+    0%,
+    62.857% {
+        opacity: 0;
+    }
+
+    64.286%,
+    75.714% {
+        opacity: 1;
+    }
+
+    77.143%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-selesai-5 {
+
+    0%,
+    75.714% {
+        opacity: 0;
+    }
+
+    77.143%,
+    94.246% {
+        opacity: 1;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0;
+    }
+}
+
+@keyframes alur-baris-5 {
+
+    0%,
+    62.857% {
+        opacity: 0.55;
+    }
+
+    64.286%,
+    75.714% {
+        opacity: 1;
+    }
+
+    77.143%,
+    94.246% {
+        opacity: 0.92;
+    }
+
+    94.296%,
+    100% {
+        opacity: 0.55;
+    }
+}
+
+@keyframes alur-garis-5 {
+
+    0%,
+    62.857% {
+        transform: scaleX(0);
+    }
+
+    77.143%,
+    100% {
+        transform: scaleX(1);
+    }
+}
+
+
+/* ---------- Pengurangan gerak ----------
+ * Semua putaran, cincin, dan denyut dihentikan. Yang tersisa keadaan diam:
+ * tahap 1–2 Selesai, tahap 3 Diproses dengan kemajuan sekitar 50%, dan
+ * tahap 4–5 Menunggu. Kemunculan awal hanya memudar, tanpa bergeser.
+ */
+@media (prefers-reduced-motion: reduce) {
+
+    .fi-simpbi-login-panel,
+    .fi-simpbi-login-berlian span,
+    .fi-alur-siklus,
+    .fi-alur-baris,
+    .fi-alur-baris::before,
+    .fi-alur-baris * {
+        animation: none;
+    }
+
+    .fi-alur {
+        animation: simpbi-masuk-pudar 360ms ease-out both;
+    }
+
+    .fi-simpbi-login-berlian span {
+        opacity: 0.7;
+    }
+
+    .fi-alur-baris:nth-child(-n+2) {
+        opacity: 0.92;
+    }
+
+    .fi-alur-baris:nth-child(3) {
+        opacity: 1;
+    }
+
+    .fi-alur-baris:nth-child(3)::before {
+        opacity: 1;
+    }
+
+    .fi-alur-baris:nth-child(-n+3) .fi-alur-simpul-menunggu,
+    .fi-alur-baris:nth-child(-n+3) .fi-alur-status-menunggu {
+        opacity: 0;
+    }
+
+    .fi-alur-baris:nth-child(-n+2) .fi-alur-simpul-selesai,
+    .fi-alur-baris:nth-child(-n+2) .fi-alur-status-selesai,
+    .fi-alur-baris:nth-child(3) .fi-alur-simpul-proses,
+    .fi-alur-baris:nth-child(3) .fi-alur-status-proses,
+    .fi-alur-baris:nth-child(3) .fi-alur-garis {
+        opacity: 1;
+    }
+
+    .fi-alur-baris:nth-child(3) .fi-alur-garis {
+        transform: scaleX(0.5);
+    }
+
+    .fi-alur-cincin {
+        display: none;
+    }
 }

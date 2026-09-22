@@ -87,7 +87,7 @@ return [
             'Pengajuan',
             'Persetujuan Ketua',
             'Verifikasi Gudang',
-            'Persetujuan Kasubbag',
+            'Persetujuan akhir Kasubbag',
             'Penyiapan',
             'Penerimaan',
             'Pengesahan',
@@ -125,6 +125,16 @@ return [
     'kaki' => [
         'satker' => 'Sub-Bagian Umum · BPS Kota Jakarta Barat',
         'hak_cipta' => '© :tahun Badan Pusat Statistik Kota Jakarta Barat. Sistem internal.',
+        'bantuan_judul' => 'Mengalami kendala masuk?',
+        'bantuan_tombol' => 'Hubungi Sub-Bagian Umum',
+        'hubungi_judul' => 'Hubungi Kami',
+        'hubungi_telepon' => 'Telepon',
+        'hubungi_email' => 'Email',
+        'alamat_judul' => 'Alamat Kantor',
+        'alamat_satker' => 'Badan Pusat Statistik Kota Adm. Jakarta Barat',
+        'alamat_jalan' => 'Jl. Raya Kebayoran Lama No. 5A, Sukabumi Selatan, Kebun Jeruk, Jakarta Barat 11550',
+        'alamat_peta' => 'Lihat di peta',
+        'medsos_judul' => 'Media Sosial',
     ],
 
 ];

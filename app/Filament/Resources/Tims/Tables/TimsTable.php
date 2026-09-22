@@ -6,8 +6,9 @@ use App\Filament\Support\AksiImpor;
 use App\Services\Impor\ImporTimKerja;
 use Filament\Actions\BulkActionGroup;
 use App\Filament\Support\AksiHapusTerlindung;
+use App\Filament\Support\KeadaanKosong;
 use App\Filament\Resources\Tims\TimResource;
-use Filament\Actions\EditAction;
+use App\Filament\Support\AksiUbah;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
@@ -19,6 +20,18 @@ class TimsTable
     {
         return $table
             ->defaultSort('nama_tim')
+            /**
+             * Kalimat keadaan kosong dibedakan: daftar yang memang belum berisi
+             * memerlukan ajakan mengisi, sedangkan pencarian yang tidak
+             * menemukan apa pun memerlukan jalan keluar dari penyaringnya.
+             */
+            ->emptyStateIcon('heroicon-o-user-group')
+            ->emptyStateHeading(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Tidak ada tim kerja yang cocok'
+                : 'Belum ada tim kerja')
+            ->emptyStateDescription(fn ($livewire): string => KeadaanKosong::sedangDisaring($livewire)
+                ? 'Coba longgarkan penyaringnya, atau periksa kembali ejaan nama tim yang dicari.'
+                : 'Permintaan barang diajukan atas nama tim kerja. Tambahkan tim kerja beserta ketuanya agar permintaan dapat diajukan.')
             ->columns([
                 TextColumn::make('nama_tim')
                     ->label('Nama Tim')
@@ -49,13 +62,13 @@ class TimsTable
 
                 TextColumn::make('synced_at')
                     ->label('Tersinkron')
-                    ->dateTime('d M Y, H:i')
+                    ->dateTime('d-m-Y H:i')
                     ->placeholder('—')
                     ->toggleable(isToggledHiddenByDefault: true),
 
                 TextColumn::make('created_at')
                     ->label('Dibuat')
-                    ->dateTime('d M Y')
+                    ->dateTime('d-m-Y')
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -67,7 +80,7 @@ class TimsTable
                     ->falseLabel('Nonaktif'),
             ])
             ->recordActions([
-                EditAction::make(),
+                AksiUbah::buat(),
             ])
             ->headerActions([
                 AksiImpor::buat(

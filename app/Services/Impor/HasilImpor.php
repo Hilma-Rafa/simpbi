@@ -23,9 +23,33 @@ class HasilImpor
     /** @var list<string> */
     public array $galat = [];
 
+    /**
+     * Keterangan yang bukan kegagalan, tetapi perlu diketahui pengunggah.
+     *
+     * Dipisahkan dari `galat` dan dari pencacah `dilewati`, sebab keduanya
+     * menghitung baris sedangkan yang ini menerangkan **kolom** yang sengaja
+     * tidak dipakai. Barisnya tetap masuk dan tetap terhitung sebagai
+     * diperbarui; yang perlu disampaikan adalah bahwa sebagian isi berkas
+     * memang tidak berwenang mengubah data — tanpa keterangan ini pengunggah
+     * membaca "80 diperbarui" lalu menyangka penempatan asetnya ikut pindah.
+     *
+     * @var list<string>
+     */
+    public array $catatan = [];
+
     public function catatGalat(int $nomorBaris, string $pesan): void
     {
         $this->galat[] = 'Baris ' . $nomorBaris . ': ' . $pesan;
+    }
+
+    public function catat(string $keterangan): void
+    {
+        $this->catatan[] = $keterangan;
+    }
+
+    public function adaCatatan(): bool
+    {
+        return $this->catatan !== [];
     }
 
     public function adaGalat(): bool

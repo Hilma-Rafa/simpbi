@@ -61,6 +61,49 @@ class User extends Authenticatable implements FilamentUser
             || KetidaksesuaianBarang::where('petugas_id', $this->id)->exists();
     }
 
+    /**
+     * Alasan sekumpulan akun tidak boleh dihapus, atau null bila boleh (G-001).
+     *
+     * Dua aturan, dijaga di server dan bukan hanya disembunyikan di tampilan:
+     * pengguna tidak menghapus akunnya sendiri, dan penghapusan tidak boleh
+     * menyisakan nol Admin aktif. Kumpulan diperiksa sekaligus supaya hapus
+     * massal ditolak seluruhnya, bukan sebagian.
+     *
+     * @param  iterable<int, self>  $akun
+     */
+    public static function alasanTidakDapatDihapus(iterable $akun): ?string
+    {
+        $akun = collect($akun);
+
+        if (auth()->id() !== null && $akun->contains(fn (self $a): bool => $a->getKey() === auth()->id())) {
+            return 'Anda tidak dapat menghapus akun Anda sendiri.';
+        }
+
+        $adminAktifDihapus = $akun
+            ->filter(fn (self $a): bool => $a->role === 'admin' && $a->status_aktif)
+            ->map(fn (self $a) => $a->getKey());
+
+        if ($adminAktifDihapus->isNotEmpty()
+            && ! static::where('role', 'admin')->where('status_aktif', true)->whereNotIn('id', $adminAktifDihapus->all())->exists()) {
+            return 'Harus ada minimal satu Admin aktif.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Didaftarkan pada `booting`, sebelum trait DilindungiRiwayat. Peristiwa
+     * `deleting` dijalankan dengan halt: pendengar pertama yang mengembalikan
+     * nilai bukan null menghentikan rantai. Milik trait mengembalikan `true`
+     * bagi yang boleh dihapus, sehingga pendengar yang terdaftar sesudahnya
+     * tidak pernah dijalankan. Di sini `null` berarti "lanjutkan ke penjaga
+     * berikutnya", dan `false` menolak.
+     */
+    protected static function booting(): void
+    {
+        static::deleting(fn (self $pengguna): ?bool => static::alasanTidakDapatDihapus([$pengguna]) === null ? null : false);
+    }
+
     /** Tim kerja tempat pengguna bernaung (null untuk peran non-tim). */
     public function tim(): BelongsTo
     {

@@ -8,6 +8,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Model;
 
 class AsetTetapForm
 {
@@ -43,11 +44,21 @@ class AsetTetapForm
                     ->columns(2)
                     ->schema([
                         Select::make('tim_penempatan_id')
-                            ->label('Unit Penempatan')
+                            ->label('Tim Kerja')
                             ->relationship('timPenempatan', 'nama_tim')
                             ->searchable()
                             ->preload()
-                            ->placeholder('Belum ditempatkan'),
+                            ->placeholder('Belum ditempatkan')
+                            // Aset yang sudah ditempatkan hanya berpindah lewat Mutasi Aset
+                            // (BAST), sehingga pada form Ubah kolom ini terkunci dan tidak
+                            // ikut disimpan (F-002). Form Buat, dan aset yang belum pernah
+                            // ditempatkan, tetap dapat memilihnya: pengisian pertama itulah
+                            // penempatan awal (EditAsetTetap::afterSave).
+                            ->disabled(fn (?Model $record): bool => filled($record?->tim_penempatan_id))
+                            ->dehydrated(fn (?Model $record): bool => blank($record?->tim_penempatan_id))
+                            ->helperText(fn (?Model $record): ?string => filled($record?->tim_penempatan_id)
+                                ? 'Penempatan diubah melalui Mutasi Aset (BAST).'
+                                : null),
                         Select::make('kondisi')
                             ->label('Kondisi')
                             ->options([
@@ -71,11 +82,16 @@ class AsetTetapForm
                             ->default('manual')
                             ->native(false)
                             ->required(),
+                        // Diisi impor dan sinkronisasi, bukan diketik (F-003): tampil
+                        // tetapi tidak dapat diubah dan tidak ikut disimpan dari form.
                         TextInput::make('external_id')
                             ->label('ID Eksternal')
-                            ->maxLength(50),
+                            ->disabled()
+                            ->dehydrated(false),
                         DateTimePicker::make('synced_at')
-                            ->label('Waktu Sinkronisasi'),
+                            ->label('Waktu Sinkronisasi')
+                            ->disabled()
+                            ->dehydrated(false),
                     ]),
             ]);
     }

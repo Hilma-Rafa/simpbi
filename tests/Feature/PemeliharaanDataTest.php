@@ -43,6 +43,11 @@ class PemeliharaanDataTest extends TestCase
         $this->berkasDb = $this->storage . DIRECTORY_SEPARATOR . 'uji.sqlite';
         touch($this->berkasDb);
 
+        // Seluruh kelas ini memeriksa cadangan dan pemulihan pada berkas SQLite
+        // miliknya sendiri, apa pun basis data yang dipakai rangkaian uji
+        // lainnya. Tanpa baris ini, di bawah MySQL uji-uji ini berjalan pada
+        // basis data rangkaian uji dan berharap penggeraknya "sqlite".
+        config(['database.default' => 'sqlite']);
         config(['database.connections.sqlite.database' => $this->berkasDb]);
         DB::purge('sqlite');
 
@@ -116,7 +121,7 @@ class PemeliharaanDataTest extends TestCase
      */
     public function test_basis_data_dan_berkas_kembali_seperti_semula(): void
     {
-        $dokumen = storage_path('app/public/bukti-permintaan/PB-UJI.pdf');
+        $dokumen = storage_path('app/private/bukti-permintaan/PB-UJI.pdf');
         file_put_contents($dokumen, '%PDF-uji');
 
         DB::table('pengaturan')->where('kunci', 'wa_aktif')->update(['nilai' => 'sebelum']);
@@ -126,7 +131,7 @@ class PemeliharaanDataTest extends TestCase
         // Rusakkan keduanya: isi basis data dan berkas dokumennya.
         DB::table('pengaturan')->where('kunci', 'wa_aktif')->update(['nilai' => 'sesudah']);
         unlink($dokumen);
-        file_put_contents(storage_path('app/public/bukti-permintaan/NYASAR.pdf'), 'x');
+        file_put_contents(storage_path('app/private/bukti-permintaan/NYASAR.pdf'), 'x');
 
         Cadangan::pulihkan($arsip, Cadangan::periksa($arsip));
         DB::purge('sqlite');
@@ -134,7 +139,7 @@ class PemeliharaanDataTest extends TestCase
         $this->assertSame('sebelum', DB::table('pengaturan')->where('kunci', 'wa_aktif')->value('nilai'));
         $this->assertFileExists($dokumen, 'Dokumen yang dihapus harus kembali.');
         $this->assertFileDoesNotExist(
-            storage_path('app/public/bukti-permintaan/NYASAR.pdf'),
+            storage_path('app/private/bukti-permintaan/NYASAR.pdf'),
             'Berkas yang tidak ada di dalam cadangan harus ikut tersapu.',
         );
     }
@@ -239,7 +244,7 @@ class PemeliharaanDataTest extends TestCase
     /** Menyapu direktori dokumen tanpa menghapus direktorinya sendiri. */
     public function test_penyapuan_dokumen_menyisakan_direktorinya(): void
     {
-        $direktori = storage_path('app/public/bukti-permintaan');
+        $direktori = storage_path('app/private/bukti-permintaan');
         file_put_contents($direktori . DIRECTORY_SEPARATOR . 'a.pdf', 'a');
         file_put_contents($direktori . DIRECTORY_SEPARATOR . 'b.pdf', 'b');
 

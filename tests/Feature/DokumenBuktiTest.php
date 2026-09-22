@@ -19,7 +19,7 @@ use Tests\TestCase;
  * bukan sekadar "berkasnya terbentuk" melainkan siapa yang tercantum di
  * dalamnya. Satu kekeliruan yang mudah terjadi: mencantumkan orang yang
  * menekan tombol konfirmasi, padahal yang bertanggung jawab atas barang yang
- * masuk ke unit adalah Ketua Timnya.
+ * masuk ke tim kerja adalah Ketua Timnya.
  */
 class DokumenBuktiTest extends TestCase
 {
@@ -103,7 +103,7 @@ class DokumenBuktiTest extends TestCase
     /** Membaca isi berkas PDF yang terbentuk sebagai teks mentah. */
     private function isiPdf(string $lintasan): string
     {
-        return Storage::disk('public')->get($lintasan);
+        return Storage::disk('local')->get($lintasan);
     }
 
     public function test_dokumen_terbentuk_dan_tersimpan(): void
@@ -112,7 +112,7 @@ class DokumenBuktiTest extends TestCase
 
         $lintasan = app(DokumenPermintaanService::class)->buat($permintaan);
 
-        Storage::disk('public')->assertExists($lintasan);
+        Storage::disk('local')->assertExists($lintasan);
         $this->assertStringStartsWith('%PDF', $this->isiPdf($lintasan));
         $this->assertSame(
             'bukti-permintaan/' . $permintaan->kode_permintaan . '.pdf',
@@ -163,7 +163,7 @@ class DokumenBuktiTest extends TestCase
         $this->assertNull($data['ttdPenerima']);
 
         $lintasan = app(DokumenPermintaanService::class)->buat($permintaan);
-        Storage::disk('public')->assertExists($lintasan);
+        Storage::disk('local')->assertExists($lintasan);
     }
 
     public function test_kode_qr_terbentuk_sebagai_tanda_tangan_elektronik_kasubbag(): void

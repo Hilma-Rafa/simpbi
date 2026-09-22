@@ -133,6 +133,19 @@ class KondisiStok extends Widget
         return $this->tautanKategori();
     }
 
+    /**
+     * Apakah judul panel dan nama kategori ditampilkan sebagai tautan (A-013).
+     *
+     * Tautannya menuju Katalog Barang atau daftar Barang Persediaan (lihat
+     * tautanKategori()). Petugas Gudang tidak berhak membuka keduanya, sehingga
+     * baginya semua tautan itu berujung 403; panel yang sama tampil tanpa
+     * tautan, dengan angka dan isi yang tidak berubah.
+     */
+    public function getBolehMenautkanProperty(): bool
+    {
+        return KatalogBarang::canAccess() || BarangPersediaanResource::canAccess();
+    }
+
     /** Ringkasan satu baris pada kaki panel. */
     public function getRingkasProperty(): array
     {

@@ -178,7 +178,7 @@ class NotifikasiService
      */
     public function permintaanBerubah(PermintaanBarang $permintaan, ?string $catatan = null): int
     {
-        $tim  = $permintaan->tim?->nama_tim ?? 'Tim';
+        $tim  = $permintaan->tim?->nama_tim ?? 'Tim Kerja';
         $kode = $permintaan->kode_permintaan;
 
         [$penerima, $judul, $pesan] = match ($permintaan->status) {
@@ -328,8 +328,8 @@ class NotifikasiService
         $nomor  = $bast->nomor_bast;
         $aset   = $bast->aset?->nama_aset ?? 'Aset';
         $nup    = $bast->aset?->nup;
-        $asal   = $bast->timAsal?->nama_tim ?? 'unit asal';
-        $tujuan = $bast->timTujuan?->nama_tim ?? 'unit tujuan';
+        $asal   = $bast->timAsal?->nama_tim ?? 'tim kerja asal';
+        $tujuan = $bast->timTujuan?->nama_tim ?? 'tim kerja tujuan';
 
         [$penerima, $judul, $pesan] = match ($bast->status) {
             'menunggu_pengesahan' => [

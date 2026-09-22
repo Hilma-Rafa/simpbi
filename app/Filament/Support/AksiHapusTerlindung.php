@@ -21,11 +21,23 @@ use Illuminate\Database\Eloquent\Model;
  */
 class AksiHapusTerlindung
 {
-    /** Penghapusan satu data, menolak sambil menerangkan alasannya. */
-    public static function tunggal(string $alasan): DeleteAction
+    /**
+     * Penghapusan satu data, menolak sambil menerangkan alasannya.
+     *
+     * `$penjaga` (opsional) menerima kumpulan data yang akan dihapus dan
+     * mengembalikan alasan penolakan, atau null bila boleh. Ia berdiri di
+     * samping penjaga riwayat, bukan menggantikannya.
+     */
+    public static function tunggal(string $alasan, ?\Closure $penjaga = null): DeleteAction
     {
         return DeleteAction::make()
-            ->before(function (Model $record, DeleteAction $action) use ($alasan): void {
+            ->before(function (Model $record, DeleteAction $action) use ($alasan, $penjaga): void {
+                if ($penjaga && ($pesan = $penjaga(collect([$record])))) {
+                    static::tolak($pesan);
+
+                    $action->cancel();
+                }
+
                 if (! $record->punyaRiwayat()) {
                     return;
                 }
@@ -52,10 +64,34 @@ class AksiHapusTerlindung
      * Keterangannya muncul sebelum pengguna menekan tombol, dan Filament
      * sendiri melaporkan berapa yang berhasil dari berapa yang dipilih.
      */
-    public static function massal(string $alasan): DeleteBulkAction
+    public static function massal(string $alasan, ?\Closure $penjaga = null): DeleteBulkAction
     {
-        return DeleteBulkAction::make()
+        $aksi = DeleteBulkAction::make()
             ->fetchSelectedRecords()
             ->modalDescription($alasan);
+
+        // Diperiksa atas seluruh pilihan sebelum satu pun dihapus, sehingga
+        // penolakannya atomik: tidak ada penghapusan sebagian.
+        if ($penjaga) {
+            $aksi->before(function (\Illuminate\Support\Collection $records, DeleteBulkAction $action) use ($penjaga): void {
+                if ($pesan = $penjaga($records)) {
+                    static::tolak($pesan);
+
+                    $action->cancel();
+                }
+            });
+        }
+
+        return $aksi;
+    }
+
+    protected static function tolak(string $pesan): void
+    {
+        Notification::make()
+            ->danger()
+            ->title('Tidak dapat dihapus')
+            ->body($pesan)
+            ->persistent()
+            ->send();
     }
 }

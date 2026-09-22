@@ -69,8 +69,8 @@ class PemindaianBuktiTest extends TestCase
     {
         $permintaan = $this->permintaanDisahkan();
 
-        Storage::disk('public')->assertExists($permintaan->file_bukti_path);
-        Storage::disk('public')->assertExists(
+        Storage::disk('local')->assertExists($permintaan->file_bukti_path);
+        Storage::disk('local')->assertExists(
             DokumenPermintaanService::lintasanBerfootnote($permintaan)
         );
     }
@@ -94,7 +94,7 @@ class PemindaianBuktiTest extends TestCase
 
         $respons->assertOk();
         $this->assertSame(
-            Storage::disk('public')->get($permintaan->file_bukti_path),
+            Storage::disk('local')->get($permintaan->file_bukti_path),
             $respons->getContent(),
             'Alamat "asli" harus mengirim berkas tanpa pita, bukan lembar berfootnote.',
         );
@@ -106,8 +106,8 @@ class PemindaianBuktiTest extends TestCase
         $permintaan = $this->permintaanDisahkan();
 
         $this->assertNotSame(
-            Storage::disk('public')->get($permintaan->file_bukti_path),
-            Storage::disk('public')->get(DokumenPermintaanService::lintasanBerfootnote($permintaan)),
+            Storage::disk('local')->get($permintaan->file_bukti_path),
+            Storage::disk('local')->get(DokumenPermintaanService::lintasanBerfootnote($permintaan)),
         );
     }
 

@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Kategoris\Pages;
 
 use App\Filament\Resources\Kategoris\KategoriResource;
-use Filament\Actions\DeleteAction;
+use App\Filament\Support\AksiHapusTerlindung;
 use Filament\Resources\Pages\EditRecord;
 
 class EditKategori extends EditRecord
@@ -13,7 +13,7 @@ class EditKategori extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            AksiHapusTerlindung::tunggal(KategoriResource::ALASAN_TAK_DAPAT_DIHAPUS),
         ];
     }
 }

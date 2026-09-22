@@ -2,11 +2,12 @@
     Layar pemuatan SIMPBI.
 
     Tampil sejak halaman mulai dimuat dan menghilang begitu berkas halaman siap,
-    sehingga pengguna tidak melihat halaman setengah jadi. Tandanya melakukan
-    gerakan membalik pada sumbu Y sambil bergeser mendatar — kesan kepingan yang
-    diputar — memakai perspektif tiga dimensi. Aturan geraknya ada pada berkas
-    tema (`.fi-simpbi-pemuatan`), termasuk penghormatan terhadap preferensi
-    pengguna yang membatasi animasi.
+    sehingga pengguna tidak melihat halaman setengah jadi. Urutannya: tanda BPS
+    muncul halus, wordmark SIMPBI memudar masuk, garis tipis menyapu di
+    bawahnya, lalu satu baris status statis — hanya memakai opacity dan
+    transform, tanpa perspektif 3D atau cahaya berpendar (Instruksi bagian H).
+    Aturan geraknya ada pada berkas tema (`.fi-simpbi-pemuatan`), termasuk
+    penghormatan terhadap preferensi pengguna yang membatasi animasi.
 
     Disembunyikan dari pembaca layar karena tidak membawa informasi yang perlu
     dibacakan, dan dihapus dari alur begitu selesai agar tidak menghalangi klik.
@@ -41,10 +42,11 @@
             </p>
         </div>
 
-        <div class="fi-simpbi-pemuatan-titik flex items-center gap-1.5">
-            <span class="h-1.5 w-1.5 rounded-full bg-white/70"></span>
-            <span class="h-1.5 w-1.5 rounded-full bg-white/70"></span>
-            <span class="h-1.5 w-1.5 rounded-full bg-white/70"></span>
-        </div>
+        {{-- Garis tipis yang menyapu dari kiri, menggantikan corong 3D/berpendar. --}}
+        <span class="fi-simpbi-pemuatan-garis h-px w-16 bg-white/30"></span>
+
+        <p class="fi-simpbi-pemuatan-teks fi-simpbi-pemuatan-status text-[11px] uppercase tracking-[0.14em] text-white/45">
+            Menyiapkan sistem
+        </p>
     </div>
 </div>

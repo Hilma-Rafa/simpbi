@@ -2,11 +2,12 @@
 
 namespace App\Filament\Resources\PermintaanBarangs;
 
+use App\Filament\Pages\Riwayat;
 use App\Filament\Resources\PermintaanBarangs\Pages;
 use App\Filament\Support\KeadaanKosong;
-use App\Filament\Forms\Components\KanvasTandaTangan;
 use App\Models\User;
 use App\Support\TandaTangan;
+use App\Support\TindakanPermintaan;
 use Illuminate\Support\HtmlString;
 use App\Models\PermintaanBarang;
 use App\Models\Tim;
@@ -15,6 +16,7 @@ use App\Models\RiwayatPersetujuan;
 use App\Services\StokService;
 use App\Services\DokumenPermintaanService;
 use App\Services\NotifikasiService;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Placeholder;
@@ -24,6 +26,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\View;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -231,339 +234,65 @@ class PermintaanBarangResource extends Resource
                             : $query;
                     }),
             ])
-            // Rincian dibuka sebagai dialog di atas daftar, bukan dengan
-            // berpindah halaman (Instruksi §41). Berpindah halaman memutus
-            // konteks: pengguna kehilangan posisi gulir, penyaring, dan halaman
-            // tabel yang sedang dilihat, padahal rincian biasanya dibuka
-            // sebentar untuk memeriksa satu permintaan lalu ditutup lagi.
+            // Seluruh interaksi bermuara pada satu pintu: klik baris membuka
+            // pop-up Rincian (Instruksi §41). Tidak ada lagi tombol tahapan
+            // yang berdiri sendiri di baris — Setujui, Verifikasi, Konfirmasi,
+            // dan seterusnya kini menjadi tombol di kaki pop-up Rincian,
+            // sehingga pengguna wajib melihat rincian permintaan sebelum
+            // menjalankan aksi tahapannya. Lihat {@see static::aksiDetail()}.
             ->recordAction('detail')
             ->recordActions([
-
                 static::aksiDetail(),
-
-                // ---------- TAHAP 1 : PERSETUJUAN KETUA TIM ----------
-
-                Action::make('setujui')
-                    ->label('Setujui')
-                    ->icon('heroicon-m-check')
-                    ->color('success')
-                    ->button()
-                    ->visible(fn ($record) => auth()->user()->role === 'ketua_tim'
-                        && $record->status === 'menunggu_ketua')
-                    ->modalHeading('Setujui Permintaan')
-                    ->modalDescription('Permintaan akan diteruskan kepada Petugas Gudang untuk verifikasi ketersediaan fisik.')
-                    ->modalSubmitActionLabel('Setujui')
-                    ->modalCancelActionLabel('Batal')
-                    ->schema([
-                        Textarea::make('catatan')->label('Catatan (opsional)')->rows(2),
-                    ])
-                    ->action(fn (array $data, $record) => static::setujuiKetua($record, $data['catatan'] ?? null)),
-
-                Action::make('tolak')
-                    ->label('Tolak')
-                    ->icon('heroicon-m-x-mark')
-                    ->color('danger')
-                    ->button()
-                    ->outlined()
-                    ->visible(fn ($record) => auth()->user()->role === 'ketua_tim'
-                        && $record->status === 'menunggu_ketua')
-                    ->modalHeading('Tolak Permintaan')
-                    ->modalDescription('Stok yang dikunci akan dilepaskan kembali.')
-                    ->modalSubmitActionLabel('Tolak')
-                    ->modalCancelActionLabel('Batal')
-                    ->schema([
-                        Textarea::make('catatan')->label('Alasan Penolakan')->rows(2)->required(),
-                    ])
-                    ->action(fn (array $data, $record) => static::tolakKetua($record, $data['catatan'])),
-
-                // ---------- TAHAP 2 : VERIFIKASI KETERSEDIAAN FISIK ----------
-
-                Action::make('verifikasi')
-                    ->label('Verifikasi')
-                    ->icon('heroicon-m-clipboard-document-check')
-                    ->color('info')
-                    ->button()
-                    ->visible(fn ($record) => auth()->user()->role === 'petugas_gudang'
-                        && $record->status === 'menunggu_verifikasi')
-                    ->modalHeading('Verifikasi Ketersediaan Fisik')
-                    ->modalDescription('Isi jumlah hasil pengecekan fisik untuk setiap barang.')
-                    ->modalSubmitActionLabel('Simpan Hasil Verifikasi')
-                    ->modalCancelActionLabel('Batal')
-                    ->modalWidth('3xl')
-                    ->fillForm(fn ($record) => [
-                        'items' => $record->detail->map(fn ($d) => [
-                            'detail_id'          => $d->id,
-                            'nama'               => $d->barang?->nama_barang . ' (' . $d->barang?->satuan . ')',
-                            'jumlah_diminta'     => $d->jumlah_diminta,
-                            'jumlah_verif_fisik' => $d->jumlah_verif_fisik ?? $d->jumlah_diminta,
-                            'kondisi_verif'      => $d->kondisi_verif ?? 'tersedia',
-                        ])->toArray(),
-                    ])
-                    ->schema([
-                        Repeater::make('items')
-                            ->label('Rincian Barang')
-                            ->schema([
-                                Hidden::make('detail_id'),
-
-                                Placeholder::make('nama')
-                                    ->label('Nama Barang'),
-
-                                Placeholder::make('jumlah_diminta')
-                                    ->label('Diminta'),
-
-                                TextInput::make('jumlah_verif_fisik')
-                                    ->label('Hasil Pengecekan')
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->required(),
-
-                                Select::make('kondisi_verif')
-                                    ->label('Kondisi')
-                                    ->options([
-                                        'tersedia' => 'Tersedia',
-                                        'rusak'    => 'Rusak',
-                                        'kurang'   => 'Kurang',
-                                    ])
-                                    ->required(),
-                            ])
-                            ->columns(4)
-                            ->addable(false)
-                            ->deletable(false)
-                            ->reorderable(false),
-
-                        Textarea::make('keterangan')
-                            ->label('Keterangan Verifikasi')
-                            ->rows(2),
-                    ])
-                    ->action(fn (array $data, $record) => static::simpanVerifikasi($record, $data)),
-
-                // ---------- TAHAP 3 : PERSETUJUAN AKHIR KASUBBAG UMUM ----------
-
-                Action::make('setujuiKasubbag')
-                    ->label('Setujui')
-                    ->icon('heroicon-m-check-badge')
-                    ->color('success')
-                    ->button()
-                    ->visible(fn ($record) => auth()->user()->role === 'kasubbag'
-                        && $record->status === 'menunggu_kasubbag')
-                    ->modalHeading('Persetujuan Akhir Permintaan')
-                    ->modalDescription('Tetapkan jumlah yang disetujui untuk setiap barang. Jumlah dapat lebih kecil daripada jumlah yang diminta apabila permintaan disetujui sebagian.')
-                    ->modalSubmitActionLabel('Setujui')
-                    ->modalCancelActionLabel('Batal')
-                    ->modalWidth('3xl')
-                    ->fillForm(fn ($record) => [
-                        'items' => $record->detail->map(fn ($d) => [
-                            'detail_id'      => $d->id,
-                            'nama'           => $d->barang?->nama_barang . ' (' . $d->barang?->satuan . ')',
-                            'jumlah_diminta' => $d->jumlah_diminta,
-                            'hasil_cek'      => $d->jumlah_verif_fisik ?? $d->jumlah_diminta,
-                            'jumlah_final'   => $d->jumlah_final ?? $d->jumlah_verif_fisik ?? $d->jumlah_diminta,
-                        ])->toArray(),
-                    ])
-                    ->schema([
-                        Repeater::make('items')
-                            ->label('Rincian Barang')
-                            ->schema([
-                                Hidden::make('detail_id'),
-
-                                Placeholder::make('nama')
-                                    ->label('Nama Barang'),
-
-                                Placeholder::make('jumlah_diminta')
-                                    ->label('Diminta'),
-
-                                Placeholder::make('hasil_cek')
-                                    ->label('Hasil Cek'),
-
-                                TextInput::make('jumlah_final')
-                                    ->label('Disetujui')
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->required(),
-                            ])
-                            ->columns(4)
-                            ->addable(false)
-                            ->deletable(false)
-                            ->reorderable(false),
-
-                        Textarea::make('catatan')
-                            ->label('Catatan (opsional)')
-                            ->rows(2),
-                    ])
-                    ->action(fn (array $data, $record) => static::setujuiKasubbag($record, $data)),
-
-                Action::make('tolakKasubbag')
-                    ->label('Tolak')
-                    ->icon('heroicon-m-x-mark')
-                    ->color('danger')
-                    ->button()
-                    ->outlined()
-                    ->visible(fn ($record) => auth()->user()->role === 'kasubbag'
-                        && $record->status === 'menunggu_kasubbag')
-                    ->modalHeading('Tolak Permintaan')
-                    ->modalDescription('Stok yang dikunci akan dilepaskan kembali.')
-                    ->modalSubmitActionLabel('Tolak')
-                    ->modalCancelActionLabel('Batal')
-                    ->schema([
-                        Textarea::make('catatan')->label('Alasan Penolakan')->rows(2)->required(),
-                    ])
-                    ->action(fn (array $data, $record) => static::tolakKasubbag($record, $data['catatan'])),
-
-                // ---------- TAHAP 4 : PENYIAPAN BARANG ----------
-
-                Action::make('siapkan')
-                    ->label('Barang Siap Diambil')
-                    ->icon('heroicon-m-archive-box')
-                    ->color('info')
-                    ->button()
-                    ->visible(fn ($record) => auth()->user()->role === 'petugas_gudang'
-                        && $record->status === 'siap_diproses')
-                    ->modalHeading('Penyiapan Barang')
-                    ->modalDescription('Tandai bahwa barang telah disiapkan dan dapat diambil oleh unit pemohon.')
-                    ->modalSubmitActionLabel('Tandai Siap Diambil')
-                    ->modalCancelActionLabel('Batal')
-                    // Disempitkan agar lebar dialog mengikuti kotak tanda
-                    // tangan. Pada lebar bawaan, kotaknya duduk di kiri dan
-                    // menyisakan separuh dialog kosong di sebelah kanan.
-                    ->modalWidth(Width::Medium)
-                    ->schema([
-                        /*
-                         * Tanda tangan dibubuhkan pada saat penyiapan, bukan
-                         * saat dokumen terbit, sebab inilah momen Petugas
-                         * Gudang menyatakan barangnya benar-benar sudah
-                         * disiapkan. Kolomnya wajib hanya bagi yang belum
-                         * pernah menyimpan; yang sudah punya langsung melihat
-                         * tanda tangannya sendiri dan boleh melanjutkan tanpa
-                         * menggores apa pun.
-                         */
-                        KanvasTandaTangan::make('tanda_tangan')
-                            ->label('Tanda Tangan Petugas Gudang')
-                            ->tandaTanganTersimpan(fn (): ?string => TandaTangan::dataUri(auth()->user()))
-                            ->required(fn (): bool => ! TandaTangan::tersedia(auth()->user()))
-                            ->helperText(fn (): string => TandaTangan::tersedia(auth()->user())
-                                ? 'Tanda tangan tersimpan akan dibubuhkan pada dokumen bukti. Tekan "Gambar Ulang" bila hendak menggantinya.'
-                                : 'Bubuhkan tanda tangan Anda. Cukup sekali — berikutnya akan dipakai ulang secara otomatis.')
-                            ->columnSpanFull(),
-                    ])
-                    ->action(fn (array $data, $record) => static::tandaiSiapDiambil($record, $data)),
-
-                // ---------- TAHAP 5 : KONFIRMASI PENERIMAAN ----------
-
-                Action::make('konfirmasi')
-                    ->label('Konfirmasi Penerimaan')
-                    ->icon('heroicon-m-hand-thumb-up')
-                    ->color('success')
-                    ->button()
-                    ->visible(fn ($record) => in_array(auth()->user()->role, ['tim', 'ketua_tim'])
-                        && $record->status === 'siap_diambil')
-                    // Lebarnya disamakan dengan dialog penyiapan barang.
-                    // Kanvas tanda tangan mengisi lebar dialognya, sehingga
-                    // dialog yang lebih lebar menghasilkan kanvas yang lebih
-                    // besar — dan goresan yang sama menempati bagian yang lebih
-                    // kecil daripadanya. Akibatnya tanda tangan Ketua Tim
-                    // tercetak jauh lebih kecil daripada Petugas Gudang pada
-                    // surat yang sama.
-                    ->modalWidth(Width::Medium)
-                    ->modalHeading('Konfirmasi Penerimaan Barang')
-                    ->modalDescription('Konfirmasi penerimaan akan mengurangi stok fisik barang dan mencatat transaksi pada kartu kendali persediaan.')
-                    ->modalSubmitActionLabel('Konfirmasi')
-                    ->modalCancelActionLabel('Batal')
-                    ->schema([
-                        Select::make('sesuai')
-                            ->label('Apakah barang yang diterima sesuai?')
-                            ->options([
-                                'ya'    => 'Ya, barang sesuai',
-                                'tidak' => 'Tidak, terdapat ketidaksesuaian',
-                            ])
-                            ->default('ya')
-                            ->live()
-                            ->required(),
-
-                        Textarea::make('deskripsi')
-                            ->label('Deskripsi Ketidaksesuaian')
-                            ->rows(2)
-                            ->required()
-                            ->visible(fn ($get) => $get('sesuai') === 'tidak'),
-
-                        Select::make('dapat_diatasi')
-                            ->label('Tindak Lanjut')
-                            ->options([
-                                '1' => 'Dapat diatasi di tempat, barang ditukar atau dilengkapi',
-                                '0' => 'Tidak dapat diatasi',
-                            ])
-                            ->required()
-                            ->visible(fn ($get) => $get('sesuai') === 'tidak'),
-
-                        /*
-                         * Dokumen bukti selalu terbit atas nama Ketua Tim,
-                         * meski penerimaan boleh dikonfirmasi anggota timnya.
-                         * Karena itu kanvas hanya muncul bagi Ketua Tim sendiri
-                         * — anggota tim tidak boleh menggambarkan tanda tangan
-                         * atasannya, dan yang dipakai adalah tanda tangan Ketua
-                         * Tim yang sudah tersimpan.
-                         */
-                        KanvasTandaTangan::make('tanda_tangan')
-                            ->label('Tanda Tangan Ketua Tim')
-                            ->tandaTanganTersimpan(fn (): ?string => TandaTangan::dataUri(auth()->user()))
-                            ->visible(fn (): bool => auth()->user()->role === 'ketua_tim')
-                            ->required(fn (): bool => auth()->user()->role === 'ketua_tim'
-                                && ! TandaTangan::tersedia(auth()->user()))
-                            ->helperText('Dibubuhkan pada dokumen bukti permintaan sebagai pihak yang menerima barang.')
-                            ->columnSpanFull(),
-
-                        /*
-                         * Anggota tim yang mengkonfirmasi tidak dimintai tanda
-                         * tangan, tetapi ia perlu tahu sejak awal bila dokumen
-                         * tidak akan dapat terbit — daripada mengisi seluruh
-                         * formulir lalu ditolak pada saat menekan tombol.
-                         */
-                        Placeholder::make('ketuaBelumBertandaTangan')
-                            ->hiddenLabel()
-                            ->visible(fn ($record): bool => auth()->user()->role !== 'ketua_tim'
-                                && ! TandaTangan::tersedia(static::ketuaTimPemohon($record)))
-                            ->content(fn ($record) => new HtmlString(
-                                '<p class="text-sm text-danger-600 dark:text-danger-400">'
-                                . 'Dokumen bukti permintaan terbit atas nama Ketua Tim, sedangkan '
-                                . e(static::ketuaTimPemohon($record)?->name ?? 'Ketua Tim ' . ($record->tim?->nama_tim ?? ''))
-                                . ' belum menyimpan tanda tangan. Mintalah beliau membubuhkannya sekali '
-                                . 'melalui Pengaturan &rarr; Akun Saya, atau biarkan beliau sendiri yang '
-                                . 'mengkonfirmasi penerimaan ini.'
-                                . '</p>'
-                            )),
-                    ])
-                    ->action(fn (array $data, $record) => static::konfirmasiPenerimaan($record, $data)),
-
-                    // ---------- TAHAP 6 : PENGESAHAN AKHIR ----------
- 
-                Action::make('sahkan')
-                    ->label('Sahkan')
-                    ->icon('heroicon-m-check-badge')
-                    ->color('success')
-                    ->button()
-                    ->visible(fn ($record) => auth()->user()->role === 'kasubbag'
-                        && $record->status === 'menunggu_pengesahan')
-                    ->modalHeading('Pengesahan Akhir Permintaan')
-                    ->modalDescription('Pengesahan akan menerbitkan dokumen bukti permintaan beserta kode QR verifikasi.')
-                    ->modalSubmitActionLabel('Sahkan')
-                    ->modalCancelActionLabel('Batal')
-                    ->schema([
-                        Textarea::make('catatan')->label('Catatan (opsional)')->rows(2),
-                    ])
-                    ->action(fn (array $data, $record) => static::sahkan($record, $data['catatan'] ?? null)),
- 
-                // ---------- UNDUH DOKUMEN ----------
-
-                static::aksiUnduhBukti()->size('sm'),
             ])
             ->recordActionsAlignment('right');
     }
 
     /**
+     * Tautan menuju pop-up Rincian sebuah permintaan.
+     *
+     * Satu susunan yang dipakai bersama oleh widget "Perlu Tindakan", lonceng
+     * notifikasi, dan pesan WhatsApp, supaya ketiganya bermuara di tempat yang
+     * sama: Daftar Permintaan Barang yang tersaring pada permintaan itu, dengan
+     * pop-up Rincian yang langsung terbuka lewat parameter `tableAction`
+     * bawaan Filament. Tidak ada lagi tautan ke halaman rincian `/{id}`.
+     *
+     * Permintaan yang sudah menjadi riwayat tidak lagi tampil pada daftar
+     * aktif, sehingga tautannya diarahkan ke halaman Riwayat yang memakai
+     * pop-up Rincian yang sama.
+     *
+     * Panel disebut tegas agar tautan tetap benar ketika dibentuk di luar
+     * permintaan HTTP — misalnya oleh job pengiriman WhatsApp.
+     */
+    public static function urlRincian(PermintaanBarang $permintaan): string
+    {
+        $riwayat = in_array($permintaan->status, PermintaanBarang::STATUS_RIWAYAT, true);
+
+        if ($riwayat) {
+            return Riwayat::getUrl(
+                [
+                    'jenis'             => 'permintaan',
+                    'tableAction'       => 'detail',
+                    'tableActionRecord' => $permintaan->getKey(),
+                    'filters'           => ['kode_permintaan' => ['value' => $permintaan->kode_permintaan]],
+                ],
+                isAbsolute: true,
+                panel: 'admin',
+            );
+        }
+
+        return static::getUrl('index', [
+            'tableAction'       => 'detail',
+            'tableActionRecord' => $permintaan->getKey(),
+            'filters'           => ['kode_permintaan' => ['value' => $permintaan->kode_permintaan]],
+        ], isAbsolute: true, panel: 'admin');
+    }
+
+    /**
      * Tombol pengunduhan dokumen bukti permintaan.
      *
-     * Didefinisikan satu kali dan dipakai baik pada baris tabel maupun pada
-     * kepala halaman rincian, agar bentuknya seragam dengan tombol aksi lain
-     * pada sistem: tombol bergaris dengan warna utama SIMPBI, bukan tautan
+     * Didefinisikan satu kali dan dipakai baik pada kaki dialog rincian maupun
+     * pada kepala halaman rincian, agar bentuknya seragam dengan tombol aksi
+     * lain pada sistem: tombol bergaris dengan warna utama SIMPBI, bukan tautan
      * abu-abu yang tampak berbeda sendiri di antara tombol alur persetujuan.
      */
     public static function aksiUnduhBukti(): Action
@@ -582,12 +311,515 @@ class PermintaanBarangResource extends Resource
     }
 
     // =====================================================================
+    // AKSI TAHAPAN — DIJALANKAN DARI KAKI POP-UP RINCIAN
+    // =====================================================================
+
+    /** ---------- TAHAP 1 : PERSETUJUAN KETUA TIM ---------- */
+
+    protected static function aksiSetujuiKetua(): Action
+    {
+        return Action::make('setujui')
+            ->label('Setujui')
+            ->icon('heroicon-m-check')
+            ->color('success')
+            ->button()
+            ->visible(fn ($record) => auth()->user()->role === 'ketua_tim'
+                && $record->status === 'menunggu_ketua')
+            ->modalHeading('Setujui Permintaan')
+            ->modalDescription('Permintaan akan diteruskan kepada Petugas Gudang untuk verifikasi ketersediaan fisik.')
+            ->modalSubmitActionLabel('Setujui')
+            ->modalCancelActionLabel('Batal')
+            ->schema([
+                Textarea::make('catatan')->label('Catatan (opsional)')->rows(2),
+            ])
+            ->action(fn (array $data, $record) => static::setujuiKetua($record, $data['catatan'] ?? null));
+    }
+
+    protected static function aksiTolakKetua(): Action
+    {
+        return Action::make('tolak')
+            ->label('Tolak')
+            ->icon('heroicon-m-x-mark')
+            ->color('danger')
+            ->button()
+            ->outlined()
+            ->visible(fn ($record) => auth()->user()->role === 'ketua_tim'
+                && $record->status === 'menunggu_ketua')
+            ->modalHeading('Tolak Permintaan')
+            ->modalDescription('Stok yang dikunci akan dilepaskan kembali.')
+            ->modalSubmitActionLabel('Tolak')
+            ->modalCancelActionLabel('Batal')
+            ->schema([
+                Textarea::make('catatan')->label('Alasan Penolakan')->rows(2)->required(),
+            ])
+            ->action(fn (array $data, $record) => static::tolakKetua($record, $data['catatan']));
+    }
+
+    /** ---------- TAHAP 2 : VERIFIKASI KETERSEDIAAN FISIK ---------- */
+
+    protected static function aksiVerifikasi(): Action
+    {
+        return Action::make('verifikasi')
+            ->label('Verifikasi')
+            ->icon('heroicon-m-clipboard-document-check')
+            ->color('info')
+            ->button()
+            ->visible(fn ($record) => auth()->user()->role === 'petugas_gudang'
+                && $record->status === 'menunggu_verifikasi')
+            ->modalHeading('Verifikasi Ketersediaan Fisik')
+            ->modalDescription('Isi jumlah hasil pengecekan fisik untuk setiap barang.')
+            ->modalSubmitActionLabel('Simpan Hasil Verifikasi')
+            ->modalCancelActionLabel('Batal')
+            ->modalWidth('3xl')
+            ->fillForm(fn ($record) => [
+                'items' => $record->detail->map(fn ($d) => [
+                    'detail_id'          => $d->id,
+                    'nama'               => $d->barang?->nama_barang . ' (' . $d->barang?->satuan . ')',
+                    'jumlah_diminta'     => $d->jumlah_diminta,
+                    'jumlah_verif_fisik' => $d->jumlah_verif_fisik ?? $d->jumlah_diminta,
+                    'kondisi_verif'      => $d->kondisi_verif ?? 'tersedia',
+                ])->toArray(),
+            ])
+            ->schema([
+                Repeater::make('items')
+                    ->label('Rincian Barang')
+                    ->schema([
+                        Hidden::make('detail_id'),
+
+                        Placeholder::make('nama')
+                            ->label('Nama Barang'),
+
+                        Placeholder::make('jumlah_diminta')
+                            ->label('Diminta'),
+
+                        TextInput::make('jumlah_verif_fisik')
+                            ->label('Hasil Pengecekan')
+                            ->numeric()
+                            ->minValue(0)
+                            ->required(),
+
+                        Select::make('kondisi_verif')
+                            ->label('Kondisi')
+                            ->options([
+                                'tersedia' => 'Tersedia',
+                                'rusak'    => 'Rusak',
+                                'kurang'   => 'Kurang',
+                            ])
+                            ->required(),
+                    ])
+                    ->columns(4)
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false),
+
+                Textarea::make('keterangan')
+                    ->label('Keterangan Verifikasi')
+                    ->rows(2),
+            ])
+            ->action(fn (array $data, $record) => static::simpanVerifikasi($record, $data));
+    }
+
+    /** ---------- TAHAP 3 : PERSETUJUAN AKHIR KASUBBAG UMUM ---------- */
+
+    protected static function aksiSetujuiKasubbag(): Action
+    {
+        return Action::make('setujuiKasubbag')
+            ->label('Setujui')
+            ->icon('heroicon-m-check-badge')
+            ->color('success')
+            ->button()
+            ->visible(fn ($record) => auth()->user()->role === 'kasubbag'
+                && $record->status === 'menunggu_kasubbag')
+            ->modalHeading('Persetujuan Akhir Permintaan')
+            ->modalDescription('Tetapkan jumlah yang disetujui untuk setiap barang. Jumlah dapat lebih kecil daripada jumlah yang diminta apabila permintaan disetujui sebagian.')
+            ->modalSubmitActionLabel('Setujui')
+            ->modalCancelActionLabel('Batal')
+            ->modalWidth('3xl')
+            ->fillForm(fn ($record) => [
+                'items' => $record->detail->map(fn ($d) => [
+                    'detail_id'      => $d->id,
+                    'nama'           => $d->barang?->nama_barang . ' (' . $d->barang?->satuan . ')',
+                    'jumlah_diminta' => $d->jumlah_diminta,
+                    'hasil_cek'      => $d->jumlah_verif_fisik ?? $d->jumlah_diminta,
+                    'jumlah_final'   => $d->jumlah_final ?? $d->jumlah_verif_fisik ?? $d->jumlah_diminta,
+                ])->toArray(),
+            ])
+            ->schema([
+                Repeater::make('items')
+                    ->label('Rincian Barang')
+                    ->schema([
+                        Hidden::make('detail_id'),
+
+                        Placeholder::make('nama')
+                            ->label('Nama Barang'),
+
+                        Placeholder::make('jumlah_diminta')
+                            ->label('Diminta'),
+
+                        Placeholder::make('hasil_cek')
+                            ->label('Hasil Cek'),
+
+                        // Batasnya dibaca dari rincian yang tersimpan, bukan dari isian
+                        // formulir, sehingga muatan yang dimodifikasi tak dapat mengubahnya.
+                        TextInput::make('jumlah_final')
+                            ->label('Disetujui')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(fn ($record, \Filament\Schemas\Components\Utilities\Get $get): ?int => $record->detail
+                                ->firstWhere('id', (int) $get('detail_id'))?->jumlah_diminta)
+                            ->validationMessages(['max' => 'Jumlah disetujui tidak boleh melebihi jumlah diminta (:max).'])
+                            ->required(),
+                    ])
+                    ->columns(4)
+                    ->addable(false)
+                    ->deletable(false)
+                    ->reorderable(false),
+
+                Textarea::make('catatan')
+                    ->label('Catatan (opsional)')
+                    ->rows(2),
+            ])
+            ->action(fn (array $data, $record) => static::setujuiKasubbag($record, $data));
+    }
+
+    protected static function aksiTolakKasubbag(): Action
+    {
+        return Action::make('tolakKasubbag')
+            ->label('Tolak')
+            ->icon('heroicon-m-x-mark')
+            ->color('danger')
+            ->button()
+            ->outlined()
+            ->visible(fn ($record) => auth()->user()->role === 'kasubbag'
+                && $record->status === 'menunggu_kasubbag')
+            ->modalHeading('Tolak Permintaan')
+            ->modalDescription('Stok yang dikunci akan dilepaskan kembali.')
+            ->modalSubmitActionLabel('Tolak')
+            ->modalCancelActionLabel('Batal')
+            ->schema([
+                Textarea::make('catatan')->label('Alasan Penolakan')->rows(2)->required(),
+            ])
+            ->action(fn (array $data, $record) => static::tolakKasubbag($record, $data['catatan']));
+    }
+
+    /** ---------- TAHAP 4 : PENYIAPAN BARANG ---------- */
+
+    protected static function aksiSiapkan(): Action
+    {
+        return Action::make('siapkan')
+            ->label('Barang Siap Diambil')
+            ->icon('heroicon-m-archive-box')
+            ->color('info')
+            ->button()
+            ->visible(fn ($record) => auth()->user()->role === 'petugas_gudang'
+                && $record->status === 'siap_diproses')
+            ->modalHeading('Penyiapan Barang')
+            ->modalDescription('Tandai bahwa barang telah disiapkan dan dapat diambil oleh tim kerja pemohon.')
+            ->modalSubmitActionLabel('Tandai Siap Diambil')
+            ->modalCancelActionLabel('Batal')
+            ->modalWidth(Width::Medium)
+            ->schema([
+                /*
+                 * Tanda tangan tidak lagi digambar di sini. Petugas Gudang
+                 * mendaftarkan tanda tangannya sekali saat melengkapi akun,
+                 * lalu tanda tangan tersimpan itu yang dibubuhkan pada dokumen
+                 * bukti. Yang tersisa di tahap ini hanyalah konfirmasi bahwa
+                 * pelaksananya memang orang yang bersangkutan — dengan mengetik
+                 * NIP-nya sendiri — supaya aksi tidak dapat terpicu tanpa sengaja.
+                 */
+                static::pratinjauTtd(fn () => auth()->user()),
+                static::bidangKonfirmasiNip(),
+            ])
+            ->action(fn ($record) => static::tandaiSiapDiambil($record));
+    }
+
+    /** ---------- TAHAP 5 : KONFIRMASI PENERIMAAN ---------- */
+
+    protected static function aksiKonfirmasi(): Action
+    {
+        return Action::make('konfirmasi')
+            ->label('Konfirmasi Penerimaan')
+            ->icon('heroicon-m-hand-thumb-up')
+            ->color('success')
+            ->button()
+            ->visible(fn ($record) => in_array(auth()->user()->role, ['tim', 'ketua_tim'])
+                && $record->status === 'siap_diambil')
+            ->modalWidth(Width::Medium)
+            ->modalHeading('Konfirmasi Penerimaan Barang')
+            ->modalDescription('Konfirmasi penerimaan akan mengurangi stok fisik barang dan mencatat transaksi pada kartu kendali persediaan.')
+            ->modalSubmitActionLabel('Konfirmasi')
+            ->modalCancelActionLabel('Batal')
+            ->schema([
+                Select::make('sesuai')
+                    ->label('Apakah barang yang diterima sesuai?')
+                    ->options([
+                        'ya'    => 'Ya, barang sesuai',
+                        'tidak' => 'Tidak, terdapat ketidaksesuaian',
+                    ])
+                    ->default('ya')
+                    ->live()
+                    ->required(),
+
+                Textarea::make('deskripsi')
+                    ->label('Deskripsi Ketidaksesuaian')
+                    ->rows(2)
+                    ->required()
+                    ->visible(fn ($get) => $get('sesuai') === 'tidak'),
+
+                Select::make('dapat_diatasi')
+                    ->label('Tindak Lanjut')
+                    ->options([
+                        '1' => 'Dapat diatasi di tempat, barang ditukar atau dilengkapi',
+                        '0' => 'Tidak dapat diatasi',
+                    ])
+                    ->required()
+                    ->visible(fn ($get) => $get('sesuai') === 'tidak'),
+
+                /*
+                 * Dokumen bukti selalu terbit atas nama Ketua Tim, meski
+                 * penerimaan boleh dikonfirmasi anggota timnya. Yang dibubuhkan
+                 * adalah tanda tangan Ketua Tim yang sudah tersimpan — bukan
+                 * gambar baru, dan bukan tanda tangan si pengklik. Pratinjaunya
+                 * hanya tampil ketika barang benar-benar diterima, sebab
+                 * penerimaan yang berakhir bermasalah tidak menerbitkan dokumen.
+                 */
+                static::pratinjauTtd(fn ($record) => static::penandaTanganPenerima($record))
+                    ->visible(fn ($get): bool => static::penerimaanMenerbitkanDokumen($get)),
+
+                /*
+                 * Anggota tim yang mengkonfirmasi perlu tahu sejak awal bila
+                 * dokumen tidak akan dapat terbit — daripada mengisi seluruh
+                 * formulir lalu ditolak pada saat menekan tombol.
+                 */
+                Placeholder::make('ketuaBelumBertandaTangan')
+                    ->hiddenLabel()
+                    ->visible(fn ($record, $get): bool => static::penerimaanMenerbitkanDokumen($get)
+                        && auth()->user()->role !== 'ketua_tim'
+                        && ! TandaTangan::tersedia(static::ketuaTimPemohon($record)))
+                    ->content(fn ($record) => new HtmlString(
+                        '<p class="text-sm text-danger-600 dark:text-danger-400">'
+                        . 'Dokumen bukti permintaan terbit atas nama Ketua Tim, sedangkan '
+                        . e(static::ketuaTimPemohon($record)?->name ?? 'Ketua Tim ' . ($record->tim?->nama_tim ?? ''))
+                        . ' belum menyimpan tanda tangan. Mintalah beliau menyelesaikan pelengkapan akun, '
+                        . 'atau biarkan beliau sendiri yang mengkonfirmasi penerimaan ini.'
+                        . '</p>'
+                    )),
+
+                static::bidangKonfirmasiNip(),
+            ])
+            ->action(fn (array $data, $record) => static::konfirmasiPenerimaan($record, $data));
+    }
+
+    /** ---------- TAHAP 6 : PENGESAHAN AKHIR ---------- */
+
+    protected static function aksiSahkan(): Action
+    {
+        return Action::make('sahkan')
+            ->label('Sahkan')
+            ->icon('heroicon-m-check-badge')
+            ->color('success')
+            ->button()
+            ->visible(fn ($record) => auth()->user()->role === 'kasubbag'
+                && $record->status === 'menunggu_pengesahan')
+            ->modalHeading('Pengesahan Akhir Permintaan')
+            ->modalDescription('Pengesahan akan menerbitkan dokumen bukti permintaan beserta kode QR verifikasi.')
+            ->modalSubmitActionLabel('Sahkan')
+            ->modalCancelActionLabel('Batal')
+            // Tidak ada pratinjau tanda tangan tersimpan di sini: pengesahan
+            // Kasubbag membubuhkan e-TTD (nama + kode QR), bukan gambar tanda
+            // tangan. Yang tersisa hanyalah konfirmasi identitas — mengetik NIP
+            // — agar pengesahan tidak terpicu tanpa sengaja.
+            ->schema([
+                Textarea::make('catatan')->label('Catatan (opsional)')->rows(2),
+                static::bidangKonfirmasiNip(),
+            ])
+            ->action(fn (array $data, $record) => static::sahkan($record, $data['catatan'] ?? null));
+    }
+
+    // =====================================================================
+    // KONFIRMASI IDENTITAS PENGGANTI TANDA TANGAN BASAH
+    // =====================================================================
+
+    /**
+     * Kolom konfirmasi identitas pelaksana.
+     *
+     * Menggantikan gambar tanda tangan pada tahapan: pengguna cukup mengetik
+     * NIP-nya sendiri (atau nama lengkap bila NIP belum terdata) sebagai
+     * pernyataan sadar bahwa ia menjalankan aksi ini. Pemeriksaannya dilakukan
+     * di sisi peladen terhadap data akun yang sedang masuk, bukan terhadap
+     * nilai yang dikirim dari peramban, sehingga tidak dapat dipalsukan dengan
+     * menyunting formulir.
+     *
+     * Akun peran Tim adalah akun bersama satu tim dan tidak punya NIP, sehingga
+     * yang diketiknya adalah nama timnya. Nilai yang diketik hanya diperiksa,
+     * tidak disimpan atau dicetak; tanda tangan dan nama pada dokumen tetap
+     * milik Ketua Tim.
+     */
+    protected static function bidangKonfirmasiNip(): TextInput
+    {
+        $pengguna     = auth()->user();
+        $pakaiNamaTim = $pengguna?->role === 'tim';
+        $pakaiNip     = filled($pengguna?->nip);
+
+        return TextInput::make('konfirmasi_nip')
+            ->label($pakaiNamaTim
+                ? 'Ketik nama tim Anda untuk konfirmasi'
+                : ($pakaiNip
+                    ? 'Ketik NIP Anda untuk mengonfirmasi'
+                    : 'Ketik nama lengkap Anda untuk mengonfirmasi'))
+            ->placeholder($pakaiNamaTim
+                ? $pengguna->tim?->nama_tim
+                : ($pakaiNip ? $pengguna->nip : $pengguna?->name))
+            ->required()
+            ->autocomplete('off')
+            ->helperText($pakaiNamaTim
+                ? 'Konfirmasi ini menggantikan tanda tangan basah. Tanda tangan Ketua Tim yang tersimpan dibubuhkan otomatis.'
+                : 'Konfirmasi ini menggantikan tanda tangan basah. Tanda tangan Anda yang tersimpan dibubuhkan otomatis.')
+            // Dibungkus closure tak berparameter: Filament mengevaluasi
+            // pembungkusnya untuk memperoleh aturan, lalu Laravel yang memanggil
+            // closure aturan di dalamnya dengan ($attribute, $value, $fail).
+            ->rule(static fn (): Closure => static function (string $attribute, $value, Closure $fail): void {
+                $pengguna = auth()->user();
+
+                if ($pengguna?->role === 'tim') {
+                    if (blank($pengguna->tim?->nama_tim)) {
+                        $fail('Akun Anda belum terhubung ke tim kerja, sehingga konfirmasi tidak dapat dilakukan. Hubungi Administrator.');
+
+                        return;
+                    }
+
+                    if (! static::cocokIdentitas((string) $value)) {
+                        $fail('Tidak cocok dengan nama tim Anda. Ketik persis nama tim Anda.');
+                    }
+
+                    return;
+                }
+
+                if (! static::cocokIdentitas((string) $value)) {
+                    $fail('Tidak cocok dengan data akun Anda. Ketik persis NIP (atau nama lengkap) Anda.');
+                }
+            });
+    }
+
+    /** Apakah nilai yang diketik cocok dengan identitas pengguna yang masuk. */
+    protected static function cocokIdentitas(string $nilai): bool
+    {
+        $pengguna = auth()->user();
+
+        if (! $pengguna) {
+            return false;
+        }
+
+        // Akun peran Tim: nama tim, tak peka huruf besar-kecil, spasi di ujung
+        // dan spasi ganda diabaikan.
+        if ($pengguna->role === 'tim') {
+            $namaTim = static::ratakanTeks((string) $pengguna->tim?->nama_tim);
+
+            return $namaTim !== '' && static::ratakanTeks($nilai) === $namaTim;
+        }
+
+        $harapan = filled($pengguna->nip) ? $pengguna->nip : $pengguna->name;
+
+        return trim($nilai) !== '' && trim($nilai) === trim((string) $harapan);
+    }
+
+    /** Huruf kecil, spasi di ujung dibuang, deret spasi menjadi satu. */
+    protected static function ratakanTeks(string $teks): string
+    {
+        return mb_strtolower(trim((string) preg_replace('/\s+/u', ' ', $teks)));
+    }
+
+    /**
+     * Pratinjau tanda tangan tersimpan milik penanda tangan sebuah tahapan.
+     *
+     * Penanda tangannya bisa jadi bukan pengguna yang menekan tombol — pada
+     * konfirmasi penerimaan, misalnya, yang tampil adalah tanda tangan Ketua
+     * Tim meski yang mengklik anggota timnya. Karena itu penanda tangan
+     * diserahkan lewat closure yang menerima record.
+     */
+    protected static function pratinjauTtd(Closure $penandaTangan): Placeholder
+    {
+        return Placeholder::make('pratinjau_ttd')
+            ->hiddenLabel()
+            ->content(function ($record) use ($penandaTangan) {
+                /** @var User|null $orang */
+                $orang = $penandaTangan($record);
+                $uri   = TandaTangan::dataUri($orang);
+
+                if (! $uri) {
+                    return new HtmlString(
+                        '<p class="text-sm text-danger-600 dark:text-danger-400">'
+                        . 'Belum ada tanda tangan tersimpan untuk dibubuhkan.'
+                        . '</p>'
+                    );
+                }
+
+                return new HtmlString(
+                    '<div class="text-sm text-gray-600 dark:text-gray-300">'
+                    . 'Tanda tangan tersimpan atas nama <span class="font-medium">' . e($orang->name) . '</span> '
+                    . 'akan dibubuhkan pada dokumen:'
+                    . '</div>'
+                    . '<img src="' . $uri . '" alt="Tanda tangan tersimpan" '
+                    . 'class="mt-2 h-16 rounded border border-gray-200 bg-white p-1 dark:border-gray-700">'
+                );
+            })
+            ->columnSpanFull();
+    }
+
+    /** Apakah keadaan konfirmasi saat ini akan menerbitkan dokumen bukti. */
+    protected static function penerimaanMenerbitkanDokumen(\Filament\Schemas\Components\Utilities\Get $get): bool
+    {
+        if ($get('sesuai') === 'ya') {
+            return true;
+        }
+
+        return $get('sesuai') === 'tidak' && $get('dapat_diatasi') === '1';
+    }
+
+    /**
+     * Ketua Tim yang tanda tangannya dibubuhkan pada dokumen penerimaan:
+     * dirinya sendiri bila Ketua Tim yang mengklik, atau Ketua Tim tim pemohon
+     * bila anggota timnya yang mengklik.
+     */
+    protected static function penandaTanganPenerima(?PermintaanBarang $record): ?User
+    {
+        return auth()->user()?->role === 'ketua_tim'
+            ? auth()->user()
+            : static::ketuaTimPemohon($record);
+    }
+
+    // =====================================================================
     // TINDAKAN PADA ALUR PERSETUJUAN
     // =====================================================================
+
+    /**
+     * Penjaga sisi peladen: memastikan permintaan masih berada pada status yang
+     * diharapkan tahapan ini. Melindungi dari aksi yang terpicu dari pop-up yang
+     * dibuka sebelum orang lain lebih dulu memproses permintaan yang sama, atau
+     * dari tautan lama yang menuju keadaan yang sudah berlalu.
+     */
+    protected static function pastikanStatus(PermintaanBarang $record, string|array $status): bool
+    {
+        if (in_array($record->status, (array) $status, true)) {
+            return true;
+        }
+
+        Notification::make()
+            ->title('Permintaan sudah berubah')
+            ->body('Tahap ini sudah ditangani atau statusnya berubah sejak pop-up dibuka. Muat ulang halaman untuk melihat keadaan terbaru.')
+            ->warning()
+            ->send();
+
+        return false;
+    }
 
     /** Menyetujui pada tahap Ketua Tim (BPMN P.2.9). */
     protected static function setujuiKetua(PermintaanBarang $record, ?string $catatan): void
     {
+        if (! static::pastikanStatus($record, 'menunggu_ketua')) {
+            return;
+        }
+
         DB::transaction(function () use ($record, $catatan) {
             $record->update([
                 'status'          => 'menunggu_verifikasi',
@@ -610,6 +842,10 @@ class PermintaanBarangResource extends Resource
     /** Menolak pada tahap Ketua Tim, disertai pelepasan kunci stok. */
     protected static function tolakKetua(PermintaanBarang $record, string $catatan): void
     {
+        if (! static::pastikanStatus($record, 'menunggu_ketua')) {
+            return;
+        }
+
         DB::transaction(function () use ($record, $catatan) {
             app(StokService::class)->release($record);
 
@@ -637,6 +873,10 @@ class PermintaanBarangResource extends Resource
      */
     protected static function simpanVerifikasi(PermintaanBarang $record, array $data): void
     {
+        if (! static::pastikanStatus($record, 'menunggu_verifikasi')) {
+            return;
+        }
+
         DB::transaction(function () use ($record, $data) {
             foreach ($data['items'] as $item) {
                 $record->detail()
@@ -672,6 +912,26 @@ class PermintaanBarangResource extends Resource
      */
     protected static function setujuiKasubbag(PermintaanBarang $record, array $data): void
     {
+        if (! static::pastikanStatus($record, 'menunggu_kasubbag')) {
+            return;
+        }
+
+        // Penjaga kedua di sisi peladen, terhadap jumlah diminta yang tersimpan.
+        try {
+            app(StokService::class)->pastikanTidakMelebihiDiminta(
+                $record,
+                collect($data['items'])->pluck('jumlah_final', 'detail_id')->all(),
+            );
+        } catch (\InvalidArgumentException $e) {
+            Notification::make()
+                ->title('Persetujuan tidak dapat disimpan')
+                ->body($e->getMessage())
+                ->danger()
+                ->send();
+
+            return;
+        }
+
         DB::transaction(function () use ($record, $data) {
             foreach ($data['items'] as $item) {
                 $record->detail()
@@ -703,6 +963,10 @@ class PermintaanBarangResource extends Resource
     /** Menolak pada tahap Kasubbag Umum, disertai pelepasan kunci stok. */
     protected static function tolakKasubbag(PermintaanBarang $record, string $catatan): void
     {
+        if (! static::pastikanStatus($record, 'menunggu_kasubbag')) {
+            return;
+        }
+
         DB::transaction(function () use ($record, $catatan) {
             app(StokService::class)->release($record);
 
@@ -724,9 +988,8 @@ class PermintaanBarangResource extends Resource
             ->send();
     }
 
-    /** Menandai barang telah disiapkan dan siap diambil (BPMN P.2.S8). */
     /**
-     * Ketua Tim dari unit pemohon sebuah permintaan.
+     * Ketua Tim dari tim kerja pemohon sebuah permintaan.
      *
      * Dokumen bukti selalu terbit atas nama Ketua Tim, sehingga tanda tangan
      * penerima diambil dari orang ini — bukan dari siapa pun yang kebetulan
@@ -738,45 +1001,21 @@ class PermintaanBarangResource extends Resource
     }
 
     /**
-     * Menyimpan goresan baru bila ada, lalu memastikan penanda tangan memang
-     * punya tanda tangan yang dapat dibubuhkan.
+     * Memastikan penanda tangan sebuah tahapan memang punya tanda tangan
+     * tersimpan yang dapat dibubuhkan.
      *
-     * Mengembalikan false bila tahapan tidak boleh dilanjutkan. Keadaan itu
-     * hanya tercapai lewat satu jalan: anggota tim mengkonfirmasi penerimaan
-     * sementara Ketua Timnya belum pernah menyimpan tanda tangan. Untuk
-     * penanda tangan yang hadir sendiri, kolom kanvasnya sudah wajib diisi
-     * sehingga formulirnya tidak akan pernah sampai ke titik ini dalam
-     * keadaan kosong — pemeriksaan di sini adalah lapis kedua, bukan satu-
-     * satunya.
+     * Tidak ada lagi goresan yang disimpan di sini — tanda tangan didaftarkan
+     * sekali saat pengguna melengkapi akun. Yang tersisa adalah lapis
+     * pertahanan terakhir: bila entah bagaimana penanda tangannya belum punya
+     * tanda tangan, tahapan dihentikan dengan keterangan, bukan diteruskan
+     * dengan kotak tanda tangan kosong pada dokumen.
+     *
+     * Mengembalikan false bila tahapan tidak boleh dilanjutkan.
      */
-    protected static function bubuhkanTandaTangan(
+    protected static function pastikanTandaTangan(
         ?User $penandaTangan,
-        array $data,
         ?PermintaanBarang $record = null,
     ): bool {
-        if (filled($data['tanda_tangan'] ?? null) && $penandaTangan?->is(auth()->user())) {
-            /*
-             * Kiriman yang tidak dapat dibaca tidak boleh berakhir sebagai
-             * halaman galat. Isinya datang dari kanvas di peramban, sehingga
-             * kegagalannya adalah keadaan yang wajar terjadi — bukan kerusakan
-             * sistem — dan yang dibutuhkan pengguna adalah keterangan apa yang
-             * harus ia lakukan, bukan jejak tumpukan.
-             */
-            try {
-                TandaTangan::simpan($penandaTangan, $data['tanda_tangan']);
-            } catch (\InvalidArgumentException $e) {
-                Notification::make()
-                    ->title('Tanda tangan tidak terbaca')
-                    ->body('Goresan tidak tersimpan dengan benar. Coba bersihkan kotaknya, '
-                        . 'lalu bubuhkan ulang tanda tangan Anda.')
-                    ->danger()
-                    ->persistent()
-                    ->send();
-
-                return false;
-            }
-        }
-
         if (TandaTangan::tersedia($penandaTangan)) {
             return true;
         }
@@ -785,9 +1024,8 @@ class PermintaanBarangResource extends Resource
             ->title('Tanda tangan belum tersedia')
             ->body($penandaTangan
                 ? $penandaTangan->name . ' belum menyimpan tanda tangan, sehingga dokumen bukti '
-                    . 'tidak akan dapat diterbitkan. Mintalah beliau membubuhkannya melalui '
-                    . 'Pengaturan → Akun Saya.'
-                : 'Unit ' . ($record?->tim?->nama_tim ?? 'pemohon') . ' belum memiliki Ketua Tim, '
+                    . 'tidak akan dapat diterbitkan. Mintalah beliau melengkapinya melalui pelengkapan akun.'
+                : 'Tim Kerja ' . ($record?->tim?->nama_tim ?? 'pemohon') . ' belum memiliki Ketua Tim, '
                     . 'sehingga tidak ada yang dapat menandatangani penerimaan barang.')
             ->danger()
             ->persistent()
@@ -796,9 +1034,14 @@ class PermintaanBarangResource extends Resource
         return false;
     }
 
-    protected static function tandaiSiapDiambil(PermintaanBarang $record, array $data = []): void
+    /** Menandai barang telah disiapkan dan siap diambil (BPMN P.2.S8). */
+    protected static function tandaiSiapDiambil(PermintaanBarang $record): void
     {
-        if (! static::bubuhkanTandaTangan(auth()->user(), $data)) {
+        if (! static::pastikanStatus($record, 'siap_diproses')) {
+            return;
+        }
+
+        if (! static::pastikanTandaTangan(auth()->user())) {
             return;
         }
 
@@ -816,7 +1059,7 @@ class PermintaanBarangResource extends Resource
 
         Notification::make()
             ->title('Barang ditandai siap diambil')
-            ->body('Unit pemohon dapat mengambil barang di gudang.')
+            ->body('Tim kerja pemohon dapat mengambil barang di gudang.')
             ->success()
             ->send();
     }
@@ -831,6 +1074,10 @@ class PermintaanBarangResource extends Resource
      */
     protected static function konfirmasiPenerimaan(PermintaanBarang $record, array $data): void
     {
+        if (! static::pastikanStatus($record, 'siap_diambil')) {
+            return;
+        }
+
         $sesuai       = ($data['sesuai'] ?? 'ya') === 'ya';
         $dapatDiatasi = ($data['dapat_diatasi'] ?? '1') === '1';
 
@@ -841,11 +1088,7 @@ class PermintaanBarangResource extends Resource
          * permintaan yang memang perlu segera dihentikan.
          */
         if ($sesuai || $dapatDiatasi) {
-            $penandaTangan = auth()->user()->role === 'ketua_tim'
-                ? auth()->user()
-                : static::ketuaTimPemohon($record);
-
-            if (! static::bubuhkanTandaTangan($penandaTangan, $data, $record)) {
+            if (! static::pastikanTandaTangan(static::penandaTanganPenerima($record), $record)) {
                 return;
             }
         }
@@ -930,6 +1173,10 @@ class PermintaanBarangResource extends Resource
      */
     protected static function sahkan(PermintaanBarang $record, ?string $catatan): void
     {
+        if (! static::pastikanStatus($record, 'menunggu_pengesahan')) {
+            return;
+        }
+
         DB::transaction(function () use ($record, $catatan) {
             $record->update([
                 'status'             => 'selesai',
@@ -963,59 +1210,95 @@ class PermintaanBarangResource extends Resource
     // =====================================================================
 
     /**
-     * Aksi pembuka dialog rincian permintaan.
+     * Aksi pembuka pop-up rincian permintaan — sekaligus gerbang tunggal
+     * menuju aksi tahapan.
      *
      * Dipakai bersama oleh daftar Permintaan Barang dan halaman Riwayat lewat
      * ->recordAction('detail'), supaya keduanya membuka rincian dengan cara
      * yang sama dan isinya tidak perlu ditulis dua kali.
      *
-     * Tampil sebagai tombol ikon, bukan tombol berteks: rincian adalah aksi
-     * pendamping, sedangkan tombol berteks pada baris yang sama disediakan
-     * untuk keputusan tahapan seperti Setujui dan Tolak. Tombolnya tetap
-     * diadakan meski seluruh barisnya sudah dapat diklik, sebab aksi yang
-     * disembunyikan tidak dapat dipicu oleh ->recordAction() — Filament
-     * menolak memasang aksi yang tidak terlihat — dan Instruksi §41 memang
-     * meminta satu tombol Detail.
+     * Tombol tahapan (Setujui, Verifikasi, Konfirmasi, dan seterusnya) diletakkan
+     * di kaki pop-up ini sebagai extraModalFooterActions, bukan sebagai tombol
+     * baris tersendiri. Dengan begitu pengguna wajib melihat rincian sebelum
+     * menjalankan aksinya, dan hanya aksi yang sesuai peran serta status yang
+     * ditampilkan — sisanya disembunyikan oleh closure ->visible() masing-masing.
+     *
+     * Label tombol barisnya mengikuti pekerjaan yang sedang menanti pengguna,
+     * sehingga baris yang butuh tindakan langsung terbaca; baris tanpa tindakan
+     * cukup berbunyi "Rincian".
      */
     public static function aksiDetail(): Action
     {
         return Action::make('detail')
-            ->label('Detail')
-            ->icon('heroicon-m-eye')
-            ->iconButton()
-            ->color('gray')
+            ->label(fn (PermintaanBarang $record): string => static::labelBaris($record))
+            ->icon(fn (PermintaanBarang $record): string => TindakanPermintaan::ada(auth()->user(), $record)
+                ? 'heroicon-m-arrow-right-circle'
+                : 'heroicon-m-eye')
+            ->button()
+            ->color(fn (PermintaanBarang $record): string => TindakanPermintaan::ada(auth()->user(), $record)
+                ? 'primary'
+                : 'gray')
             ->tooltip('Lihat rincian permintaan')
             ->modalHeading(fn (PermintaanBarang $record) => 'Permintaan ' . $record->kode_permintaan)
             // Lebar sedang, bukan layar penuh: rincian ini dibaca sekilas
             // dan dialog selebar layar justru menyulitkan kembali ke daftar.
             ->modalWidth(Width::TwoExtraLarge)
-            // Rincian hanya dibaca, sehingga dialog tidak punya tombol kirim.
+            // Rincian hanya dibaca, sehingga dialog tidak punya tombol kirim
+            // sendiri. Tombol tahapan di kaki dialoglah yang menjalankan aksi.
             ->modalSubmitAction(false)
             ->modalCancelActionLabel('Tutup')
             /*
-             * Tombol unduh diletakkan di kaki dialog, bukan sebagai aksi baris.
-             *
-             * Berkas bukti baru terbit setelah permintaan disahkan, dan
-             * permintaan yang sudah selesai berpindah tampilannya ke halaman
-             * Riwayat. Akibatnya aksi baris pada tabel Permintaan Barang tidak
-             * pernah memenuhi syaratnya sendiri: barisnya sudah tidak ada di
-             * sana ketika berkasnya ada. Dialog rincian dipakai kedua halaman,
-             * sehingga satu tombol di sini menjangkau keduanya sekaligus.
+             * Kaki dialog memuat: aksi tahapan yang sesuai peran + status, lalu
+             * tombol unduh bukti. Berkas bukti baru terbit setelah permintaan
+             * disahkan — dan permintaan yang sudah selesai berpindah ke halaman
+             * Riwayat — sehingga tombol unduh di sini menjangkau kedua halaman
+             * yang memakai dialog ini sekaligus.
              */
             ->extraModalFooterActions([
+                static::aksiSetujuiKetua(),
+                static::aksiTolakKetua(),
+                static::aksiVerifikasi(),
+                static::aksiSetujuiKasubbag(),
+                static::aksiTolakKasubbag(),
+                static::aksiSiapkan(),
+                static::aksiKonfirmasi(),
+                static::aksiSahkan(),
                 static::aksiUnduhBukti(),
             ])
-            ->modalContent(fn (PermintaanBarang $record) => view(
-                'filament.partials.detail-permintaan',
-                // Relasi dimuat di sini, bukan pada kueri tabel, agar daftar
-                // tidak menanggung kueri rincian untuk baris yang tidak dibuka.
-                ['record' => $record->load([
-                    'tim',
-                    'detail.barang',
-                    'ketidaksesuaian',
-                    'persetujuan.pelaksana',
-                ])],
-            ));
+            // Rincian disajikan sebagai komponen skema, bukan modalContent.
+            // Dengan begitu aksi ini memiliki skema yang dapat di-resolve, yang
+            // dibutuhkan ketika aksi tahapan bersarang di kakinya memuat medan
+            // ->live() (misalnya pilihan "sesuai" pada Konfirmasi Penerimaan).
+            //
+            // Relasi dimuat di sini, bukan pada kueri tabel, agar daftar tidak
+            // menanggung kueri rincian untuk baris yang tidak dibuka.
+            ->schema(fn (PermintaanBarang $record) => [
+                View::make('filament.partials.detail-permintaan')
+                    ->viewData(['record' => $record->load([
+                        'tim',
+                        'detail.barang',
+                        'ketidaksesuaian',
+                        'persetujuan.pelaksana',
+                    ])]),
+            ]);
+    }
+
+    /** Label tombol baris menurut pekerjaan yang sedang menanti pengguna. */
+    protected static function labelBaris(PermintaanBarang $record): string
+    {
+        if (! TindakanPermintaan::ada(auth()->user(), $record)) {
+            return 'Rincian';
+        }
+
+        return match ($record->status) {
+            'menunggu_ketua'      => 'Tinjau',
+            'menunggu_verifikasi' => 'Verifikasi',
+            'menunggu_kasubbag'   => 'Tinjau',
+            'siap_diproses'       => 'Siapkan',
+            'siap_diambil'        => 'Konfirmasi',
+            'menunggu_pengesahan' => 'Sahkan',
+            default               => 'Rincian',
+        };
     }
 
     /**

@@ -220,13 +220,21 @@ class KirimPesanWhatsApp implements ShouldQueue
     {
         $permintaan = PermintaanBarang::find($id);
 
-        if (! $permintaan || in_array($permintaan->status, PermintaanBarang::STATUS_RIWAYAT, true)) {
+        if (! $permintaan) {
             return null;
         }
 
-        // Panel disebut tegas karena job berjalan di luar permintaan HTTP,
-        // sehingga Filament tidak mengetahui panel mana yang sedang aktif.
-        return PermintaanBarangResource::getUrl('detail', ['record' => $id], panel: 'admin');
+        // Setiap pesan alur permintaan membawa tautan bagi penerima yang memang
+        // terlibat (penerimanya sudah dibatasi NotifikasiService menurut peran
+        // dan tim). Tautannya menuju Daftar Permintaan Barang yang tersaring
+        // pada permintaan itu dengan pop-up Rincian yang langsung terbuka —
+        // bukan halaman detail /{id}. Permintaan yang sudah menjadi riwayat
+        // diarahkan ke halaman Riwayat yang memakai pop-up Rincian yang sama.
+        //
+        // Susunan URL dipusatkan di resource, termasuk penyebutan panel yang
+        // tegas — job ini berjalan di luar permintaan HTTP, sehingga Filament
+        // tidak dapat menebak panel yang sedang aktif.
+        return PermintaanBarangResource::urlRincian($permintaan);
     }
 
     protected function tautanBast(int $id): ?string

@@ -7,8 +7,11 @@ use App\Models\Kategori;
 use App\Services\KartuKendaliService;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -161,6 +164,54 @@ class KartuKendali extends Page implements HasTable
                         blank: fn (Builder $q) => $q,
                     ),
             ])
+            ->recordActions([
+
+                /*
+                 * Pratinjau ledger rinci satu barang, dipindahkan ke sini dari
+                 * tabel Barang Persediaan supaya melihat dan menerbitkan kartu
+                 * kendali hanya ada di satu tempat. Dibaca sebagai dialog di
+                 * atas daftar, mengikuti pola Riwayat Penempatan pada tabel Aset
+                 * Tetap: dibuka sebentar untuk memeriksa satu barang lalu
+                 * ditutup, tanpa memutus posisi gulir dan penyaring daftar.
+                 *
+                 * Periode dapat diganti di dalam dialog, dan tombol kirimnya
+                 * menerbitkan kartu barang itu sebagai PDF. Berkasnya dibuat
+                 * lewat KartuKendaliService::pdf() dengan koleksi berisi satu
+                 * barang — cetakan satu barang dan cetakan banyak barang karena
+                 * itu memakai cetakan yang sama persis.
+                 */
+                Action::make('kartuKendali')
+                    ->label('Kartu Kendali')
+                    ->icon('heroicon-m-eye')
+                    ->color('gray')
+                    ->outlined()
+                    ->modalHeading(fn (BarangPersediaan $record): string => 'Kartu Kendali — ' . $record->nama_barang)
+                    ->modalWidth('5xl')
+                    ->modalSubmitActionLabel('Cetak PDF')
+                    ->modalCancelActionLabel('Tutup')
+                    ->schema([
+                        Select::make('tahun')
+                            ->label('Periode')
+                            ->options(fn (BarangPersediaan $record): array => app(KartuKendaliService::class)->tahunTersedia($record))
+                            ->default(fn (): int => $this->tahun)
+                            ->selectablePlaceholder(false)
+                            ->native(false)
+                            // Mengganti periode memuat ulang pratinjau di bawahnya.
+                            ->live(),
+
+                        // Pelaksana ikut dimuat (denganPelaksana) karena hanya
+                        // dialog inilah satu-satunya tampilan yang menyebut nama
+                        // petugas tiap baris; daftar dan PDF tidak.
+                        Placeholder::make('pratinjau')
+                            ->hiddenLabel()
+                            ->content(fn (Get $get, BarangPersediaan $record) => view(
+                                'filament.partials.riwayat-mutasi',
+                                app(KartuKendaliService::class)->data($record, (int) $get('tahun'), denganPelaksana: true),
+                            )),
+                    ])
+                    ->action(fn (array $data, BarangPersediaan $record) => app(KartuKendaliService::class)
+                        ->pdf(collect([$record]), (int) $data['tahun'])),
+            ])
             ->toolbarActions([
                 Action::make('ekspor')
                     ->label('Ekspor Kartu Kendali')
@@ -206,15 +257,50 @@ class KartuKendali extends Page implements HasTable
                                 ->all())
                             ->placeholder('Seluruh kategori')
                             ->native(false)
-                            ->helperText('Kosongkan untuk menerbitkan kartu seluruh barang persediaan.'),
+                            // Kategori menyaring pilihan Nama Barang di bawahnya,
+                            // jadi barang yang sudah terpilih dikosongkan begitu
+                            // kategorinya berganti agar tidak tertinggal barang
+                            // dari kategori lain.
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('barang_id', null))
+                            ->helperText('Kosongkan untuk mencakup seluruh kategori barang persediaan.'),
+
+                        /*
+                         * Nama Barang mempersempit ekspor menjadi satu barang.
+                         * Pilihannya mengikuti kategori yang dipilih di atas;
+                         * bila kategori kosong, seluruh barang persediaan dapat
+                         * dipilih langsung. Dikosongkan berarti seluruh barang
+                         * dalam cakupan kategori tadi.
+                         */
+                        Select::make('barang_id')
+                            ->label('Nama Barang')
+                            ->options(fn (Get $get): array => BarangPersediaan::query()
+                                ->when(
+                                    filled($get('kategori_id')),
+                                    fn (Builder $q) => $q->where('kategori_id', $get('kategori_id'))
+                                )
+                                ->orderBy('nama_barang')
+                                ->pluck('nama_barang', 'id')
+                                ->all())
+                            ->placeholder('Seluruh barang')
+                            ->searchable()
+                            ->native(false)
+                            ->helperText('Kosongkan untuk menerbitkan kartu kendali seluruh barang dalam kategori ini.'),
                     ])
                     ->action(function (array $data) {
                         $tahun = (int) $data['tahun'];
 
+                        // Prioritas penyaring: satu barang bila dipilih, jika
+                        // tidak maka seluruh barang kategori yang dipilih, dan
+                        // bila keduanya kosong seluruh barang persediaan.
                         $barang = BarangPersediaan::query()
                             ->with('kategori')
                             ->when(
-                                filled($data['kategori_id'] ?? null),
+                                filled($data['barang_id'] ?? null),
+                                fn (Builder $q) => $q->whereKey($data['barang_id'])
+                            )
+                            ->when(
+                                blank($data['barang_id'] ?? null) && filled($data['kategori_id'] ?? null),
                                 fn (Builder $q) => $q->where('kategori_id', $data['kategori_id'])
                             )
                             ->orderBy('kategori_id')

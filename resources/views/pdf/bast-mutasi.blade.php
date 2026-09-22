@@ -52,6 +52,11 @@
            tetap yang dulu dipasang padanya memampatkan blok ini sekitar empat
            setengah poin dibanding acuannya. */
         .ruang-ttd { height: 78px; }
+        /* Tanda tangan tersimpan pihak penyerah/penerima mengisi ruang yang
+           memang sudah disediakan. Tingginya dibatasi agar tetap di dalam
+           ruang 78px itu, sehingga tata letak dokumen sama persis baik pihak
+           tersebut sudah bertanda tangan maupun belum. */
+        .gambar-ttd { max-height: 70px; max-width: 90%; }
         /* Tanpa `white-space: nowrap` seperti pada acuan: nama pihak di sini
            diketik bebas sampai seratus aksara, dan nama sepanjang itu akan
            menerobos tepi halaman bila dilarang patah. */
@@ -166,20 +171,32 @@
             {{-- Jabatan kedua pihak dibaca dari relasi tim, bukan dikarang:
                  kolom pihak penyerah dan penerima hanyalah teks bebas yang
                  diketik operator, sehingga jabatannya tidak tersimpan di mana
-                 pun. Yang pasti diketahui sistem adalah unit asal dan unit
-                 tujuan asetnya. --}}
+                 pun. Yang pasti diketahui sistem adalah tim kerja asal dan
+                 tim kerja tujuan asetnya. --}}
             <td class="kol-pihak">
                 Yang Menyerahkan,<br>
                 Tim Kerja {{ $bast->timAsal?->nama_tim ?? '-' }}
-                <div class="ruang-ttd"></div>
-                <span class="nama-ttd">{{ $bast->pihak_penyerah }}</span>
+                <div class="ruang-ttd">
+                    @if (($ttdPenyerah ?? '') !== '')
+                        <img class="gambar-ttd" src="{{ $ttdPenyerah }}" alt="Tanda tangan pihak penyerah">
+                    @endif
+                </div>
+                {{-- Nama dari akun Ketua Tim kerja asal, bukan dari kolom yang
+                     diketik operator. --}}
+                <span class="nama-ttd">{{ $namaPenyerah ?? '' }}</span>
             </td>
             <td class="kol-sekat"></td>
             <td class="kol-pihak">
                 Yang Menerima,<br>
                 Ketua Tim {{ $bast->timTujuan?->nama_tim ?? '-' }}
-                <div class="ruang-ttd"></div>
-                <span class="nama-ttd">{{ $bast->pihak_penerima }}</span>
+                <div class="ruang-ttd">
+                    @if (($ttdPenerima ?? '') !== '')
+                        <img class="gambar-ttd" src="{{ $ttdPenerima }}" alt="Tanda tangan pihak penerima">
+                    @endif
+                </div>
+                {{-- Nama dari akun Ketua Tim kerja tujuan (yang mengkonfirmasi),
+                     bukan dari kolom yang diketik operator. --}}
+                <span class="nama-ttd">{{ $namaPenerima ?? '' }}</span>
             </td>
         </tr>
         <tr>

@@ -6,7 +6,20 @@ use App\Models\Tim;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Impor daftar tim kerja dari berkas sebar.
+ * Sinkronisasi berkala satu arah berbasis berkas untuk tim kerja.
+ *
+ * Arahnya satu: berkas yang diekspor dari sistem sumber diunggah ke sini,
+ * tidak sebaliknya. Tidak ada yang berjalan otomatis dan tidak ada yang
+ * seketika. Sinkronisasi juga tidak pernah menghapus — tim kerja yang tidak
+ * muncul pada berkas dibiarkan apa adanya, sebab namanya melekat pada
+ * permintaan dan BAST yang sudah terbit.
+ *
+ * Pencocokannya memakai nama tim, bukan `external_id`. Nama tim adalah
+ * satu-satunya penanda yang benar-benar terisi pada data berjalan, sedangkan
+ * `external_id` boleh kosong dan tidak unik — memakainya sebagai kunci berarti
+ * tidak satu pun tim lama akan pernah cocok. `external_id` tetap disimpan
+ * sebagai keterangan asal, dan `synced_at` mencatat kapan barisnya terakhir
+ * diselaraskan.
  *
  * Tim kerja adalah data induk yang paling jarang berubah tetapi paling banyak
  * dirujuk — pengguna, permintaan, dan mutasi aset semuanya menunjuk ke sini.
@@ -36,6 +49,14 @@ class ImporTimKerja
                     . 'bila ada — akronim itulah yang dipakai sistem pada tabel yang sempit.',
             ),
             Kolom::buat(
+                kunci: 'external_id',
+                judul: 'ID Sumber',
+                contoh: 'TIM-2024-03',
+                catatan: 'Penanda tim kerja pada sistem sumber, disimpan sebagai keterangan asal. '
+                    . 'Bukan kunci pencocokan — yang dicocokkan tetap Nama Tim. '
+                    . 'Dikosongkan berarti tidak diubah.',
+            ),
+            Kolom::buat(
                 kunci: 'status_aktif',
                 judul: 'Aktif',
                 contoh: 'Ya',
@@ -50,8 +71,9 @@ class ImporTimKerja
         $hasil = new HasilImpor();
         $baris = app(PembacaBerkas::class)->baca($lintasanBerkas);
 
-        $kolomNama   = Kolom::buat('nama_tim', 'Nama Tim')->tajukSeragam();
-        $kolomAktif  = Kolom::buat('status_aktif', 'Aktif')->tajukSeragam();
+        $kolomNama     = Kolom::buat('nama_tim', 'Nama Tim')->tajukSeragam();
+        $kolomAktif    = Kolom::buat('status_aktif', 'Aktif')->tajukSeragam();
+        $kolomExternal = Kolom::buat('external_id', 'ID Sumber')->tajukSeragam();
 
         /*
          * Baris yang sah tetap masuk meski ada baris lain yang bermasalah.
@@ -86,17 +108,44 @@ class ImporTimKerja
                 continue;
             }
 
-            DB::transaction(function () use ($nama, $aktif, $hasil): void {
-                $tim = Tim::where('nama_tim', $nama)->first();
+            $externalId = trim($b['isi'][$kolomExternal] ?? '');
+
+            if (mb_strlen($externalId) > 50) {
+                $hasil->catatGalat($b['nomor'], 'ID Sumber melebihi 50 aksara.');
+
+                continue;
+            }
+
+            /*
+             * Provenans ditulis pada baris baru maupun baris yang diperbarui.
+             * `synced_at` menyatakan kapan barisnya terakhir diselaraskan, dan
+             * itulah yang dibaca kolom "Tersinkron" pada tabel Tim Kerja.
+             * `external_id` hanya ditimpa ketika berkas benar-benar membawanya:
+             * kolom yang dikosongkan berarti sistem sumber tidak menyertakan
+             * penandanya, bukan berarti penanda yang tersimpan harus dihapus.
+             */
+            $provenans = ['synced_at' => now()];
+
+            if ($externalId !== '') {
+                $provenans['external_id'] = $externalId;
+            }
+
+            DB::transaction(function () use ($nama, $aktif, $provenans, $hasil): void {
+                // Pencocokan tidak peka besar kecil huruf: berkas sumber kerap
+                // menuliskan nama tim dengan kapitalisasi yang berbeda, dan
+                // menganggapnya nama lain akan melahirkan tim kembar.
+                $tim = PencocokanNama::samakan(Tim::query(), 'nama_tim', $nama)->first();
 
                 if ($tim) {
-                    $tim->update(['status_aktif' => $aktif]);
+                    // Ketua tim dan kolom operasional lain tidak disentuh;
+                    // penetapan ketua tetap milik impor pengguna.
+                    $tim->forceFill(['status_aktif' => $aktif, ...$provenans])->save();
                     $hasil->diperbarui++;
 
                     return;
                 }
 
-                Tim::create(['nama_tim' => $nama, 'status_aktif' => $aktif]);
+                Tim::create(['nama_tim' => $nama, 'status_aktif' => $aktif, ...$provenans]);
                 $hasil->ditambah++;
             });
         }

@@ -4,103 +4,129 @@
     <meta charset="utf-8">
     <title>{{ $judul ?? 'Kartu Kendali Barang Persediaan' }}</title>
     <style>
-        @page { margin: 15mm 14mm; }
+        /* ============================================================
+         * Cerminan template Kartu Kendali Barang Persediaan Sub-Bagian
+         * Umum (berkas Excel master). PDF ini sengaja BUKAN rancangan
+         * tersendiri — ia meniru berkas Excel sepenuhnya dan hanya
+         * berbeda format berkas. Setiap ukuran di sini diturunkan dari
+         * berkas master: halaman lanskap A4, huruf Times New Roman,
+         * tujuh kolom terlihat (kolom Harga Satuan dan Nilai pada master
+         * disembunyikan, sehingga tidak ikut dicetak), baris nomor kolom
+         * (1)…(8), dua puluh slot transaksi bergaris, baris "dst", serta
+         * baris Stok Awal dan Stok Akhir. Tidak ada catatan kaki, kode
+         * QR, tanda tangan, maupun metadata cetak — tak satu pun ada pada
+         * berkas Excel.
+         * ============================================================ */
+
+        @page { size: A4 landscape; margin: 0.75in 0.7in; }
 
         * { box-sizing: border-box; }
 
+        /* Berkas master memakai Arial 11pt pada seluruh selnya (huruf bawaan
+           Times New Roman workbook tidak dipakai satu sel pun). DomPDF
+           memetakan Arial ke Helvetica bawaannya, jadi tak ada huruf yang
+           perlu disematkan. */
         body {
-            font-family: "Times New Roman", Times, serif;
-            font-size: 10pt;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11pt;
             color: #000;
             margin: 0;
         }
 
-        /* ---------- JUDUL ----------
-           Dua baris judul mengikuti berkas Kartu Kendali Barang Persediaan
-           yang berjalan di Sub-Bagian Umum, sehingga hasil cetak sistem dapat
-           langsung disandingkan dengan arsip tahun-tahun sebelumnya. */
-        .judul { text-align: center; margin-bottom: 14px; }
-        .judul h1 {
-            font-size: 12pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin: 0;
-        }
+        /* ---------- JUDUL (baris 1-2 master, di-merge A:I) ---------- */
+        .judul { text-align: center; }
+        .judul h1,
         .judul h2 {
             font-size: 11pt;
             font-weight: bold;
             text-transform: uppercase;
-            margin: 3px 0 0 0;
+            margin: 0;
+            line-height: 13pt;
         }
 
-        /* ---------- IDENTITAS BARANG ---------- */
-        table.identitas { border-collapse: collapse; margin-bottom: 10px; }
-        table.identitas td {
-            padding: 1px 0;
-            vertical-align: top;
-            font-size: 10pt;
+        /* ---------- IDENTITAS BARANG (baris 3-6 master) ----------
+           Label di kolom kiri, nilai di kolom ketiga, tanpa tanda titik
+           dua — sama seperti berkas master. */
+        table.identitas {
+            border-collapse: collapse;
+            margin-top: 4pt;
+            margin-bottom: 4pt;
+            font-size: 11pt;
         }
-        table.identitas td.label { width: 90px; }
-        table.identitas td.pemisah { width: 12px; }
+        table.identitas td { padding: 0 0; vertical-align: top; line-height: 13pt; }
+        table.identitas td.label { width: 120px; }
+        table.identitas td.antara { width: 14px; }
 
-        /* ---------- TABEL TRANSAKSI ---------- */
+        /* ---------- TABEL KARTU ---------- */
         table.kartu {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9.5pt;
+            table-layout: fixed;
+            font-size: 11pt;
+            line-height: 12pt;
         }
+        /* Seluruh sel master rata tengah, baik kepala maupun data — itulah
+           yang ditiru di sini. Satu-satunya pengecualian adalah kolom "No."
+           pada kepala dan baris nomor kolom, yang pada master rata kanan. */
         table.kartu th,
         table.kartu td {
-            border: 0.5pt solid #000;
-            padding: 3px 5px;
-            vertical-align: top;
-        }
-        table.kartu thead th {
-            background: #E8EEF7;
-            font-weight: bold;
+            border: 0.75pt solid #000;
+            padding: 0 4pt;
+            vertical-align: middle;
             text-align: center;
-            white-space: nowrap;
         }
 
-        /* Lebar kolom ditetapkan agar kolom angka tetap sempit dan kolom
-           uraian mendapat sisa ruang, sebab dompdf tidak menata lebar tabel
-           sebaik peramban. */
-        .k-no      { width: 30px;  text-align: center; }
-        .k-nomor   { width: 130px; }
-        .k-tanggal { width: 78px;  text-align: center; }
-        .k-jumlah  { width: 62px;  text-align: right; }
+        /* Tinggi baris disamakan dan dibuat ringkas supaya seluruh kartu —
+           kepala, dua puluh slot, "dst", Stok Awal dan Stok Akhir — muat pada
+           satu halaman lanskap, sama seperti berkas Excel yang mencetak satu
+           kartu per halaman (Excel sendiri memuatnya lewat penyekalaan 96%). */
+        table.kartu tbody td { height: 13pt; }
 
+        /* Kepala tabel: tebal — mengikuti baris 8 master yang tingginya
+           menampung teks terbungkus. */
+        table.kartu thead th { font-weight: bold; }
+
+        /* Baris nomor kolom (1)…(8) — baris 9 master, berhuruf 9pt. */
+        tr.nomor-kolom td { font-size: 9pt; }
+
+        /* Kolom "No." pada kepala dan baris nomor kolom rata kanan (sel A8
+           dan A9 master), meski datanya sendiri rata tengah. */
+        th.k-no, tr.nomor-kolom td.k-no { text-align: right; }
+
+        /* Lebar kolom diturunkan dari lebar kolom master (satuan aksara
+           Excel), dinormalkan menjadi persen agar perbandingannya sama. */
+        .k-no      { width: 5.5%;  }
+        .k-nomor   { width: 15.5%; }
+        .k-tanggal { width: 13.8%; }
+        .k-uraian  { width: 28.2%; }
+        .k-masuk   { width: 14.4%; }
+        .k-keluar  { width: 11.4%; }
+        .k-sisa    { width: 11.2%; }
+
+        /* Sel transaksi kosong tetap setinggi baris terisi, sehingga
+           kedua puluh slot tergaris rata seperti kartu fisiknya. */
+        td.slot { height: 13pt; }
+
+        /* Baris Stok Awal / Stok Akhir (baris 10 & 32 master, label
+           di-merge A:G) — tebal, berlatar kelabu tipis. Labelnya rata
+           tengah seperti sel gabungan pada master. */
         tr.saldo td {
-            background: #F2F2F2;
             font-weight: bold;
+            background: #F2F2F2;
         }
 
-        .kosong {
-            text-align: center;
-            font-style: italic;
-        }
+        /* Baris "dst" (baris 31 master): teks pada kolom No., sel lain
+           dibiarkan bergaris kosong. Master menulisnya tegak, bukan miring. */
 
-        /* ---------- KAKI ---------- */
-        .kaki {
-            margin-top: 14px;
-            font-size: 8pt;
-            font-style: italic;
-            border-top: 0.5pt solid #999;
-            padding-top: 5px;
-        }
-
-        /* Setiap kartu memulai halamannya sendiri. Kartu kendali diarsipkan
-           per barang, sehingga dua kartu pada satu lembar tidak dapat dipisah
-           ketika diberkaskan. */
         .pemisah-halaman { page-break-before: always; }
     </style>
 </head>
 <body>
 
-{{-- Tampilan ini melayani satu kartu maupun sehimpunan kartu sekaligus: aksi
-     per barang mengirim satu, ekspor halaman Kartu Kendali mengirim seluruh
-     barang pada kategori terpilih. Keduanya memakai satu tampilan supaya tata
-     letaknya tidak pernah menyimpang satu sama lain. --}}
+{{-- Satu tampilan melayani satu kartu maupun sehimpunan kartu: aksi per
+     barang pada halaman Kartu Kendali mengirim satu, ekspor mengirim seluruh
+     barang pada pilihan yang diberikan. Keduanya memakai tampilan yang sama
+     supaya tata letaknya tidak pernah menyimpang. --}}
 @foreach ($kartu as $isi)
     @php
         $barang  = $isi['barang'];
@@ -109,105 +135,129 @@
         $periode = $isi['periode'];
         $awal    = $isi['awal'];
         $akhir   = $isi['akhir'];
+
+        // Kartu master menyediakan dua puluh slot bergaris. Bila transaksi
+        // kurang dari itu, sisanya tetap digambar sebagai slot kosong; bila
+        // lebih, seluruhnya digambar dan kartunya memanjang — sama dengan
+        // perilaku berkas Excel yang menyisipkan baris sebelum "dst".
+        $slotBawaan = 20;
+        $kosong     = max(0, $slotBawaan - $mutasi->count());
     @endphp
 
     @if (! $loop->first)
         <div class="pemisah-halaman"></div>
     @endif
 
-<div class="judul">
-    <h1>Kartu Kendali Barang Persediaan (ATK/ARK)</h1>
-    <h2>Badan Pusat Statistik Kota Jakarta Barat Tahun {{ $tahun }}</h2>
-</div>
+    <div class="judul">
+        <h1>Kartu Kendali Barang Persediaan (ATK/ARK)</h1>
+        <h2>Badan Pusat Statistik Kota Jakarta Barat Tahun {{ $tahun }}</h2>
+    </div>
 
-<table class="identitas">
-    <tr>
-        <td class="label">Kode Barang</td>
-        <td class="pemisah">:</td>
-        <td>{{ $barang->kode_lengkap }}</td>
-    </tr>
-    <tr>
-        <td class="label">Nama Barang</td>
-        <td class="pemisah">:</td>
-        <td>{{ $barang->nama_barang }}</td>
-    </tr>
-    <tr>
-        <td class="label">Satuan</td>
-        <td class="pemisah">:</td>
-        <td>{{ $barang->satuan }}</td>
-    </tr>
-    <tr>
-        <td class="label">Periode</td>
-        <td class="pemisah">:</td>
-        <td>{{ $periode }}</td>
-    </tr>
-</table>
-
-<table class="kartu">
-    <thead>
+    <table class="identitas">
         <tr>
-            <th class="k-no">No.</th>
-            <th class="k-nomor">Nomor Dasar M/K</th>
-            <th class="k-tanggal">Tanggal M/K</th>
-            <th>Uraian M/K</th>
-            <th class="k-jumlah">Masuk (M)</th>
-            <th class="k-jumlah">Keluar (K)</th>
-            <th class="k-jumlah">Sisa</th>
+            <td class="label">Kode Barang</td>
+            <td class="antara"></td>
+            <td>{{ $barang->kode_lengkap }}</td>
         </tr>
-    </thead>
-    <tbody>
-
-        {{-- Saldo pembuka periode: hanya kolom Sisa yang berisi, seperti pada
-             baris "Stok Awal" kartu kendali manual. --}}
-        <tr class="saldo">
-            {{-- Label dibentangkan sampai kolom Uraian, mengikuti berkas asli
-                 yang menuliskannya mulai dari kolom paling kiri. --}}
-            <td colspan="4">Stok Awal</td>
-            <td class="k-jumlah"></td>
-            <td class="k-jumlah"></td>
-            <td class="k-jumlah">{{ $awal }}</td>
+        <tr>
+            <td class="label">Nama Barang</td>
+            <td class="antara"></td>
+            {{-- Berkas master menuliskan nama barang dengan huruf besar
+                 seluruhnya; katalog menyimpannya apa adanya. --}}
+            <td>{{ \Illuminate\Support\Str::upper($barang->nama_barang) }}</td>
         </tr>
+        <tr>
+            <td class="label">Satuan</td>
+            <td class="antara"></td>
+            <td>{{ $barang->satuan }}</td>
+        </tr>
+        <tr>
+            <td class="label">Periode</td>
+            <td class="antara"></td>
+            <td>{{ $periode }}</td>
+        </tr>
+    </table>
 
-        @forelse ($mutasi as $m)
+    <table class="kartu">
+        <thead>
             <tr>
-                <td class="k-no">{{ $loop->iteration }}</td>
-                <td class="k-nomor">{{ $m->nomor_dasar ?: '' }}</td>
-                <td class="k-tanggal">{{ $m->tanggal?->format('d-m-Y') }}</td>
-                <td>{{ $m->uraian }}</td>
-                <td class="k-jumlah">{{ $m->jumlah > 0 ? $m->jumlah : '' }}</td>
-                <td class="k-jumlah">{{ $m->jumlah < 0 ? abs($m->jumlah) : '' }}</td>
-                {{-- Saldo diambil apa adanya dari kolom saldo_sesudah, tidak
-                     dihitung ulang, agar angka pada kartu sama persis dengan
-                     yang tercatat saat transaksi terjadi. --}}
-                <td class="k-jumlah">{{ $m->saldo_sesudah }}</td>
+                <th class="k-no">No.</th>
+                <th class="k-nomor">Nomor Dasar M/K</th>
+                <th class="k-tanggal">Tanggal M/K</th>
+                <th class="k-uraian">Uraian M/K</th>
+                <th class="k-masuk">Masuk (M)</th>
+                <th class="k-keluar">Keluar (K)</th>
+                <th class="k-sisa">Sisa</th>
             </tr>
-        @empty
+            {{-- Baris nomor kolom (1)…(8); nomor (5) dan (9) tidak muncul
+                 karena kolom Harga Satuan dan Nilai disembunyikan pada
+                 master. --}}
+            <tr class="nomor-kolom">
+                <td class="k-no">(1)</td>
+                <td>(2)</td>
+                <td>(3)</td>
+                <td>(4)</td>
+                <td>(6)</td>
+                <td>(7)</td>
+                <td>(8)</td>
+            </tr>
+        </thead>
+        <tbody>
+
+            {{-- Stok Awal: label membentang enam kolom pertama (No. sampai
+                 Keluar), nilai pada kolom Sisa — mengikuti merge A:G master. --}}
+            <tr class="saldo">
+                <td class="label" colspan="6">Stok Awal</td>
+                <td class="k-sisa">{{ $awal }}</td>
+            </tr>
+
+            @foreach ($mutasi as $m)
+                <tr>
+                    <td class="k-no">{{ $loop->iteration }}</td>
+                    <td class="k-nomor">{{ $m->nomor_dasar ?: '' }}</td>
+                    <td class="k-tanggal">{{ $m->tanggal?->format('d/m/Y') }}</td>
+                    <td class="k-uraian">{{ $m->uraian }}</td>
+                    <td class="k-masuk">{{ $m->jumlah > 0 ? $m->jumlah : '' }}</td>
+                    <td class="k-keluar">{{ $m->jumlah < 0 ? abs($m->jumlah) : '' }}</td>
+                    {{-- Sisa dibaca apa adanya dari saldo_sesudah, tidak
+                         dihitung ulang, agar sama persis dengan angka Excel
+                         yang bersumber dari data yang sama. --}}
+                    <td class="k-sisa">{{ $m->saldo_sesudah }}</td>
+                </tr>
+            @endforeach
+
+            {{-- Slot kosong hingga genap dua puluh baris. --}}
+            @for ($i = 0; $i < $kosong; $i++)
+                <tr>
+                    <td class="k-no slot">{{ $mutasi->count() + $i + 1 }}</td>
+                    <td class="k-nomor"></td>
+                    <td class="k-tanggal"></td>
+                    <td class="k-uraian"></td>
+                    <td class="k-masuk"></td>
+                    <td class="k-keluar"></td>
+                    <td class="k-sisa"></td>
+                </tr>
+            @endfor
+
+            {{-- Baris "dst" (baris 31 master). --}}
             <tr>
-                <td class="kosong" colspan="7">
-                    Tidak ada transaksi tercatat pada periode ini.
-                </td>
+                <td class="dst">dst</td>
+                <td class="k-nomor"></td>
+                <td class="k-tanggal"></td>
+                <td class="k-uraian"></td>
+                <td class="k-masuk"></td>
+                <td class="k-keluar"></td>
+                <td class="k-sisa"></td>
             </tr>
-        @endforelse
 
-        <tr class="saldo">
-            {{-- Label dibentangkan sampai kolom Uraian, mengikuti berkas asli
-                 yang menuliskannya mulai dari kolom paling kiri. --}}
-            <td colspan="4">Stok Akhir</td>
-            <td class="k-jumlah"></td>
-            <td class="k-jumlah"></td>
-            <td class="k-jumlah">{{ $akhir }}</td>
-        </tr>
+            {{-- Stok Akhir: sama bentuknya dengan Stok Awal. --}}
+            <tr class="saldo">
+                <td class="label" colspan="6">Stok Akhir</td>
+                <td class="k-sisa">{{ $akhir }}</td>
+            </tr>
 
-    </tbody>
-</table>
-
-<div class="kaki">
-    Dicetak pada {{ $dicetak->translatedFormat('d F Y, H:i') }} WIB
-    @if ($pencetak)
-        oleh {{ $pencetak->name }}@if ($pencetak->nip) (NIP {{ $pencetak->nip }})@endif
-    @endif
-    &middot; Dihasilkan otomatis oleh SIMPBI dari buku besar mutasi stok.
-</div>
+        </tbody>
+    </table>
 @endforeach
 
 </body>

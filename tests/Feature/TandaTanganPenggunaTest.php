@@ -136,15 +136,20 @@ class TandaTanganPenggunaTest extends TestCase
 
     public function test_kolom_tanda_tangan_hanya_untuk_peran_yang_membubuhkannya(): void
     {
-        foreach (['petugas_gudang', 'ketua_tim', 'kasubbag'] as $peran) {
+        // Hanya peran yang tanda tangan tergambarnya benar-benar dibubuhkan ke
+        // dokumen. Kasubbag tidak termasuk: pengesahannya memakai e-TTD (nama +
+        // QR), bukan gambar tersimpan.
+        foreach (['petugas_gudang', 'ketua_tim'] as $peran) {
             $this->actingAs($this->buatPengguna($peran, $peran === 'ketua_tim' ? $this->buatTim() : null));
 
             Livewire::test(Pengaturan::class)->assertSee('Tanda Tangan');
         }
 
-        $this->actingAs($this->buatPengguna('admin'));
+        foreach (['kasubbag', 'admin'] as $peran) {
+            $this->actingAs($this->buatPengguna($peran));
 
-        Livewire::test(Pengaturan::class)->assertDontSee('Tanda Tangan');
+            Livewire::test(Pengaturan::class)->assertDontSee('Tanda Tangan');
+        }
     }
 
     public function test_tanda_tangan_tersimpan_lewat_halaman_pengaturan(): void
@@ -175,12 +180,12 @@ class TandaTanganPenggunaTest extends TestCase
         $this->actingAs($pengguna->refresh());
 
         Livewire::test(Pengaturan::class)
-            ->fillForm(['name' => 'Nama Sudah Diganti'])
+            ->fillForm(['no_hp' => '081299998888'])
             ->call('simpan')
             ->assertHasNoFormErrors();
 
         $pengguna->refresh();
-        $this->assertSame('Nama Sudah Diganti', $pengguna->name);
+        $this->assertSame('081299998888', $pengguna->no_hp);
         $this->assertTrue(TandaTangan::tersedia($pengguna));
     }
 

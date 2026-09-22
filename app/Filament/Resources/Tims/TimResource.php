@@ -22,11 +22,11 @@ class TimResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Administrasi';
 
-    protected static ?string $navigationLabel = 'Tim';
+    protected static ?string $navigationLabel = 'Tim Kerja';
 
-    protected static ?string $modelLabel = 'Tim';
+    protected static ?string $modelLabel = 'Tim Kerja';
 
-    protected static ?string $pluralModelLabel = 'Tim';
+    protected static ?string $pluralModelLabel = 'Tim Kerja';
 
     protected static ?int $navigationSort = 1;
 

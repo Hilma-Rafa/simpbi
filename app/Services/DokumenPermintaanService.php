@@ -6,6 +6,7 @@ use App\Models\PermintaanBarang;
 use App\Models\User;
 use App\Support\KodeQrBerlogo;
 use App\Support\TandaTangan;
+use App\Support\TautanVerifikasi;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -35,7 +36,7 @@ class DokumenPermintaanService
         /*
          * Pihak yang menerima selalu Ketua Tim pemohon, bukan orang yang
          * menekan tombol konfirmasi. Penerimaan boleh dikonfirmasi anggota
-         * tim, tetapi yang bertanggung jawab atas barang yang masuk ke unit
+         * tim, tetapi yang bertanggung jawab atas barang yang masuk ke tim kerja
          * adalah ketuanya, dan itulah yang tercermin pada surat.
          */
         $penerima = $permintaan->tim?->ketuaTim;
@@ -66,6 +67,8 @@ class DokumenPermintaanService
          * Karena itu keduanya dibekukan pada saat yang sama, dari bahan yang
          * sama persis.
          */
+        // Kedua berkas ditulis ke disk privat: memuat tanda tangan dan hanya
+        // dilayani rute yang dijaga atau rute bertoken (routes/web.php).
         $asli = 'bukti-permintaan/' . $permintaan->kode_permintaan . '.pdf';
         $berfootnote = static::lintasanBerfootnote($permintaan);
 
@@ -75,13 +78,13 @@ class DokumenPermintaanService
          * pemindai tidak perlu tahu lembar mana yang sedang dipegangnya —
          * memindai catatan kakinya selalu berujung pada dokumen apa adanya.
          */
-        $keAsli = $this->kodeQr($this->tautan('bukti.asli', $token), berlambang: false);
+        $keAsli = $this->kodeQr(TautanVerifikasi::untuk('bukti.asli', $token), berlambang: false);
 
         // Dokumen asli: memindai stempel Kasubbag membawa pemindainya ke versi
         // berfootnote, sebagaimana lazimnya dokumen ber-TTE.
-        Storage::disk('public')->put($asli, Pdf::loadView('pdf.bukti-permintaan', [
+        Storage::disk('local')->put($asli, Pdf::loadView('pdf.bukti-permintaan', [
             ...$bersama,
-            'qr'         => $this->kodeQr($this->tautan('bukti.pindai', $token)),
+            'qr'         => $this->kodeQr(TautanVerifikasi::untuk('bukti.pindai', $token)),
             'qrFootnote' => $keAsli,
         ])->setPaper('a4', 'portrait')->output());
 
@@ -90,7 +93,7 @@ class DokumenPermintaanService
          * penelusuran berakhir pada berkas apa adanya alih-alih berputar pada
          * lembar yang sudah bertanda.
          */
-        Storage::disk('public')->put($berfootnote, Pdf::loadView('pdf.bukti-permintaan', [
+        Storage::disk('local')->put($berfootnote, Pdf::loadView('pdf.bukti-permintaan', [
             ...$bersama,
             'qr'         => $keAsli,
             'qrFootnote' => $keAsli,
@@ -118,33 +121,6 @@ class DokumenPermintaanService
         }
 
         return $permintaan->qr_token;
-    }
-
-    /**
-     * Alamat verifikasi yang disandikan ke dalam kode QR.
-     *
-     * Dibentuk dari `config('app.url')`, bukan dari `route()` apa adanya.
-     * `route()` mengambil akar alamat dari permintaan HTTP yang sedang
-     * berjalan, sehingga dokumen yang disahkan lewat panel di `127.0.0.1:8000`
-     * membawa alamat itu ke dalam kodenya — alamat yang menunjuk balik ke
-     * mesin pemindainya sendiri dan karena itu tidak pernah terbuka dari
-     * ponsel. Dokumen ini beredar ke luar sistem dan membeku begitu terbit,
-     * jadi alamatnya harus berasal dari tetapan pemasangan, bukan dari mesin
-     * yang kebetulan menekan tombolnya.
-     *
-     * Ketika `APP_URL` belum diisi, alamat permintaan dipakai sebagai jalan
-     * terakhir agar kode tetap terbentuk — lebih baik alamat yang perlu
-     * diperbaiki daripada kode yang tidak menuju ke mana pun.
-     */
-    protected function tautan(string $rute, string $token): string
-    {
-        $akar = rtrim((string) config('app.url'), '/');
-
-        if ($akar === '') {
-            return route($rute, ['token' => $token]);
-        }
-
-        return $akar . route($rute, ['token' => $token], absolute: false);
     }
 
     /**

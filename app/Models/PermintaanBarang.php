@@ -19,7 +19,7 @@ class PermintaanBarang extends Model
     public const STATUS = [
         'menunggu_ketua'       => 'Menunggu Persetujuan Ketua Tim',
         'menunggu_verifikasi'  => 'Menunggu Verifikasi Gudang',
-        'menunggu_kasubbag'    => 'Menunggu Persetujuan Kasubbag',
+        'menunggu_kasubbag'    => 'Menunggu Persetujuan akhir Kasubbag',
         'siap_diproses'        => 'Siap Diproses',
         'siap_diambil'         => 'Siap Diambil',
         'menunggu_pengesahan'  => 'Menunggu Pengesahan',
@@ -48,7 +48,7 @@ class PermintaanBarang extends Model
     public const STATUS_RINGKAS = [
         'menunggu_ketua'      => 'Menunggu Ketua Tim',
         'menunggu_verifikasi' => 'Menunggu Gudang',
-        'menunggu_kasubbag'   => 'Menunggu Kasubbag',
+        'menunggu_kasubbag'   => 'Menunggu Kasubbag Umum',
     ];
 
     /**

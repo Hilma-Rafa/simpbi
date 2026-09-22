@@ -70,7 +70,7 @@ class NotifikasiMutasiAsetTest extends TestCase
 
         $penerima = $this->penerimaTerakhir();
         $this->assertSame([$ketuaTujuan->name], $penerima);
-        $this->assertNotContains($ketuaLain->name, $penerima, 'Ketua Tim unit lain tidak berkepentingan.');
+        $this->assertNotContains($ketuaLain->name, $penerima, 'Ketua Tim tim kerja lain tidak berkepentingan.');
     }
 
     public function test_mutasi_selesai_memberitahu_kasubbag_dan_petugas_gudang(): void
@@ -114,7 +114,7 @@ class NotifikasiMutasiAsetTest extends TestCase
         $this->assertStringContainsString($bast->aset->nama_aset, $notifikasi->pesan);
     }
 
-    public function test_pesan_menyebut_unit_asal_dan_tujuan(): void
+    public function test_pesan_menyebut_tim_kerja_asal_dan_tujuan(): void
     {
         $asal   = $this->buatTim('Sub Bagian Umum');
         $tujuan = $this->buatTim('Statistik Distribusi');

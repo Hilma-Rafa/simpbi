@@ -32,6 +32,19 @@ class KategoriResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'nama_kategori';
 
+    /**
+     * Keterangan yang dibaca pengguna ketika penghapusan ditolak.
+     *
+     * Tidak mengarahkan ke Status Aktif seperti tabel induk lainnya: kategori
+     * tidak punya kolom itu, dan mengarang jalan keluar yang tidak ada lebih
+     * membingungkan daripada tidak memberi saran sama sekali. Yang ditawarkan
+     * adalah jalan yang benar-benar tersedia — memindahkan isinya lebih dulu.
+     */
+    public const ALASAN_TAK_DAPAT_DIHAPUS =
+        'Kategori yang masih dipakai barang persediaan atau aset tetap tidak dapat dihapus, sebab '
+        . 'setiap barang dan aset wajib bernaung pada sebuah kategori. Pindahkan dulu isinya ke '
+        . 'kategori lain; setelah tidak ada lagi yang memakainya, kategori ini dapat dihapus.';
+
     public static function canAccess(): bool
     {
         return in_array(auth()->user()?->role, ['admin', 'kasubbag']);

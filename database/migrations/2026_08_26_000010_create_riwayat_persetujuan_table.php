@@ -14,8 +14,7 @@ return new class extends Migration
      * permintaan_barang.
      */
     public function up(): void
-    {
-        Schema::create('riwayat_persetujuan', function (Blueprint $table) {
+    {        Schema::create('riwayat_persetujuan', function (Blueprint $table) {
             $table->id();
             $table->foreignId('permintaan_id')->constrained('permintaan_barang')->cascadeOnDelete();
             $table->enum('tahap', [

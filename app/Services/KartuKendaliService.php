@@ -91,9 +91,15 @@ class KartuKendaliService
      * terlihat sebagai temuan. Stok akhir memakai saldo transaksi terakhir di
      * dalam periode, dan kembali ke stok awal bila periodenya kosong.
      *
+     * Pelaksana tiap baris hanya dimuat bila diminta. Satu-satunya tampilan
+     * yang menyebutkannya adalah dialog rincian pergerakan; daftar kartu
+     * kendali dan berkas PDF tidak menampilkannya sama sekali. Dimuat selalu,
+     * ia menambah satu kueri `users` untuk setiap barang pada daftar — sepuluh
+     * kueri per halaman untuk keterangan yang tidak pernah terlihat.
+     *
      * @return array<string,mixed>
      */
-    public function data(BarangPersediaan $barang, int $tahun): array
+    public function data(BarangPersediaan $barang, int $tahun, bool $denganPelaksana = false): array
     {
         // Periode dinyatakan sebagai selang setengah terbuka: sejak 1 Januari
         // tahun ini sampai sebelum 1 Januari tahun berikutnya.
@@ -120,7 +126,7 @@ class KartuKendaliService
             ->value('saldo_sesudah') ?? 0);
 
         $mutasi = $barang->mutasi()
-            ->with('petugas')
+            ->when($denganPelaksana, fn (Builder $kueri) => $kueri->with('petugas'))
             ->where('tanggal', '>=', $mulai)
             ->where('tanggal', '<', $berikutnya)
             // Baris saldo pembawaan sudah terwakili kolom Stok Awal di atas;
@@ -228,10 +234,13 @@ class KartuKendaliService
     {
         $judul = 'Kartu Kendali Persediaan ' . $tahun;
 
+        // Lanskap, seperti kartu kendali Sub-Bagian Umum: tanpa ini
+        // EksporRiwayatService memilih potret bawaannya dan kartunya tercetak
+        // tegak, berlawanan dengan berkas Excel yang ditiru.
         return app(EksporRiwayatService::class)->pdfTampilan($judul, 'pdf.kartu-kendali', [
             'judul' => $judul,
             'kartu' => $barang->values()->map(fn (BarangPersediaan $b): array => $this->data($b, $tahun))->all(),
-        ]);
+        ], 'landscape');
     }
 
     public function spreadsheet(Collection $barang, int $tahun): BinaryFileResponse

@@ -36,10 +36,10 @@ class BastMutasiAsetResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'nomor_bast';
 
-    /** Petugas Gudang, Kasubbag, dan Ketua Tim terlibat (Instruksi §18, §21). */
+    /** Petugas Gudang, Kasubbag, Ketua Tim, dan Tim terlibat (Instruksi §18, §21). */
     public static function canAccess(): bool
     {
-        return in_array(auth()->user()?->role, ['petugas_gudang', 'kasubbag', 'ketua_tim']);
+        return in_array(auth()->user()?->role, ['petugas_gudang', 'kasubbag', 'ketua_tim', 'tim']);
     }
 
     /** Hanya Petugas Gudang yang membuat BAST (UC-16). */
@@ -54,8 +54,8 @@ class BastMutasiAsetResource extends Resource
 
         $user = auth()->user();
 
-        // Ketua Tim hanya melihat mutasi yang melibatkan timnya (Instruksi §54).
-        if ($user?->role === 'ketua_tim') {
+        // Ketua Tim dan Tim hanya melihat mutasi yang melibatkan timnya (Instruksi §54).
+        if (in_array($user?->role, ['ketua_tim', 'tim'])) {
             $query->where(function (Builder $q) use ($user): void {
                 $q->where('tim_asal_id', $user->tim_id)
                     ->orWhere('tim_tujuan_id', $user->tim_id);
