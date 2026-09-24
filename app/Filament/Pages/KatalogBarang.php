@@ -259,7 +259,13 @@ class KatalogBarang extends Page implements HasTable
         $permintaan = null;
 
         try {
-            $this->ulangiBilaBentrok(fn () => DB::transaction(function () use ($keranjang, $user, $adalahKetua, $data, &$permintaan) {
+            // Pembungkusnya sengaja closure biasa dengan &$permintaan, bukan
+            // arrow function: arrow function menangkap variabel luar menurut
+            // nilai, sehingga permintaan yang dibuat di dalam transaksi tidak
+            // pernah sampai ke sini dan notifikasi pengajuan di bawah terlewati
+            // tanpa galat apa pun.
+            $this->ulangiBilaBentrok(function () use ($keranjang, $user, $adalahKetua, $data, &$permintaan) {
+                DB::transaction(function () use ($keranjang, $user, $adalahKetua, $data, &$permintaan) {
                 app(StokService::class)->hold(
                     array_map(fn ($i) => $i['jumlah'], $keranjang)
                 );
@@ -310,7 +316,8 @@ class KatalogBarang extends Page implements HasTable
                         'waktu'         => now(),
                     ]);
                 }
-            }));
+                });
+            });
         } catch (\Throwable $e) {
             // Penolakan aturan bisnis (mis. stok tidak mencukupi) tampil apa adanya;
             // galat teknis dicatat dan diganti pesan umum, bukan teks SQL.

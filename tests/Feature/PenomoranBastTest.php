@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Filament\Resources\BastMutasiAsets\Pages\CreateBastMutasiAset;
+use App\Filament\Resources\BastMutasiAsets\Pages\ListBastMutasiAsets;
 use App\Models\BastMutasiAset;
 use App\Models\Tim;
 use App\Models\User;
@@ -45,6 +45,13 @@ class PenomoranBastTest extends TestCase
         $this->asal = $this->buatTim('Tim Asal');
         $this->tujuan = $this->buatTim('Tim Tujuan');
         $this->gudang = $this->lengkapiAkun($this->buatPengguna('petugas_gudang'));
+
+        // Penjaga tanda tangan (E): pembuatan lewat pop-up butuh Ketua Tim
+        // asal dan tujuan yang sudah bertanda tangan.
+        $ketuaAsal = $this->lengkapiAkun($this->buatPengguna('ketua_tim', $this->asal));
+        $this->asal->forceFill(['ketua_tim_id' => $ketuaAsal->id])->save();
+        $ketuaTujuan = $this->lengkapiAkun($this->buatPengguna('ketua_tim', $this->tujuan));
+        $this->tujuan->forceFill(['ketua_tim_id' => $ketuaTujuan->id])->save();
     }
 
     private function nomor(int $urut, ?int $tahun = null): string
@@ -62,14 +69,15 @@ class PenomoranBastTest extends TestCase
         $aset = $this->buatAset($this->asal);
         $this->actingAs($this->gudang);
 
-        return Livewire::test(CreateBastMutasiAset::class)->fillForm([
-            'aset_id'        => $aset->id,
-            'tim_asal_id'    => $this->asal->id,
-            'tim_tujuan_id'  => $this->tujuan->id,
-            'alasan_mutasi'  => 'Uji penomoran',
-            'pihak_penyerah' => 'Penyerah',
-            'pihak_penerima' => 'Penerima',
-        ])->call('create');
+        return Livewire::test(ListBastMutasiAsets::class)
+            ->mountAction('create')
+            ->setActionData([
+                'aset_id'       => $aset->id,
+                'tim_asal_id'   => $this->asal->id,
+                'tim_tujuan_id' => $this->tujuan->id,
+                'alasan_mutasi' => 'Uji penomoran',
+            ])
+            ->callMountedAction();
     }
 
     public function test_nomor_pertama_tahun_ini_adalah_0001(): void
@@ -102,7 +110,7 @@ class PenomoranBastTest extends TestCase
         $this->bastBernomor($this->nomor(3));
         BastMutasiAset::where('nomor_bast', $this->nomor(2))->delete();
 
-        $this->buatLewatForm()->assertHasNoFormErrors();
+        $this->buatLewatForm()->assertHasNoActionErrors();
 
         $this->assertTrue(BastMutasiAset::where('nomor_bast', $this->nomor(4))->exists());
         $this->assertSame(3, BastMutasiAset::count());
@@ -148,7 +156,7 @@ class PenomoranBastTest extends TestCase
     {
         $bentrok = $this->rebutNomor(1);
 
-        $this->buatLewatForm()->assertHasNoFormErrors();
+        $this->buatLewatForm()->assertHasNoActionErrors();
 
         $this->assertSame(1, $bentrok());
         $this->assertSame(

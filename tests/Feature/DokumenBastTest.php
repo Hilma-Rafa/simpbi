@@ -54,7 +54,15 @@ class DokumenBastTest extends TestCase
         config(['app.url' => static::AKAR_UJI]);
     }
 
-    /** BAST yang sudah disahkan, satu-satunya keadaan yang memunculkan kode QR. */
+    /**
+     * BAST yang sudah disahkan, satu-satunya keadaan yang memunculkan kode QR.
+     *
+     * Pada alur yang dibalik, disahkan_at hanya pernah terisi bersamaan dengan
+     * status selesai_administratif (Sahkan kini langkah terakhir) — berbeda
+     * dari sebelum urutan dibalik, saat disahkan_at bisa terisi pada status
+     * menunggu_konfirmasi (Sahkan langkah pertama). dikonfirmasi_at ikut
+     * disertakan supaya keadaan ini konsisten dengan urutan baru.
+     */
     private function bastDisahkan(): BastMutasiAset
     {
         $asal   = $this->buatTim('Sub Bagian Umum');
@@ -64,11 +72,13 @@ class DokumenBastTest extends TestCase
             $asal,
             $tujuan,
             $this->buatPengguna('petugas_gudang'),
-            status: 'menunggu_konfirmasi',
+            status: 'selesai_administratif',
             tambahan: [
-                'disahkan_at'      => now(),
-                'disahkan_oleh_id' => $this->buatPengguna('kasubbag')->id,
-                'qr_token'         => static::TOKEN_UJI,
+                'dikonfirmasi_at'      => now()->subMinute(),
+                'dikonfirmasi_oleh_id' => $this->buatPengguna('ketua_tim', $tujuan)->id,
+                'disahkan_at'          => now(),
+                'disahkan_oleh_id'     => $this->buatPengguna('kasubbag')->id,
+                'qr_token'             => static::TOKEN_UJI,
             ],
         );
     }

@@ -10,6 +10,8 @@ use App\Services\StokService;
 use App\Support\TandaTangan;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\View;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -75,14 +77,29 @@ class BastMutasiAsetsTable
             ])
             ->recordActions([
                 // UC-17 — Pengesahan oleh Kasubbag Umum.
+                //
+                // Rincian BAST wajib terbaca dulu (modal ini sendiri, lewat
+                // schema()) sebelum tombol "Sahkan" di kakinya dapat ditekan —
+                // dialog itu sendiri sudah menjadi bentuk konfirmasi, sehingga
+                // tidak ada requiresConfirmation() kedua dan tidak ada kolom
+                // isian apa pun. Gaya tombol disamakan persis dengan tombol
+                // tahapan Permintaan Barang (PermintaanBarangResource::aksiSahkan()):
+                // ikon, warna, dan ->button() yang sama.
                 Action::make('sahkan')
                     ->label('Sahkan')
                     ->icon('heroicon-m-check-badge')
                     ->color('success')
-                    ->requiresConfirmation()
+                    ->button()
                     ->modalHeading('Sahkan BAST Mutasi Aset')
-                    ->modalDescription(fn (BastMutasiAset $r): string => "Sahkan {$r->nomor_bast}? Penempatan aset akan dipindahkan ke {$r->timTujuan?->nama_tim} dan e-TTD dibubuhkan pada dokumen.")
+                    ->modalDescription('Dokumen akan difinalisasi dengan e-TTD Anda sebagai Kasubbag Umum.')
+                    ->modalSubmitActionLabel('Sahkan')
+                    ->modalCancelActionLabel('Batal')
+                    ->modalWidth(Width::Medium)
                     ->visible(fn (BastMutasiAset $r): bool => $r->status === 'menunggu_pengesahan' && auth()->user()?->role === 'kasubbag')
+                    ->schema(fn (BastMutasiAset $r) => [
+                        View::make('filament.partials.detail-bast')
+                            ->viewData(['record' => $r->load(['aset', 'timAsal', 'timTujuan', 'dibuatOleh', 'disahkanOleh', 'dikonfirmasiOleh'])]),
+                    ])
                     ->action(function (BastMutasiAset $r): void {
                         try {
                             app(MutasiAsetService::class)->sahkan($r, auth()->id());
@@ -116,17 +133,32 @@ class BastMutasiAsetsTable
                 // Penerima cukup mengkonfirmasi; ia tidak menggambar tanda
                 // tangan. Tanda tangan yang dibubuhkan pada BAST adalah yang
                 // sudah terdaftar di akunnya, dipasang saat dokumen dibentuk
-                // ulang oleh MutasiAsetService::konfirmasi().
+                // ulang oleh MutasiAsetService::konfirmasi() — di sinilah aset
+                // benar-benar berpindah pada alur yang dibalik.
+                //
+                // Sama seperti Sahkan: rincian BAST wajib terbaca dulu di dalam
+                // modal ini, tombol "Konfirmasi Penerimaan" di kakinya langsung
+                // menuntaskan aksi, tanpa kolom isian apa pun. Gaya tombol
+                // disamakan persis dengan Konfirmasi Penerimaan pada Permintaan
+                // Barang (PermintaanBarangResource::aksiKonfirmasi()): ikon,
+                // warna 'success', dan ->button() yang sama.
                 Action::make('konfirmasi')
                     ->label('Konfirmasi Penerimaan')
                     ->icon('heroicon-m-hand-thumb-up')
-                    ->color('info')
-                    ->requiresConfirmation()
-                    ->modalDescription('Konfirmasikan bahwa aset telah diterima oleh tim kerja Anda. Tanda tangan Anda yang tersimpan akan dibubuhkan pada BAST sebagai pihak penerima.')
+                    ->color('success')
+                    ->button()
+                    ->modalHeading('Konfirmasi Penerimaan BAST')
+                    ->modalDescription('Penempatan aset akan dipindahkan ke tim kerja Anda dan tanda tangan Anda yang tersimpan akan dibubuhkan pada BAST sebagai pihak penerima.')
                     ->modalSubmitActionLabel('Konfirmasi Penerimaan')
+                    ->modalCancelActionLabel('Batal')
+                    ->modalWidth(Width::Medium)
                     ->visible(fn (BastMutasiAset $r): bool => $r->status === 'menunggu_konfirmasi'
                         && auth()->user()?->role === 'ketua_tim'
                         && auth()->user()?->tim_id === $r->tim_tujuan_id)
+                    ->schema(fn (BastMutasiAset $r) => [
+                        View::make('filament.partials.detail-bast')
+                            ->viewData(['record' => $r->load(['aset', 'timAsal', 'timTujuan', 'dibuatOleh', 'disahkanOleh', 'dikonfirmasiOleh'])]),
+                    ])
                     ->action(function (BastMutasiAset $r): void {
                         // Lapis pertahanan terakhir: onboarding sudah menuntut
                         // Ketua Tim mendaftarkan tanda tangan, tetapi bila entah

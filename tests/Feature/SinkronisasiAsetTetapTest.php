@@ -134,6 +134,41 @@ class SinkronisasiAsetTetapTest extends TestCase
         $this->assertSame(1, AsetTetap::count());
     }
 
+    /**
+     * Perbaikan pasca-Batch 8: pencarian NUP yang sudah ada dan pembuatan
+     * baris baru bukan satu kesatuan atomik, sehingga dua unggahan yang
+     * bersamaan persis dapat sama-sama tidak menemukan barisnya. Bentroknya
+     * disimulasikan lewat kait `creating`, tepat sebelum baris ini tersimpan
+     * (pola yang sama dengan uji A-021) — baris itu ditolak dengan pesan
+     * jelas, baris lain pada berkas yang sama tetap diproses.
+     */
+    public function test_nup_bentrok_akibat_kondisi_pacu_ditolak_baris_lain_tetap_diproses(): void
+    {
+        $this->kategoriAset();
+
+        AsetTetap::creating(function (AsetTetap $model): void {
+            if ($model->nup !== '3.10.01.00002' || AsetTetap::where('nup', '3.10.01.00002')->exists()) {
+                return;
+            }
+
+            AsetTetap::withoutEvents(fn () => AsetTetap::create([
+                ...$model->getAttributes(),
+                'nama_aset' => 'Penyusup',
+            ]));
+        });
+
+        $hasil = $this->sinkron([
+            ['3.10.01.00001', 'Laptop', 'Peralatan dan Mesin', '', '', ''],
+            ['3.10.01.00002', 'Printer', 'Peralatan dan Mesin', '', '', ''],
+        ]);
+
+        $this->assertSame(1, $hasil->ditambah, 'Baris pertama tetap masuk walau baris kedua bentrok.');
+        $this->assertTrue($hasil->adaGalat());
+        $this->assertStringContainsString('Baris 3: NUP sudah dipakai oleh aset lain.', $hasil->galat[0]);
+        $this->assertNotNull(AsetTetap::where('nup', '3.10.01.00001')->first());
+        $this->assertSame('Penyusup', AsetTetap::where('nup', '3.10.01.00002')->sole()->nama_aset);
+    }
+
     public function test_synced_at_diperbarui_pada_setiap_putaran(): void
     {
         $this->kategoriAset();
@@ -186,15 +221,21 @@ class SinkronisasiAsetTetapTest extends TestCase
         $this->assertFalse((bool) $aset->refresh()->status_aktif);
     }
 
-    /** Riwayat penempatan dan BAST yang sudah terbit tetap utuh. */
+    /**
+     * Riwayat penempatan dan BAST yang sudah terbit tetap utuh.
+     *
+     * Urutan alur dibalik (A): aset kini berpindah pada langkah Konfirmasi
+     * Penerimaan, bukan lagi pada Sahkan.
+     */
     public function test_riwayat_penempatan_dan_bast_tidak_tersentuh(): void
     {
         $this->kategoriAset();
         $asal   = $this->buatTim('Sub Bagian Umum');
         $tujuan = $this->buatTim('Statistik Distribusi');
-        $bast   = $this->buatBast($asal, $tujuan, $this->buatPengguna('petugas_gudang'));
+        $ketuaTujuan = $this->buatPengguna('ketua_tim', $tujuan);
+        $bast   = $this->buatBast($asal, $tujuan, $this->buatPengguna('petugas_gudang'), status: 'menunggu_konfirmasi');
 
-        app(MutasiAsetService::class)->sahkan($bast, $this->buatPengguna('kasubbag')->id);
+        app(MutasiAsetService::class)->konfirmasi($bast, $ketuaTujuan->id);
 
         $aset            = AsetTetap::findOrFail($bast->aset_id);
         $penempatanAkhir = $aset->tim_penempatan_id;
@@ -209,9 +250,10 @@ class SinkronisasiAsetTetapTest extends TestCase
         $this->assertSame('Nama Dari Sumber', $aset->nama_aset, 'Nama tetap boleh diperbarui.');
         $this->assertSame($penempatanAkhir, $aset->tim_penempatan_id, 'Mutasi BAST tidak boleh dibatalkan.');
         $this->assertSame($jumlahRiwayat, RiwayatPenempatanAset::where('aset_id', $aset->id)->count());
-        // sahkan() menghentikan BAST pada tahap menunggu konfirmasi Ketua Tim
-        // tujuan; yang diuji di sini adalah bahwa sinkronisasi tidak menggesernya.
-        $this->assertSame('menunggu_konfirmasi', $bast->refresh()->status);
+        // konfirmasi() menghentikan BAST pada tahap menunggu pengesahan
+        // Kasubbag; yang diuji di sini adalah bahwa sinkronisasi tidak
+        // menggesernya.
+        $this->assertSame('menunggu_pengesahan', $bast->refresh()->status);
     }
 
     /** Kolom yang dikosongkan berarti tidak diubah, bukan dikosongkan. */

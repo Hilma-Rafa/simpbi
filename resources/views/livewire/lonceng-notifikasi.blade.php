@@ -84,9 +84,19 @@
                         'bg-primary-50/60 dark:bg-primary-500/5' => ! $dibaca,
                     ])
                 >
+                    {{--
+                        wire:click.prevent, bukan wire:click biasa: tanpa .prevent,
+                        navigasi bawaan href berjalan seketika di peramban sementara
+                        permintaan Livewire yang menandai dibaca baru selesai
+                        belakangan, sehingga penandaannya kerap tidak sempat
+                        tersimpan. Tujuannya tidak hilang — tandaiDibaca() sendiri
+                        yang mengalihkan sesudah penandaan selesai (lihat kelasnya).
+                        href tetap ada demi pratinjau tautan dan klik-tengah/Ctrl+klik
+                        membuka tab baru, yang keduanya tidak melalui wire:click.
+                    --}}
                     <a
                         @if ($tautan) href="{{ $tautan }}" @endif
-                        wire:click="tandaiDibaca({{ $n->id }})"
+                        wire:click.prevent="tandaiDibaca({{ $n->id }})"
                         @class([
                             // Lapang di kanan disediakan untuk tombol singkirkan,
                             // supaya teks terpanjang pun tidak berjalan ke kolongnya.

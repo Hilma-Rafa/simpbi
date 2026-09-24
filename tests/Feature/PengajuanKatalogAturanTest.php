@@ -3,12 +3,16 @@
 namespace Tests\Feature;
 
 use App\Filament\Pages\KatalogBarang;
+use App\Jobs\KirimPesanWhatsApp;
+use App\Models\Notifikasi;
 use App\Models\PermintaanBarang;
 use App\Services\StokService;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Feature\Concerns\MenyiapkanDataUji;
 use Tests\TestCase;
@@ -195,5 +199,69 @@ class PengajuanKatalogAturanTest extends TestCase
         $this->assertSame(0, PermintaanBarang::where('nama_pemohon', 'Pemohon Uji')->count());
         $this->assertSame(0, $barang->refresh()->stok_hold);
         Notification::assertNotified($this->gagal(self::PESAN_UMUM));
+    }
+
+    // ------------------------------------------------------------------
+    // Notifikasi pengajuan
+    // ------------------------------------------------------------------
+    // Pembungkus pengulangan A-020 pernah membuat notifikasi pengajuan hilang
+    // tanpa galat, karena permintaan yang dibuat di dalam transaksi tidak sampai
+    // ke luar. Uji di bawah memastikan pihak berikutnya benar-benar diberi tahu.
+
+    public function test_pengajuan_tim_memberi_tahu_ketua_timnya(): void
+    {
+        $tim = $this->buatTim();
+        $ketua = $this->buatPengguna('ketua_tim', $tim);
+        $anggota = $this->buatPengguna('tim', $tim);
+        $barang = $this->buatBarang(stokFisik: 20);
+
+        $this->actingAs($anggota);
+        $this->ajukan([['barang_id' => $barang->id, 'jumlah' => 2]]);
+
+        $permintaan = PermintaanBarang::sole();
+        $this->assertSame('menunggu_ketua', $permintaan->status);
+        $this->assertTrue(Notifikasi::where('user_id', $ketua->id)
+            ->where('channel', 'in_app')
+            ->where('referensi_id', $permintaan->id)
+            ->where('judul', 'Permintaan menunggu persetujuan Anda')
+            ->exists());
+    }
+
+    public function test_pengajuan_ketua_tim_memberi_tahu_petugas_gudang(): void
+    {
+        $tim = $this->buatTim();
+        $ketua = $this->buatPengguna('ketua_tim', $tim);
+        $gudang = $this->buatPengguna('petugas_gudang');
+        $barang = $this->buatBarang(stokFisik: 20);
+
+        $this->actingAs($ketua);
+        $this->ajukan([['barang_id' => $barang->id, 'jumlah' => 2]]);
+
+        $permintaan = PermintaanBarang::sole();
+        $this->assertSame('menunggu_verifikasi', $permintaan->status);
+        $this->assertTrue(Notifikasi::where('user_id', $gudang->id)
+            ->where('referensi_id', $permintaan->id)
+            ->where('judul', 'Permintaan perlu verifikasi ketersediaan')
+            ->exists());
+    }
+
+    public function test_pengajuan_tim_mengantrekan_whatsapp_untuk_ketua_tim(): void
+    {
+        // Antrean dipalsukan agar uji hanya membuktikan pesannya diterbitkan,
+        // tanpa menjalankan pengiriman apa pun.
+        Queue::fake();
+        DB::table('pengaturan')->where('kunci', 'wa_aktif')->update(['nilai' => '1']);
+
+        $tim = $this->buatTim();
+        $ketua = $this->buatPengguna('ketua_tim', $tim, ['no_hp' => '6281294780409']);
+        $anggota = $this->buatPengguna('tim', $tim);
+        $barang = $this->buatBarang(stokFisik: 20);
+
+        $this->actingAs($anggota);
+        $this->ajukan([['barang_id' => $barang->id, 'jumlah' => 2]]);
+
+        $wa = Notifikasi::where('user_id', $ketua->id)->where('channel', 'whatsapp')->sole();
+        $this->assertSame('pending', $wa->status_kirim);
+        Queue::assertPushed(KirimPesanWhatsApp::class, fn ($job) => $job->notifikasiId === $wa->id);
     }
 }

@@ -141,17 +141,69 @@ class PenempatanAsetFormTest extends TestCase
         $this->assertSame('penempatan_awal', $aset->riwayatPenempatan()->sole()->jenis);
     }
 
+    // =====================================================================
+    // BATCH F: TIM KERJA WAJIB SAAT BUAT
+    // =====================================================================
+
+    public function test_form_buat_menolak_submit_tanpa_tim_penempatan(): void
+    {
+        Livewire::test(CreateAsetTetap::class)
+            ->fillForm($this->isianAset(null))
+            ->call('create')
+            ->assertHasFormErrors(['tim_penempatan_id' => 'required']);
+
+        $this->assertSame(0, AsetTetap::count());
+    }
+
+    /** Placeholder "Belum ditempatkan" hanya relevan di Ubah, tidak lagi ditawarkan di Buat. */
+    public function test_placeholder_belum_ditempatkan_hanya_muncul_di_ubah_bukan_di_buat(): void
+    {
+        Livewire::test(CreateAsetTetap::class)
+            ->assertDontSee('Belum ditempatkan');
+
+        $asetLama = $this->buatAset(null);
+        $this->sunting($asetLama)
+            ->assertSee('Belum ditempatkan');
+    }
+
+    /**
+     * Regresi F-002 tidak boleh rusak oleh Batch F: aset lama (data yang ada
+     * sebelum Batch F berlaku, dibuat lewat `buatAset(null)`, bukan lewat
+     * form Buat yang kini mewajibkan tim) tetap bisa diberi penempatan sekali
+     * lewat Ubah. Jalur ini sudah dibuktikan di
+     * test_aset_yang_belum_ditempatkan_masih_dapat_diberi_penempatan_awal_lewat_ubah
+     * di atas; dicatat di sini sebagai penegasan eksplisit untuk Batch F.
+     */
+    public function test_aset_lama_tanpa_tim_tetap_bisa_diisi_sekali_lewat_ubah_batch_f(): void
+    {
+        $tim = $this->buatTim('Tim Batch F');
+        $asetLama = $this->buatAset(null);
+
+        $this->sunting($asetLama)
+            ->assertFormFieldIsEnabled('tim_penempatan_id')
+            ->fillForm(['tim_penempatan_id' => $tim->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame($tim->id, $asetLama->refresh()->tim_penempatan_id);
+        $this->assertSame('penempatan_awal', $asetLama->riwayatPenempatan()->sole()->jenis);
+    }
+
+    /**
+     * Urutan alur dibalik (A): aset kini berpindah pada langkah Konfirmasi
+     * Penerimaan, bukan lagi pada Sahkan — lihat MutasiAsetService.
+     */
     public function test_mutasi_aset_bast_tetap_memindahkan_aset_dan_menulis_riwayat(): void
     {
         $asal    = $this->buatTim('Tim Satu');
         $tujuan  = $this->buatTim('Tim Dua');
         $gudang  = $this->lengkapiAkun($this->buatPengguna('petugas_gudang'));
-        $kasubbag = $this->lengkapiAkun($this->buatPengguna('kasubbag'));
-        $bast = $this->buatBast($asal, $tujuan, $gudang);
+        $ketuaTujuan = $this->lengkapiAkun($this->buatPengguna('ketua_tim', $tujuan));
+        $bast = $this->buatBast($asal, $tujuan, $gudang, status: 'menunggu_konfirmasi');
         $aset = $bast->aset;
         $aset->catatPenempatanAwal();
 
-        app(MutasiAsetService::class)->sahkan($bast, $kasubbag->id);
+        app(MutasiAsetService::class)->konfirmasi($bast, $ketuaTujuan->id);
 
         $this->assertSame($tujuan->id, $aset->refresh()->tim_penempatan_id);
         $this->assertSame(2, $aset->riwayatPenempatan()->count());
@@ -183,8 +235,13 @@ class PenempatanAsetFormTest extends TestCase
 
     public function test_form_buat_berhasil_dengan_kolom_sinkronisasi_kosong(): void
     {
+        // Batch F: tim kerja kini wajib pada form Buat, tidak terkait F-003
+        // yang diuji di sini — diisi sekadar supaya submit tidak tertolak
+        // oleh aturan yang berbeda.
+        $tim = $this->buatTim();
+
         Livewire::test(CreateAsetTetap::class)
-            ->fillForm($this->isianAset(null, ['external_id' => 'HACK-BUAT', 'synced_at' => '2030-01-01 00:00:00']))
+            ->fillForm($this->isianAset($tim->id, ['external_id' => 'HACK-BUAT', 'synced_at' => '2030-01-01 00:00:00']))
             ->call('create')
             ->assertHasNoFormErrors();
 

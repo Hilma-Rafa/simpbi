@@ -105,10 +105,12 @@ class BastTandaTanganTersimpanTest extends TestCase
         TandaTangan::simpan($ketuaTujuan, $this->pngSah());
         $tujuan->forceFill(['ketua_tim_id' => $ketuaTujuan->id])->save();
 
-        $bast = $this->buatBast($asal, $tujuan, $this->buatPengguna('petugas_gudang'), status: 'menunggu_pengesahan');
+        // Urutan dibalik: BAST dibuat pada status menunggu_konfirmasi — di
+        // sinilah signature penerima terbubuh, sebelum Sahkan (finalisasi).
+        $bast = $this->buatBast($asal, $tujuan, $this->buatPengguna('petugas_gudang'), status: 'menunggu_konfirmasi');
 
-        app(MutasiAsetService::class)->sahkan($bast, $this->buatPengguna('kasubbag')->id);
-        app(MutasiAsetService::class)->konfirmasi($bast->refresh(), $ketuaTujuan->id);
+        app(MutasiAsetService::class)->konfirmasi($bast, $ketuaTujuan->id);
+        app(MutasiAsetService::class)->sahkan($bast->refresh(), $this->buatPengguna('kasubbag')->id);
 
         $bast->refresh();
 

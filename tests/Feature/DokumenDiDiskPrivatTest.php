@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Filament\Resources\BastMutasiAsets\Pages\CreateBastMutasiAset;
+use App\Filament\Resources\BastMutasiAsets\Pages\ListBastMutasiAsets;
 use App\Models\BastMutasiAset;
 use App\Models\PermintaanBarang;
 use App\Services\DokumenBastService;
@@ -71,15 +71,26 @@ class DokumenDiDiskPrivatTest extends TestCase
         $kasubbag = $this->lengkapiAkun($this->buatPengguna('kasubbag'));
         $aset = $this->buatAset($asal);
 
+        // Penjaga tanda tangan (E): pembuatan lewat pop-up butuh Ketua Tim
+        // asal dan tujuan yang sudah bertanda tangan.
+        $ketuaAsal = $this->lengkapiAkun($this->buatPengguna('ketua_tim', $asal));
+        $asal->forceFill(['ketua_tim_id' => $ketuaAsal->id])->save();
+        $ketuaTujuan = $this->lengkapiAkun($this->buatPengguna('ketua_tim', $tujuan));
+        $tujuan->forceFill(['ketua_tim_id' => $ketuaTujuan->id])->save();
+
         $this->actingAs($gudang);
-        Livewire::test(CreateBastMutasiAset::class)->fillForm([
-            'aset_id'        => $aset->id,
-            'tim_asal_id'    => $asal->id,
-            'tim_tujuan_id'  => $tujuan->id,
-            'alasan_mutasi'  => 'Uji disk privat',
-            'pihak_penyerah' => 'Penyerah',
-            'pihak_penerima' => 'Penerima',
-        ])->call('create')->assertHasNoFormErrors();
+        // Pembuatan BAST kini lewat pop-up CreateAction (B), bukan halaman
+        // Buat terpisah; pihak_penyerah/pihak_penerima (D) tidak lagi dikirim.
+        Livewire::test(ListBastMutasiAsets::class)
+            ->mountAction('create')
+            ->setActionData([
+                'aset_id'       => $aset->id,
+                'tim_asal_id'   => $asal->id,
+                'tim_tujuan_id' => $tujuan->id,
+                'alasan_mutasi' => 'Uji disk privat',
+            ])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
 
         $bast = BastMutasiAset::sole();
         $berkas = 'bast-mutasi/' . $bast->nomor_bast . '.pdf';
@@ -89,8 +100,11 @@ class DokumenDiDiskPrivatTest extends TestCase
         Storage::disk('local')->assertExists($berkas);
         Storage::disk('public')->assertMissing($berkas);
 
-        // Berkas yang dibentuk ulang saat disahkan.
-        app(MutasiAsetService::class)->sahkan($bast, $kasubbag->id);
+        // Berkas yang dibentuk ulang saat Konfirmasi Penerimaan (kini langkah
+        // pertama pada alur yang dibalik) dan saat Sahkan (finalisasi, langkah
+        // terakhir).
+        app(MutasiAsetService::class)->konfirmasi($bast, $ketuaTujuan->id);
+        app(MutasiAsetService::class)->sahkan($bast->fresh(), $kasubbag->id);
         $this->assertSame($berkas, $bast->fresh()->file_bast_path);
         Storage::disk('local')->assertExists($berkas);
         $this->assertSame([], Storage::disk('public')->allFiles(), 'Tidak ada apa pun di disk public.');

@@ -41,15 +41,19 @@ return [
     /*
      * Berkas panduan penggunaan.
      *
-     * Disk 'local' (storage/app/private) — bukan 'public' — supaya berkas
-     * ini tidak dapat diakses lewat tautan langsung tanpa melalui rute
-     * unduh yang mensyaratkan sesi masuk. Pemilik sistem yang menempatkan
-     * berkasnya; bila belum ada, halaman menampilkan keadaan kosong.
+     * Disk 'panduan' (root resources/Panduan-Pengguna, lihat
+     * config/filesystems.php) — bukan 'public' — supaya berkas ini tidak
+     * dapat diakses lewat tautan langsung tanpa melalui rute unduh yang
+     * mensyaratkan sesi masuk. Nama berkas ('path') mengikuti persis nama
+     * berkas yang ada di resources/Panduan-Pengguna/ — bukan ditulis mati
+     * dari nama yang diharapkan, sebab pemilik sistem bisa menaruh ulang
+     * berkasnya dengan nama berbeda. Bila suatu saat berkasnya hilang,
+     * halaman kembali menampilkan keadaan kosong.
      */
     'panduan' => [
-        'disk'          => 'local',
-        'path'          => 'panduan/Panduan-Penggunaan-SIMPBI.pdf',
-        'nama_tampilan' => 'Panduan Penggunaan SIMPBI',
+        'disk'          => 'panduan',
+        'path'          => 'Panduan Pengguna SIMPBI.pdf',
+        'nama_tampilan' => 'Buku Panduan Pengguna SIMPBI',
     ],
 
 ];

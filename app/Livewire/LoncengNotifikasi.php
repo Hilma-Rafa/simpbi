@@ -106,9 +106,30 @@ class LoncengNotifikasi extends Component
         $this->terakhirDilihat = $baru->last()->id;
     }
 
+    /**
+     * Menandai satu notifikasi sebagai dibaca, lalu membuka tujuannya.
+     *
+     * Keduanya sengaja disatukan dalam satu permintaan Livewire, bukan
+     * dibiarkan sebagai tautan <a href> polos yang bernavigasi sendiri:
+     * navigasi lewat href berjalan seketika di peramban, sedangkan
+     * permintaan Livewire baru selesai belakangan — perlombaan yang
+     * membuat penandaan dibaca kerap tidak sempat tersimpan sebelum
+     * halaman berpindah. Menunggu update ini selesai baru mengalihkan
+     * memastikan urutannya selalu benar.
+     */
     public function tandaiDibaca(int $id): void
     {
-        $this->kueri()->where('id', $id)->belumDibaca()->update(['dibaca_at' => now()]);
+        $notifikasi = $this->kueri()->find($id);
+
+        if (! $notifikasi) {
+            return;
+        }
+
+        $this->kueri()->whereKey($id)->belumDibaca()->update(['dibaca_at' => now()]);
+
+        if ($tautan = $this->tautan($notifikasi)) {
+            $this->redirect($tautan);
+        }
     }
 
     /**

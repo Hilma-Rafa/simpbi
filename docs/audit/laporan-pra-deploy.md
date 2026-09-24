@@ -266,7 +266,11 @@ database/             (hanya folder migrations/, factories/, seeders/,
                         TANPA database/data/*.xlsx yang berisi data pribadi,
                         bila produksi memakai MySQL)
 public/                (termasuk build/ hasil `npm run build` terbaru)
-resources/
+resources/              (termasuk Panduan-Pengguna/ — berkas panduan
+                        pengguna final yang disajikan dari Pusat Bantuan,
+                        aset aplikasi WAJIB ikut; beda dengan
+                        `docs/Buku Panduan/`, folder kerja penulisan yang
+                        sengaja TIDAK ikut deploy karena docs/ dikecualikan)
 routes/
 storage/                (struktur folder kosong saja — lihat §D.4)
 vendor/                (hasil `composer install --no-dev` DI SERVER, atau

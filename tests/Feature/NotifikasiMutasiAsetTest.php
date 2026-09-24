@@ -33,7 +33,41 @@ class NotifikasiMutasiAsetTest extends TestCase
             ->all();
     }
 
-    public function test_bast_baru_memberitahu_kasubbag_saja(): void
+    /**
+     * Urutan dibalik: BAST baru berstatus menunggu_konfirmasi (bukan lagi
+     * menunggu_pengesahan) — Ketua Tim tujuan yang pertama berkepentingan,
+     * bukan Kasubbag, sebab ia yang harus mengkonfirmasi penerimaan lebih
+     * dulu sebelum aset berpindah. Pemetaan penerima per status sendiri
+     * (menunggu_konfirmasi -> Ketua Tim tujuan) tidak berubah kodenya — hanya
+     * titik pemanggilannya yang kini di pembuatan, bukan di Sahkan (G.1).
+     */
+    public function test_bast_baru_memberitahu_ketua_tim_tujuan_saja(): void
+    {
+        $asal   = $this->buatTim('Sub Bagian Umum');
+        $tujuan = $this->buatTim('Statistik Sosial');
+
+        $this->buatPengguna('kasubbag', $asal);
+        $gudang      = $this->buatPengguna('petugas_gudang', $asal);
+        $ketuaTujuan = $this->buatPengguna('ketua_tim', $tujuan);
+        $ketuaLain   = $this->buatPengguna('ketua_tim', $asal);
+
+        $bast = $this->buatBast($asal, $tujuan, $gudang, status: 'menunggu_konfirmasi');
+
+        app(NotifikasiService::class)->bastBerubah($bast);
+
+        $penerima = $this->penerimaTerakhir();
+        $this->assertSame([$ketuaTujuan->name], $penerima);
+        $this->assertNotContains($ketuaLain->name, $penerima, 'Ketua Tim tim kerja lain tidak berkepentingan.');
+    }
+
+    /**
+     * Urutan dibalik: status menunggu_pengesahan kini tercapai SETELAH Ketua
+     * Tim tujuan mengkonfirmasi penerimaan (bukan lagi saat BAST dibuat) —
+     * Kasubbag yang berkepentingan berikutnya, sebab ia yang mengesahkan
+     * (finalisasi, langkah terakhir). Pemetaan penerima per status sendiri
+     * (menunggu_pengesahan -> Kasubbag) tidak berubah kodenya.
+     */
+    public function test_bast_dikonfirmasi_memberitahu_kasubbag_saja(): void
     {
         $asal   = $this->buatTim('Sub Bagian Umum');
         $tujuan = $this->buatTim('Statistik Sosial');
@@ -50,27 +84,8 @@ class NotifikasiMutasiAsetTest extends TestCase
         $this->assertNotContains(
             $ketua->name,
             $this->penerimaTerakhir(),
-            'Ketua Tim tujuan belum berkepentingan sebelum dokumennya disahkan.'
+            'Ketua Tim tujuan sudah berkepentingan pada tahap sebelumnya, bukan di sini.'
         );
-    }
-
-    public function test_bast_disahkan_memberitahu_ketua_tim_tujuan_saja(): void
-    {
-        $asal   = $this->buatTim('Sub Bagian Umum');
-        $tujuan = $this->buatTim('Statistik Sosial');
-
-        $this->buatPengguna('kasubbag', $asal);
-        $gudang     = $this->buatPengguna('petugas_gudang', $asal);
-        $ketuaTujuan = $this->buatPengguna('ketua_tim', $tujuan);
-        $ketuaLain   = $this->buatPengguna('ketua_tim', $asal);
-
-        $bast = $this->buatBast($asal, $tujuan, $gudang, status: 'menunggu_konfirmasi');
-
-        app(NotifikasiService::class)->bastBerubah($bast);
-
-        $penerima = $this->penerimaTerakhir();
-        $this->assertSame([$ketuaTujuan->name], $penerima);
-        $this->assertNotContains($ketuaLain->name, $penerima, 'Ketua Tim tim kerja lain tidak berkepentingan.');
     }
 
     public function test_mutasi_selesai_memberitahu_kasubbag_dan_petugas_gudang(): void

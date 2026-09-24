@@ -10,17 +10,20 @@ use App\Services\MutasiAsetService;
 use Illuminate\Database\Seeder;
 
 /**
- * Satu BAST mutasi aset yang sudah disahkan, agar alur aset (UC-16/17/18)
- * punya contoh lengkap sejak awal dan halaman verifikasi keaslian BAST dapat
- * dibuka tanpa lebih dulu membuat dokumen sendiri lewat panel.
+ * Satu BAST mutasi aset yang sudah tuntas (selesai_administratif), agar alur
+ * aset (UC-16/17/18) punya contoh lengkap sejak awal dan halaman verifikasi
+ * keaslian BAST dapat dibuka tanpa lebih dulu membuat dokumen sendiri lewat
+ * panel.
  *
- * BAST-nya tidak ditulis langsung ke tabel, melainkan dibentuk lalu disahkan
- * lewat MutasiAsetService::sahkan() — persis jalan yang ditempuh Kasubbag di
- * panel. Dengan begitu seluruh akibat ikut terjadi apa adanya: penempatan aset
- * berpindah ke tim tujuan, baris riwayat penempatan yang berjalan ditutup dan
- * yang baru dibuka, dokumen PDF dibentuk, dan token QR dihasilkan. Kalau
- * datanya ditulis manual, tabel akan tampak benar sementara penempatan asetnya
- * tertinggal di tim lama — justru keadaan yang tidak pernah terjadi di sistem.
+ * BAST-nya tidak ditulis langsung ke tabel, melainkan dibentuk lalu dijalankan
+ * lewat MutasiAsetService::konfirmasi() diikuti sahkan() — persis urutan yang
+ * ditempuh Ketua Tim tujuan lalu Kasubbag di panel sejak alur dibalik. Dengan
+ * begitu seluruh akibat ikut terjadi apa adanya: penempatan aset berpindah ke
+ * tim tujuan pada langkah konfirmasi, baris riwayat penempatan yang berjalan
+ * ditutup dan yang baru dibuka, dokumen PDF dibentuk, dan token QR dihasilkan.
+ * Kalau datanya ditulis manual, tabel akan tampak benar sementara penempatan
+ * asetnya tertinggal di tim lama — justru keadaan yang tidak pernah terjadi
+ * di sistem.
  *
  * Yang sengaja tidak ditiru adalah pengiriman notifikasi. Di panel notifikasi
  * dipanggil oleh lapisan Filament, bukan oleh service, dan seeder tidak boleh
@@ -53,6 +56,7 @@ class BastMutasiAsetSeeder extends Seeder
         // ditulis tetap, supaya BAST ini tetap benar walau AsetTetapSeeder
         // kelak menempatkan proyektornya di tim lain.
         $timAsalId = $aset->tim_penempatan_id;
+        $timAsal   = $timAsalId ? Tim::with('ketuaTim')->find($timAsalId) : null;
 
         // Tujuannya tim mana pun selain tim asal, diutamakan yang sudah punya
         // Ketua Tim — sebab nama Ketua itulah yang tercetak sebagai pihak
@@ -63,7 +67,16 @@ class BastMutasiAsetSeeder extends Seeder
             ->with('ketuaTim')
             ->first();
 
-        if (! $timAsalId || ! $timTujuan) {
+        if (! $timAsal || ! $timTujuan) {
+            return;
+        }
+
+        // Penjaga tanda tangan (E) berlaku juga di sini: BAST contoh tidak
+        // dibentuk bila salah satu Ketua Tim belum bertanda tangan, persis
+        // seperti yang akan ditolak panel — daripada menerbitkan contoh yang
+        // tidak mungkin terjadi lewat antarmuka sungguhan.
+        if (! $timAsal->ketuaTim || ! $timTujuan->ketuaTim
+            || app(MutasiAsetService::class)->pesanTandaTanganBelumLengkap($timAsal, $timTujuan)) {
             return;
         }
 
@@ -75,11 +88,21 @@ class BastMutasiAsetSeeder extends Seeder
             'tim_asal_id'    => $timAsalId,
             'tim_tujuan_id'  => $timTujuan->id,
             'alasan_mutasi'  => 'Proyektor dipindahkan untuk mendukung kegiatan pengumpulan data lapangan yang frekuensinya meningkat pada tim tujuan.',
-            'pihak_penyerah' => $petugas->name,
-            'pihak_penerima' => $timTujuan->ketuaTim?->name ?? $timTujuan->nama_tim,
+            // Nama Ketua Tim asal/tujuan (G.3) — sumber sama persis dengan
+            // yang dipakai DokumenBastService merender tanda tangan, bukan
+            // lagi diketik operator. Kolom tetap ada di skema (tanpa
+            // migration); hanya tidak lagi diminta/ditampilkan di UI.
+            'pihak_penyerah' => $timAsal->ketuaTim->name,
+            'pihak_penerima' => $timTujuan->ketuaTim->name,
+            'status'         => 'menunggu_konfirmasi',
             'dibuat_oleh_id' => $petugas->id,
         ]);
 
-        $layanan->sahkan($bast, $kasubbag->id);
+        // Urutan baru: Konfirmasi Penerimaan (aset berpindah di sini) lalu
+        // Sahkan (finalisasi, langkah terakhir) — supaya contoh ini benar-benar
+        // tuntas (selesai_administratif) dan halaman verifikasi keaslian BAST
+        // dapat dibuka tanpa lebih dulu membuat dokumen sendiri lewat panel.
+        $layanan->konfirmasi($bast, $timTujuan->ketuaTim->id);
+        $layanan->sahkan($bast->refresh(), $kasubbag->id);
     }
 }

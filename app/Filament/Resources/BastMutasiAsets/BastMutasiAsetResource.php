@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\BastMutasiAsets;
 
-use App\Filament\Resources\BastMutasiAsets\Pages\CreateBastMutasiAset;
 use App\Filament\Resources\BastMutasiAsets\Pages\ListBastMutasiAsets;
 use App\Filament\Resources\BastMutasiAsets\Schemas\BastMutasiAsetForm;
 use App\Filament\Resources\BastMutasiAsets\Tables\BastMutasiAsetsTable;
@@ -75,11 +74,14 @@ class BastMutasiAsetResource extends Resource
         return BastMutasiAsetsTable::configure($table);
     }
 
+    /**
+     * Tidak ada halaman 'create' (B): pembuatan BAST hanya lewat pop-up
+     * CreateAction pada ListBastMutasiAsets, bukan halaman terpisah.
+     */
     public static function getPages(): array
     {
         return [
             'index' => ListBastMutasiAsets::route('/'),
-            'create' => CreateBastMutasiAset::route('/create'),
         ];
     }
 }

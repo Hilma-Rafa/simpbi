@@ -40,6 +40,7 @@ class UnduhanDokumenTest extends TestCase
 
         Storage::fake('public');
         Storage::fake('local');
+        Storage::fake('panduan');
 
         Storage::disk('local')->put(self::BUKTI, '%PDF-bukti');
         Storage::disk('local')->put(self::BAST, '%PDF-bast');

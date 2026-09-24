@@ -38,6 +38,31 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Berkas panduan penggunaan SIMPBI (lihat config/pusat_bantuan.php).
+         * Root-nya resources/Panduan-Pengguna, bukan storage/app — pemilik
+         * sistem menaruh berkas final di sana. Tetap disk 'local' biasa
+         * (bukan 'public'), sehingga hanya bisa diakses lewat rute unduh
+         * bergerbang login (pusat-bantuan.unduh-panduan di routes/web.php),
+         * tidak lewat tautan langsung.
+         *
+         * 'serve' => false (bukan true): opsi ini mendaftarkan rute publik
+         * bawaan Laravel GET/PUT /storage/{path} (FilesystemServiceProvider,
+         * hanya dilindungi signed URL, bukan gerbang login) — tidak pernah
+         * dipakai kode aplikasi untuk disk ini, dan karena tidak menyetel
+         * 'url' sendiri ia diam-diam menggantikan rute /storage/{path} milik
+         * disk 'local' yang sudah ada (dua disk local berebut URI default
+         * yang sama). Dimatikan supaya rute 'local' tidak tertimpa dan tidak
+         * ada permukaan rute tambahan yang tidak perlu.
+         */
+        'panduan' => [
+            'driver' => 'local',
+            'root' => resource_path('Panduan-Pengguna'),
+            'serve' => false,
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

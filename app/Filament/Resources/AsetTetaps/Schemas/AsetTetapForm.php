@@ -23,7 +23,13 @@ class AsetTetapForm
                             ->label('NUP')
                             ->helperText('Nomor Urut Pendaftaran aset.')
                             ->required()
-                            ->maxLength(30),
+                            ->maxLength(30)
+                            // Dipangkas dulu, baru dibandingkan: tanpa ini, NUP yang hanya
+                            // berbeda spasi ujung lolos validasi lalu tetap gagal di basis
+                            // data (kolomnya unik apa adanya, lihat migration).
+                            ->trim()
+                            ->unique(ignoreRecord: true)
+                            ->validationMessages(['unique' => 'NUP sudah dipakai oleh aset lain.']),
                         TextInput::make('nama_aset')
                             ->label('Nama Aset')
                             ->required()
@@ -48,12 +54,21 @@ class AsetTetapForm
                             ->relationship('timPenempatan', 'nama_tim')
                             ->searchable()
                             ->preload()
-                            ->placeholder('Belum ditempatkan')
+                            // "Belum ditempatkan" hanya relevan di Ubah, bagi aset lama yang
+                            // datanya memang kosong (Batch F) — pada Buat, penempatan wajib
+                            // diisi sejak awal, sebab BAST tidak dapat dibuat untuk aset
+                            // tanpa penempatan (MA-6/MA-11), sehingga membiarkan aset lahir
+                            // tanpa penempatan hanya menunda masalah, bukan mencegahnya.
+                            ->placeholder(fn (string $operation): ?string => $operation === 'create' ? null : 'Belum ditempatkan')
+                            ->required(fn (string $operation): bool => $operation === 'create')
                             // Aset yang sudah ditempatkan hanya berpindah lewat Mutasi Aset
                             // (BAST), sehingga pada form Ubah kolom ini terkunci dan tidak
                             // ikut disimpan (F-002). Form Buat, dan aset yang belum pernah
                             // ditempatkan, tetap dapat memilihnya: pengisian pertama itulah
-                            // penempatan awal (EditAsetTetap::afterSave).
+                            // penempatan awal (EditAsetTetap::afterSave) — logika kunci-
+                            // bersyarat ini TIDAK diubah oleh kewajiban baru di atas, sebab
+                            // ia hanya berlaku pada konteks Buat, bukan pada aset lama yang
+                            // masih kosong di Ubah.
                             ->disabled(fn (?Model $record): bool => filled($record?->tim_penempatan_id))
                             ->dehydrated(fn (?Model $record): bool => blank($record?->tim_penempatan_id))
                             ->helperText(fn (?Model $record): ?string => filled($record?->tim_penempatan_id)

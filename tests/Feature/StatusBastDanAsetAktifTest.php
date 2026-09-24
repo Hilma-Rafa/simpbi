@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Filament\Resources\BastMutasiAsets\Pages\CreateBastMutasiAset;
 use App\Filament\Resources\BastMutasiAsets\Pages\ListBastMutasiAsets;
 use App\Models\BastMutasiAset;
 use App\Models\Notifikasi;
@@ -22,10 +21,13 @@ use Tests\TestCase;
 /**
  * F-006: status BAST dan status aktif aset dijaga di server.
  *
- * Sahkan hanya berlaku bagi BAST berstatus menunggu_pengesahan, dan
- * Konfirmasi Penerimaan hanya bagi menunggu_konfirmasi, diperiksa ulang di
- * dalam transaksi dengan baris BAST terkunci sebelum apa pun ditulis.
- * Pembuatan BAST menolak aset yang tidak aktif.
+ * Pada alur yang dibalik, Konfirmasi Penerimaan hanya berlaku bagi BAST
+ * berstatus menunggu_konfirmasi (langkah pertama), dan Sahkan hanya bagi
+ * menunggu_pengesahan (langkah terakhir) — syarat *input* tiap aksi tidak
+ * berubah dari sebelum urutan dibalik, hanya status *keluaran* dan efek
+ * sampingnya yang tertukar. Diperiksa ulang di dalam transaksi dengan baris
+ * BAST terkunci sebelum apa pun ditulis. Pembuatan BAST menolak aset yang
+ * tidak aktif.
  */
 class StatusBastDanAsetAktifTest extends TestCase
 {
@@ -44,6 +46,8 @@ class StatusBastDanAsetAktifTest extends TestCase
 
     private User $kasubbag;
 
+    private User $ketuaAsal;
+
     private User $ketuaTujuan;
 
     protected function setUp(): void
@@ -58,6 +62,8 @@ class StatusBastDanAsetAktifTest extends TestCase
         $this->tujuan = $this->buatTim('Tim Tujuan');
         $this->gudang   = $this->lengkapiAkun($this->buatPengguna('petugas_gudang'));
         $this->kasubbag = $this->lengkapiAkun($this->buatPengguna('kasubbag'));
+        $this->ketuaAsal = $this->lengkapiAkun($this->buatPengguna('ketua_tim', $this->asal));
+        $this->asal->forceFill(['ketua_tim_id' => $this->ketuaAsal->id])->save();
         $this->ketuaTujuan = $this->lengkapiAkun($this->buatPengguna('ketua_tim', $this->tujuan));
         $this->tujuan->forceFill(['ketua_tim_id' => $this->ketuaTujuan->id])->save();
     }
@@ -87,14 +93,13 @@ class StatusBastDanAsetAktifTest extends TestCase
     }
 
     // =====================================================================
-    // SAHKAN
+    // SAHKAN (input tetap menunggu_pengesahan; keluaran kini selesai_administratif)
     // =====================================================================
 
     public function test_sahkan_dua_kali_berturut_turut_yang_kedua_ditolak_tanpa_tulisan_tambahan(): void
     {
         $bast  = $this->bast();
         $basi  = BastMutasiAset::find($bast->id); // dimuat sebelum pengesahan pertama: statusnya di memori usang
-        $aset  = $bast->aset;
 
         $this->service()->sahkan($bast, $this->kasubbag->id);
 
@@ -106,8 +111,7 @@ class StatusBastDanAsetAktifTest extends TestCase
 
         $this->assertSame($riwayat, RiwayatPenempatanAset::count(), 'Tidak ada baris riwayat tambahan.');
         $this->assertSame($notifikasi, Notifikasi::count(), 'Tidak ada notifikasi tambahan.');
-        $this->assertSame($this->tujuan->id, $aset->refresh()->tim_penempatan_id, 'Penempatan tidak berpindah lagi.');
-        $this->assertSame('menunggu_konfirmasi', $bast->fresh()->status);
+        $this->assertSame('selesai_administratif', $bast->fresh()->status);
         $this->assertTrue($disahkanAt->equalTo($bast->fresh()->disahkan_at));
     }
 
@@ -127,7 +131,7 @@ class StatusBastDanAsetAktifTest extends TestCase
     }
 
     // =====================================================================
-    // KONFIRMASI PENERIMAAN
+    // KONFIRMASI PENERIMAAN (input tetap menunggu_konfirmasi; keluaran kini menunggu_pengesahan)
     // =====================================================================
 
     public function test_konfirmasi_penerimaan_pada_status_selain_menunggu_konfirmasi_ditolak(): void
@@ -153,7 +157,7 @@ class StatusBastDanAsetAktifTest extends TestCase
         $this->harusDitolak(fn () => $this->service()->konfirmasi($basi, $this->ketuaTujuan->id), self::PESAN_SUDAH_DIPROSES);
 
         $this->assertTrue($sesudahPertama->equalTo($bast->fresh()->dikonfirmasi_at));
-        $this->assertSame('selesai_administratif', $bast->fresh()->status);
+        $this->assertSame('menunggu_pengesahan', $bast->fresh()->status);
     }
 
     public function test_aksi_konfirmasi_menampilkan_penolakan_sebagai_notifikasi_bukan_galat_mentah(): void
@@ -175,23 +179,24 @@ class StatusBastDanAsetAktifTest extends TestCase
     }
 
     // =====================================================================
-    // ALUR NORMAL TETAP BERHASIL
+    // ALUR NORMAL TETAP BERHASIL (kini Konfirmasi dulu, baru Sahkan)
     // =====================================================================
 
-    public function test_alur_normal_sahkan_lalu_konfirmasi_tetap_berhasil(): void
+    public function test_alur_normal_konfirmasi_lalu_sahkan_tetap_berhasil(): void
     {
-        $bast = $this->bast();
-
-        $this->actingAs($this->kasubbag);
-        Livewire::test(ListBastMutasiAsets::class)->callAction(TestAction::make('sahkan')->table($bast));
-        $this->assertSame('menunggu_konfirmasi', $bast->fresh()->status);
+        $bast = $this->bast('menunggu_konfirmasi');
 
         $this->actingAs($this->ketuaTujuan);
-        Livewire::test(ListBastMutasiAsets::class)->callAction(TestAction::make('konfirmasi')->table($bast->fresh()));
+        Livewire::test(ListBastMutasiAsets::class)->callAction(TestAction::make('konfirmasi')->table($bast));
+        $this->assertSame('menunggu_pengesahan', $bast->fresh()->status);
+        $this->assertSame($this->tujuan->id, $bast->aset->fresh()->tim_penempatan_id, 'Aset sudah berpindah pada langkah Konfirmasi.');
+
+        $this->actingAs($this->kasubbag);
+        Livewire::test(ListBastMutasiAsets::class)->callAction(TestAction::make('sahkan')->table($bast->fresh()));
 
         $bast->refresh();
         $this->assertSame('selesai_administratif', $bast->status);
-        $this->assertSame($this->tujuan->id, $bast->aset->fresh()->tim_penempatan_id);
+        $this->assertSame($this->tujuan->id, $bast->aset->fresh()->tim_penempatan_id, 'Sahkan tidak lagi mengubah penempatan.');
         $this->assertSame(2, $bast->aset->riwayatPenempatan()->count());
     }
 
@@ -204,27 +209,26 @@ class StatusBastDanAsetAktifTest extends TestCase
         $aset = $this->buatAset($this->asal, ['status_aktif' => false]);
 
         $this->harusDitolak(
-            fn () => $this->service()->periksaPembuatan($aset->id, $this->asal->id),
+            fn () => $this->service()->periksaPembuatan($aset->id, $this->asal->id, $this->tujuan->id),
             self::PESAN_NONAKTIF,
         );
     }
 
-    /** Muatan yang dimodifikasi: aset nonaktif dikirim langsung ke halaman Buat. */
+    /** Muatan yang dimodifikasi: aset nonaktif dikirim langsung ke pop-up Buat. */
     public function test_muatan_dimodifikasi_dengan_aset_nonaktif_tidak_membentuk_bast(): void
     {
         $aset = $this->buatAset($this->asal, ['status_aktif' => false]);
         $this->actingAs($this->gudang);
 
-        Livewire::test(CreateBastMutasiAset::class)
-            ->set('data.aset_id', $aset->id)
-            ->fillForm([
-                'tim_asal_id'    => $this->asal->id,
-                'tim_tujuan_id'  => $this->tujuan->id,
-                'alasan_mutasi'  => 'Redistribusi',
-                'pihak_penyerah' => 'Penyerah',
-                'pihak_penerima' => 'Penerima',
+        Livewire::test(ListBastMutasiAsets::class)
+            ->mountAction('create')
+            ->setActionData(['aset_id' => $aset->id])
+            ->setActionData([
+                'tim_asal_id'   => $this->asal->id,
+                'tim_tujuan_id' => $this->tujuan->id,
+                'alasan_mutasi' => 'Redistribusi',
             ])
-            ->call('create');
+            ->callMountedAction();
 
         $this->assertSame(0, BastMutasiAset::count());
     }
@@ -234,14 +238,16 @@ class StatusBastDanAsetAktifTest extends TestCase
         $aset = $this->buatAset($this->asal);
         $this->actingAs($this->gudang);
 
-        Livewire::test(CreateBastMutasiAset::class)->fillForm([
-            'aset_id'        => $aset->id,
-            'tim_asal_id'    => $this->asal->id,
-            'tim_tujuan_id'  => $this->tujuan->id,
-            'alasan_mutasi'  => 'Redistribusi',
-            'pihak_penyerah' => 'Penyerah',
-            'pihak_penerima' => 'Penerima',
-        ])->call('create')->assertHasNoFormErrors();
+        Livewire::test(ListBastMutasiAsets::class)
+            ->mountAction('create')
+            ->setActionData([
+                'aset_id'       => $aset->id,
+                'tim_asal_id'   => $this->asal->id,
+                'tim_tujuan_id' => $this->tujuan->id,
+                'alasan_mutasi' => 'Redistribusi',
+            ])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
 
         $this->assertSame(1, BastMutasiAset::count());
     }

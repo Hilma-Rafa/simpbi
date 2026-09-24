@@ -36,11 +36,10 @@ class KontakBantuan
      * dipakai job pengiriman dan seeder, sebab wa.me menuntut bentuk yang sama
      * dengan gerbang WhatsApp: E.164 tanpa tanda plus.
      *
-     * $pesan boleh diisi ulang atau dikosongkan (null) oleh pemanggil yang
-     * tidak ingin membawa pesan otomatis — Pusat Bantuan memakai ini, sebab
-     * konteksnya bukan "kendala masuk" seperti halaman masuk. Pemanggil yang
-     * tidak mengisi apa pun (halaman masuk) tetap mendapat pesan bawaan yang
-     * sama seperti sebelumnya.
+     * $pesan boleh diisi ulang oleh pemanggil yang konteksnya berbeda dari
+     * "kendala masuk" — Pusat Bantuan memakai ini untuk mengirim pesan
+     * pembuka bantuan umum. Pemanggil yang tidak mengisi apa pun (halaman
+     * masuk) tetap mendapat pesan bawaan yang sama seperti sebelumnya.
      */
     public static function tautanWhatsApp(
         ?string $pesan = 'Halo, saya mengalami kendala masuk ke SIMPBI dan memerlukan bantuan.'

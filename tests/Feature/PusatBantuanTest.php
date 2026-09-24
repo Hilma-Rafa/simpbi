@@ -28,7 +28,7 @@ class PusatBantuanTest extends TestCase
     {
         parent::setUp();
 
-        Storage::fake('local');
+        Storage::fake('panduan');
     }
 
     // =====================================================================
@@ -69,7 +69,7 @@ class PusatBantuanTest extends TestCase
 
     public function test_panduan_tersedia_menampilkan_tombol_unduh_dan_badge(): void
     {
-        Storage::disk('local')->put('panduan/Panduan-Penggunaan-SIMPBI.pdf', str_repeat('a', 1024 * 1024 * 2));
+        Storage::disk('panduan')->put(config('pusat_bantuan.panduan.path'), str_repeat('a', 1024 * 1024 * 2));
 
         $this->actingAs($this->buatPengguna('tim', $this->buatTim()));
 
@@ -90,7 +90,7 @@ class PusatBantuanTest extends TestCase
 
     public function test_unduh_panduan_mengalirkan_berkas_bila_ada(): void
     {
-        Storage::disk('local')->put('panduan/Panduan-Penggunaan-SIMPBI.pdf', 'isi-panduan');
+        Storage::disk('panduan')->put(config('pusat_bantuan.panduan.path'), 'isi-panduan');
 
         $this->actingAs($this->buatPengguna('admin'));
 
@@ -104,6 +104,52 @@ class PusatBantuanTest extends TestCase
         $this->actingAs($this->buatPengguna('admin'));
 
         $this->get(route('pusat-bantuan.unduh-panduan'))->assertNotFound();
+    }
+
+    /**
+     * Berkas panduan asli (bukan disk palsu) sudah ditempatkan pemilik
+     * sistem di resources/Panduan-Pengguna/. Storage::forgetDisk melepas
+     * instance disk 'panduan' yang dipalsukan setUp() supaya pemanggilan
+     * berikutnya membaca ulang dari konfigurasi sungguhan — jadi tes ini
+     * membuktikan konfigurasi produksi benar-benar berfungsi, bukan hanya
+     * mekanismenya lewat berkas tiruan.
+     */
+    public function test_dengan_konfigurasi_asli_panduan_tidak_lagi_kosong_untuk_semua_peran(): void
+    {
+        Storage::forgetDisk('panduan');
+
+        foreach (['admin', 'kasubbag', 'petugas_gudang', 'ketua_tim', 'tim'] as $peran) {
+            $this->flushSession();
+
+            $pengguna = $this->buatPengguna($peran, in_array($peran, ['ketua_tim', 'tim']) ? $this->buatTim() : null);
+            $this->actingAs($pengguna);
+
+            Livewire::test(PusatBantuan::class)
+                ->assertSee('Unduh Panduan')
+                ->assertDontSee('Panduan belum tersedia');
+        }
+    }
+
+    /**
+     * getContent() tidak berguna di sini karena rute unduh memakai
+     * StreamedResponse (lihat FilesystemAdapter::response()) — isinya cuma
+     * tersedia lewat streamedContent(), yang benar-benar menjalankan
+     * callback-nya lalu menangkap keluarannya.
+     */
+    public function test_unduh_panduan_asli_200_dengan_content_type_pdf_dan_isi_cocok(): void
+    {
+        Storage::forgetDisk('panduan');
+
+        $this->actingAs($this->buatPengguna('admin'));
+
+        $berkasAsli = resource_path('Panduan-Pengguna/' . config('pusat_bantuan.panduan.path'));
+
+        $respons = $this->get(route('pusat-bantuan.unduh-panduan'))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf')
+            ->assertDownload(config('pusat_bantuan.panduan.nama_tampilan') . '.pdf');
+
+        $this->assertSame(md5_file($berkasAsli), md5($respons->streamedContent()));
     }
 
     /**
@@ -152,7 +198,7 @@ class PusatBantuanTest extends TestCase
             ->assertDontSee('Chat Sekarang');
     }
 
-    public function test_tautan_whatsapp_tanpa_pesan_otomatis(): void
+    public function test_tautan_whatsapp_berisi_pesan_otomatis_pusat_bantuan(): void
     {
         DB::table('pengaturan')->where('kunci', 'kontak_bantuan_wa')->update(['nilai' => '6281238096104']);
 
@@ -160,7 +206,10 @@ class PusatBantuanTest extends TestCase
 
         $tautan = Livewire::test(PusatBantuan::class)->instance()->tautanWhatsApp();
 
-        $this->assertSame('https://wa.me/6281238096104', $tautan);
+        $this->assertSame(
+            'https://wa.me/6281238096104?text=' . rawurlencode('Halo! Saya sedang butuh bantuan.'),
+            $tautan
+        );
     }
 
     public function test_mengubah_nomor_di_pengaturan_tercermin_di_pusat_bantuan(): void

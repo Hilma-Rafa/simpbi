@@ -119,10 +119,14 @@ class PusatBantuan extends Page
         return '+' . $nomor;
     }
 
-    /** Tautan wa.me tanpa pesan otomatis (berbeda dari kaki halaman masuk). */
+    /**
+     * Tautan wa.me dengan pesan otomatis khusus Pusat Bantuan — berbeda dari
+     * pesan bawaan kaki halaman masuk, sebab konteksnya bukan "kendala masuk"
+     * melainkan permintaan bantuan umum.
+     */
     public function tautanWhatsApp(): ?string
     {
-        return KontakBantuan::tautanWhatsApp(null);
+        return KontakBantuan::tautanWhatsApp('Halo! Saya sedang butuh bantuan.');
     }
 
     // =====================================================================

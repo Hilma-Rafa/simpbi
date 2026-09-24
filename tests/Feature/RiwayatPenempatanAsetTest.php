@@ -173,23 +173,25 @@ class RiwayatPenempatanAsetTest extends TestCase
     }
 
     /**
-     * Aset tanpa tim penempatan tidak boleh memperoleh baris apa pun.
+     * Batch F: Tim Kerja kini wajib diisi pada form Buat, sehingga aset tanpa
+     * penempatan tidak lagi bisa lahir lewat form ini sama sekali — form
+     * menolak submit-nya (bukan lagi diterima dengan penempatan kosong).
+     * BAST tidak dapat dibuat untuk aset tanpa penempatan (MA-6/MA-11), jadi
+     * membiarkan aset lahir tanpa penempatan hanya menunda masalah.
      *
-     * Kolom `tim_id` pada riwayat tidak menerima null, sehingga satu-satunya
-     * cara membuat barisnya adalah menebak timnya — dan tebakan itulah yang
-     * dilarang.
+     * Skenario "aset tanpa tim tidak memperoleh riwayat" bagi data LAMA (yang
+     * masih mungkin ada di database sebelum Batch F) tetap diuji lewat jalur
+     * lain — lihat test_aset_lama_bertim_tanpa_riwayat_tidak_ditambal_saat_disunting
+     * dan pengaman `catatPenempatanAwal()` yang tidak disentuh batch ini.
      */
-    public function test_aset_tanpa_tim_penempatan_tidak_memperoleh_riwayat(): void
+    public function test_form_buat_menolak_submit_tanpa_tim_penempatan(): void
     {
         Livewire::test(CreateAsetTetap::class)
             ->fillForm($this->isianAset(null))
             ->call('create')
-            ->assertHasNoFormErrors();
+            ->assertHasFormErrors(['tim_penempatan_id' => 'required']);
 
-        $aset = AsetTetap::latest('id')->firstOrFail();
-
-        $this->assertNull($aset->tim_penempatan_id);
-        $this->assertSame(0, $aset->riwayatPenempatan()->count());
+        $this->assertSame(0, AsetTetap::count());
         $this->assertSame(0, RiwayatPenempatanAset::count());
     }
 
@@ -211,19 +213,17 @@ class RiwayatPenempatanAsetTest extends TestCase
     // =====================================================================
 
     /**
-     * Aset boleh dicatat lebih dulu tanpa tim kerja, lalu ditempatkan kemudian.
-     * Pengisian tim yang pertama itulah penempatan awalnya.
+     * Aset lama boleh sudah tercatat tanpa tim kerja (dari sebelum Batch F,
+     * atau lewat impor/API — form Buat sendiri kini mewajibkannya), lalu
+     * ditempatkan kemudian lewat Ubah. Pengisian tim yang pertama itulah
+     * penempatan awalnya. Aset dibuat lewat `buatAset()` (langsung ke basis
+     * data), bukan lewat form Buat, sebab form Buat kini menolak tim kosong.
      */
     public function test_mengisi_tim_pertama_kali_membentuk_penempatan_awal(): void
     {
         $tim = $this->buatTim('Statistik Sosial');
 
-        Livewire::test(CreateAsetTetap::class)
-            ->fillForm($this->isianAset(null))
-            ->call('create')
-            ->assertHasNoFormErrors();
-
-        $aset = AsetTetap::latest('id')->firstOrFail();
+        $aset = $this->buatAset();
         $this->assertSame(0, $aset->riwayatPenempatan()->count());
 
         Livewire::test(EditAsetTetap::class, ['record' => $aset->getKey()])
@@ -242,18 +242,17 @@ class RiwayatPenempatanAsetTest extends TestCase
         $this->assertSame(1, $aset->refresh()->riwayatPenempatan()->count());
     }
 
-    /** Penyuntingan berikutnya tidak menambah baris kedua. */
+    /**
+     * Penyuntingan berikutnya tidak menambah baris kedua. Aset dibuat lewat
+     * `buatAset()` (data lama tanpa tim), sebab form Buat kini mewajibkan
+     * tim kerja (Batch F).
+     */
     public function test_penyuntingan_berikutnya_tidak_menambah_riwayat(): void
     {
         $tim  = $this->buatTim('Statistik Sosial');
         $lain = $this->buatTim('Statistik Distribusi');
 
-        Livewire::test(CreateAsetTetap::class)
-            ->fillForm($this->isianAset(null))
-            ->call('create')
-            ->assertHasNoFormErrors();
-
-        $aset = AsetTetap::latest('id')->firstOrFail();
+        $aset = $this->buatAset();
 
         Livewire::test(EditAsetTetap::class, ['record' => $aset->getKey()])
             ->fillForm(['tim_penempatan_id' => $tim->id])
@@ -424,14 +423,19 @@ class RiwayatPenempatanAsetTest extends TestCase
      *
      * Baris ini dibuat oleh alur BAST yang sudah ada dan tidak disentuh
      * perbaikan ini; yang diuji hanyalah bahwa tampilan riwayat membacanya.
+     *
+     * Urutan alur dibalik (A): aset kini berpindah pada langkah Konfirmasi
+     * Penerimaan, bukan lagi pada Sahkan — baris riwayat mutasi karena itu
+     * dibentuk oleh konfirmasi(), bukan sahkan().
      */
     public function test_tampilan_riwayat_memuat_baris_mutasi_beserta_nomor_bast(): void
     {
         $asal   = $this->buatTim('Sub Bagian Umum');
         $tujuan = $this->buatTim('Statistik Distribusi');
-        $bast   = $this->buatBast($asal, $tujuan, $this->buatPengguna('petugas_gudang'));
+        $ketuaTujuan = $this->buatPengguna('ketua_tim', $tujuan);
+        $bast   = $this->buatBast($asal, $tujuan, $this->buatPengguna('petugas_gudang'), status: 'menunggu_konfirmasi');
 
-        app(MutasiAsetService::class)->sahkan($bast, $this->buatPengguna('kasubbag')->id);
+        app(MutasiAsetService::class)->konfirmasi($bast, $ketuaTujuan->id);
 
         $aset = AsetTetap::findOrFail($bast->aset_id);
         $html = $this->tampilanRiwayat($aset);
@@ -555,15 +559,14 @@ class RiwayatPenempatanAsetTest extends TestCase
         $this->assertSame(1, $aset->riwayatPenempatan()->count());
     }
 
-    /** Aset yang memang belum berriwayat tetap dapat dihapus seperti semula. */
+    /**
+     * Aset yang memang belum berriwayat tetap dapat dihapus seperti semula.
+     * Dibuat lewat `buatAset()` (data lama tanpa tim), sebab form Buat kini
+     * mewajibkan tim kerja (Batch F).
+     */
     public function test_aset_tanpa_riwayat_masih_dapat_dihapus(): void
     {
-        Livewire::test(CreateAsetTetap::class)
-            ->fillForm($this->isianAset(null))
-            ->call('create')
-            ->assertHasNoFormErrors();
-
-        $aset = AsetTetap::latest('id')->firstOrFail();
+        $aset = $this->buatAset();
 
         $this->assertFalse($aset->punyaRiwayat());
         $this->assertTrue($aset->delete());

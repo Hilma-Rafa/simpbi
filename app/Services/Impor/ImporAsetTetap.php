@@ -5,6 +5,7 @@ namespace App\Services\Impor;
 use App\Models\AsetTetap;
 use App\Models\Kategori;
 use App\Models\Tim;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -218,7 +219,7 @@ class ImporAsetTetap
             }
 
             DB::transaction(function () use (
-                $aset, $nup, $nama, $kategori, $kondisi, $timPenempatan, $externalId, $hasil
+                $aset, $nup, $nama, $kategori, $kondisi, $timPenempatan, $externalId, $hasil, $b
             ): void {
                 $atribut = $this->atributSumber($nama, $kategori->id, $kondisi, $externalId);
 
@@ -231,13 +232,23 @@ class ImporAsetTetap
                     return;
                 }
 
-                $baru = AsetTetap::create([
-                    'nup'               => $nup,
-                    'tim_penempatan_id' => $timPenempatan?->id,
-                    'kondisi'           => $kondisi ?: 'baik',
-                    'status_aktif'      => true,
-                    ...$atribut,
-                ]);
+                // Pencarian $aset di atas dan pembuatan ini bukan satu kesatuan atomik:
+                // dua unggahan yang bersamaan persis dapat sama-sama tidak menemukan
+                // barisnya lalu sama-sama mencoba membuat. Jaring pengaman ini menolak
+                // baris itu dengan pesan yang jelas, bukan menggagalkan seisi berkas.
+                try {
+                    $baru = AsetTetap::create([
+                        'nup'               => $nup,
+                        'tim_penempatan_id' => $timPenempatan?->id,
+                        'kondisi'           => $kondisi ?: 'baik',
+                        'status_aktif'      => true,
+                        ...$atribut,
+                    ]);
+                } catch (UniqueConstraintViolationException) {
+                    $hasil->catatGalat($b['nomor'], 'NUP sudah dipakai oleh aset lain.');
+
+                    return;
+                }
 
                 /*
                  * Penempatan awal dicatat lewat mekanisme yang sama dengan
