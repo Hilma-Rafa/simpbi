@@ -62,6 +62,7 @@ class ImporAsetTetap
                 catatan: 'Nomor Urut Pendaftaran aset pada pencatatan barang milik negara. '
                     . 'Inilah kunci pencocokannya: NUP yang sudah ada akan diperbarui, '
                     . 'NUP yang belum ada akan ditambahkan. NUP sendiri tidak pernah diubah.',
+                format: Kolom::TEKS,
             ),
             Kolom::buat(
                 kunci: 'nama_aset',
@@ -101,6 +102,7 @@ class ImporAsetTetap
                 contoh: 'BMN-2024-00041',
                 catatan: 'Penanda aset pada sistem sumber, disimpan sebagai keterangan asal. '
                     . 'Bukan kunci pencocokan. Dikosongkan berarti tidak diubah.',
+                format: Kolom::TEKS,
             ),
         ];
     }

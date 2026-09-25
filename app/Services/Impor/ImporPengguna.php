@@ -79,6 +79,7 @@ class ImporPengguna
                 judul: 'NIP',
                 contoh: '199001012015011001',
                 catatan: 'Dicantumkan pada dokumen bukti permintaan.',
+                format: Kolom::TEKS,
             ),
             Kolom::buat(
                 kunci: 'no_hp',
@@ -86,6 +87,7 @@ class ImporPengguna
                 contoh: '081234567890',
                 catatan: 'Boleh ditulis 08xx maupun 62xx; sistem menyeragamkannya sendiri. '
                     . 'Dipakai bila notifikasi WhatsApp dinyalakan.',
+                format: Kolom::TEKS,
             ),
             Kolom::buat(
                 kunci: 'status_aktif',

@@ -28,7 +28,25 @@ class Kolom
 
         /** Penjelasan pada lembar petunjuk. */
         public readonly string $catatan = '',
+
+        /**
+         * Format sel area isian pada template: TEKS, TANGGAL, atau null (Umum).
+         * Hanya memengaruhi rupa template; pembaca berkas tidak memakainya.
+         */
+        public readonly ?string $format = null,
     ) {}
+
+    /**
+     * Kolom kode (kode kategori, kode barang, NUP, NIP, nomor dasar, …).
+     *
+     * Sel berformat Umum mengubah ketikan 000122 menjadi angka 122, sehingga
+     * nol di depan hilang sebelum berkas sampai ke sistem. Sel berformat Teks
+     * menyimpannya apa adanya.
+     */
+    public const TEKS = 'teks';
+
+    /** Kolom tanggal: sel berformat DD/MM/YYYY tanpa nilai bawaan. */
+    public const TANGGAL = 'tanggal';
 
     public static function buat(
         string $kunci,
@@ -36,8 +54,9 @@ class Kolom
         bool $wajib = false,
         string $contoh = '',
         string $catatan = '',
+        ?string $format = null,
     ): self {
-        return new self($kunci, $judul, $wajib, $contoh, $catatan);
+        return new self($kunci, $judul, $wajib, $contoh, $catatan, $format);
     }
 
     /** Tajuk kolom ini dalam bentuk seragam. */

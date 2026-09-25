@@ -6,7 +6,7 @@ use App\Filament\Support\AksiImpor;
 use App\Models\BarangPersediaan;
 use App\Models\Kategori;
 use App\Models\MutasiStok;
-use App\Services\Impor\ImporStokAwal;
+use App\Services\Impor\ImporStokMasuk;
 use App\Services\StokService;
 use App\Support\KodeBarang;
 use BackedEnum;
@@ -17,6 +17,8 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Callout;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -28,6 +30,7 @@ use Filament\Support\Exceptions\Halt;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 
 /**
  * Pencatatan stok masuk barang persediaan (UC-07).
@@ -60,6 +63,14 @@ class StokMasuk extends Page implements HasTable
         'stok_awal'      => 'Stok Awal',
         'pengembalian'   => 'Pengembalian',
     ];
+
+    /**
+     * Sumber yang wajib bernomor dasar: pembelian punya nomor dokumen
+     * pengadaan dan transfer masuk punya nomor berita acaranya. Dipakai
+     * formulir Catat Stok Masuk dan Impor Stok Masuk, supaya keduanya tidak
+     * pernah berbeda aturan.
+     */
+    public const SUMBER_WAJIB_NOMOR_DASAR = ['pembelian', 'transfer_masuk'];
 
     public static function canAccess(): bool
     {
@@ -127,39 +138,42 @@ class StokMasuk extends Page implements HasTable
                 ->visible(fn () => \App\Filament\Pages\Riwayat::canAccess()),
 
             /*
-             * Impor stok awal dari kartu kendali lama. Memakai AksiImpor yang
-             * sama dengan impor data induk (termasuk Unduh Template), dan hak
-             * aksesnya ikut halaman ini: hanya Petugas Gudang. Setiap baris
-             * dicatat lewat StokService::tambah() bersumber Stok Awal — jalur
-             * yang sama dengan Catat Stok Masuk — sehingga kartu kendalinya
-             * tetap benar. Tanggal dan nomor dasar berlaku untuk seluruh
-             * berkas dan mengikuti aturan Catat Stok Masuk bersumber Stok Awal.
+             * Impor Stok Masuk (menggantikan Impor Stok Awal). Jenis transaksi
+             * dipilih sekali di pop-up dan berlaku untuk seluruh berkas; tanggal,
+             * nomor dasar, dan keterangan ikut per baris pada template. Memakai
+             * AksiImpor yang sama dengan impor data induk, dan hak aksesnya ikut
+             * halaman ini: hanya Petugas Gudang. Setiap baris dicatat lewat
+             * StokService::tambah() — jalur yang sama dengan Catat Stok Masuk.
              */
             AksiImpor::buat(
-                judul: ImporStokAwal::JUDUL,
-                kolom: ImporStokAwal::kolom(),
-                namaTemplate: 'Template-Impor-Stok-Awal.xlsx',
-                impor: fn (string $lintasan, array $data) => app(ImporStokAwal::class)->jalankan(
+                judul: ImporStokMasuk::JUDUL,
+                kolom: ImporStokMasuk::kolom(),
+                namaTemplate: 'Template-Impor-Stok-Masuk.xlsx',
+                impor: fn (string $lintasan, array $data) => app(ImporStokMasuk::class)->jalankan(
                     $lintasan,
-                    Carbon::parse($data['tanggal'])->toDateString(),
-                    $data['nomor_dasar'] ?? null,
+                    (string) $data['jenis'],
                     (int) auth()->id(),
                 ),
-                label: 'Impor Stok Awal',
+                label: 'Impor Stok Masuk',
                 isian: [
-                    DatePicker::make('tanggal')
-                        ->label('Tanggal Stok Awal')
+                    Select::make('jenis')
+                        ->label('Jenis Transaksi Stok Masuk')
+                        ->options(self::SUMBER_MASUK)
                         ->native(false)
-                        ->displayFormat('d-m-Y')
-                        ->default(now())
                         ->required()
-                        ->maxDate(now())
-                        ->helperText('Berlaku untuk seluruh baris berkas. Tanggal 1 Januari membuat stok ini tampil sebagai Stok Awal kartu kendali tahun itu.'),
-                    TextInput::make('nomor_dasar')
-                        ->label('Nomor Dasar')
-                        ->helperText('Nomor dokumen, bila ada. Boleh dikosongkan untuk stok awal.')
-                        ->maxLength(60),
+                        ->live(),
+                    // Gaya peringatan yang sama dengan mode peragaan di Pengaturan.
+                    Callout::make('Jenis Stok Awal')
+                        ->description(new HtmlString('<ul class="list-disc ps-5 space-y-1">'
+                            . implode('', array_map(fn (string $c) => '<li>' . e($c) . '</li>', ImporStokMasuk::CATATAN_STOK_AWAL))
+                            . '</ul>'))
+                        ->warning()
+                        ->visible(fn (Get $get): bool => $get('jenis') === 'stok_awal'),
+                    Text::make('Kolom Tanggal wajib diisi pada setiap baris berkas.')
+                        ->color('gray')
+                        ->visible(fn (Get $get): bool => filled($get('jenis')) && $get('jenis') !== 'stok_awal'),
                 ],
+                petunjuk: ImporStokMasuk::petunjuk(),
             ),
 
             Action::make('catat')
@@ -205,7 +219,7 @@ class StokMasuk extends Page implements HasTable
                          */
                         ->required(fn (Get $get): bool => in_array(
                             $get('sumber'),
-                            ['pembelian', 'transfer_masuk'],
+                            self::SUMBER_WAJIB_NOMOR_DASAR,
                             true,
                         ))
                         ->helperText(function (Get $get): string {
@@ -223,7 +237,7 @@ class StokMasuk extends Page implements HasTable
                                 return 'Nomor ini sudah pernah tercatat. Pastikan bukan pemasukan yang terulang.';
                             }
 
-                            return in_array($get('sumber'), ['pembelian', 'transfer_masuk'], true)
+                            return in_array($get('sumber'), self::SUMBER_WAJIB_NOMOR_DASAR, true)
                                 ? 'Nomor dokumen pengadaan atau berita acara serah terima.'
                                 : 'Nomor dokumen, bila ada.';
                         })

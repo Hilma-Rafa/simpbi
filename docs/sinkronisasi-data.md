@@ -22,14 +22,14 @@ pernah mengirim apa pun kembali ke sistem sumber.
 | Aset Tetap (Peralatan dan Mesin) | `nup` | ✅ tersedia |
 | Kategori Barang *(impor data induk, sejak 25 Sep 2026)* | `kode_kategori` | ✅ tersedia — bagian H |
 | Barang Persediaan *(impor data induk, sejak 25 Sep 2026)* | `kode_kategori` + `kode_barang` | ✅ tersedia — bagian H |
-| Stok Awal *(impor transaksi, sejak 25 Sep 2026)* | `kode_kategori` + `kode_barang` | ✅ tersedia — bagian I |
+| Stok Masuk *(impor transaksi, sejak 25 Sep 2026; menggantikan Impor Stok Awal)* | `kode_kategori` + `kode_barang` | ✅ tersedia — bagian I |
 
 **Saldo Barang Persediaan tetap berada di luar ruang lingkup sinkronisasi.**
 Saldo dan pergerakannya lahir dari transaksi SIMPBI sendiri dan dihitung dari
 buku besar mutasi stok. Yang dapat diimpor hanyalah **data induknya** (kategori,
 kode, nama, satuan, stok minimum), tanpa kolom provenans dan tanpa strip
 "sinkronisasi terakhir" (keputusan pemilik G-7). Satu-satunya jalan stok masuk
-lewat berkas adalah **Impor Stok Awal** (bagian I), yang mencatat transaksi
+lewat berkas adalah **Impor Stok Masuk** (bagian I), yang mencatat transaksi
 melalui jalur Stok Masuk biasa, bukan menyelaraskan angka.
 
 Yang **tidak pernah** disinkronkan, dalam keadaan apa pun:
@@ -174,7 +174,7 @@ Mengikuti kewenangan halamannya, tanpa peran baru:
 | Tim Kerja | Admin Sistem, Kasubbag Umum |
 | Kategori Barang (impor) | Admin Sistem, Kasubbag Umum |
 | Barang Persediaan (impor) | Admin Sistem, Kasubbag Umum |
-| Stok Awal (impor, halaman Stok Masuk) | Petugas Gudang |
+| Stok Masuk (impor, halaman Stok Masuk) | Petugas Gudang |
 
 ---
 
@@ -227,32 +227,74 @@ diabaikan dan keterangannya disampaikan pada hasil impor.
 
 ---
 
-## I. Impor Stok Awal
+## I. Impor Stok Masuk
 
-Ditambahkan 25 September 2026. Tombol **Impor Stok Awal** di halaman Stok Masuk
-(`ImporStokAwal`, `Template-Impor-Stok-Awal.xlsx`), hanya untuk Petugas Gudang.
-Berbeda dengan bagian H, impor ini **mencatat transaksi**: setiap baris sah
-dicatat lewat `StokService::tambah()` bersumber **Stok Awal** — jalur yang sama
-dengan Catat Stok Masuk — sehingga stok fisik, buku besar mutasi, kolom Sisa, dan
-kartu kendali tetap konsisten.
+Ditambahkan 25 September 2026 sebagai Impor Stok Awal, lalu diganti menjadi
+**Impor Stok Masuk** pada hari yang sama. Tombol **Impor Stok Masuk** di halaman
+Stok Masuk (`ImporStokMasuk`, `Template-Impor-Stok-Masuk.xlsx`), hanya untuk
+Petugas Gudang (`StokMasuk::canAccess`). Berbeda dengan bagian H, impor ini
+**mencatat transaksi**: setiap baris sah dicatat lewat `StokService::tambah()` —
+jalur yang sama dengan Catat Stok Masuk manual — sehingga stok fisik, buku besar
+mutasi, kolom Sisa, dan kartu kendali tetap konsisten.
+
+**Jenis transaksi** dipilih sekali di pop-up (*Jenis Transaksi Stok Masuk*, wajib)
+dan berlaku untuk seluruh berkas. Pilihannya adalah daftar sumber Catat Stok Masuk
+manual apa adanya (`StokMasuk::SUMBER_MASUK`): Pembelian, Transfer Masuk, Stok
+Awal, Pengembalian. Tidak ada sumber baru; kartu kendali membaca sumber yang sama
+(uraian lewat `MutasiStok::URAIAN`, saldo pembawaan lewat sumber `stok_awal`).
+Sumber di luar daftar ditolak di peladen walaupun muatan dimodifikasi.
 
 | Kolom | Wajib | Keterangan |
 |---|---|---|
-| Kode Kategori | Ya | Kategori persediaan. |
-| Kode Barang | Ya | Tepat 6 digit; barang harus sudah terdaftar dan aktif. |
+| Kode Kategori | Ya | Kategori persediaan. Sel berformat Teks. |
+| Kode Barang | Ya | Tepat 6 digit; barang harus terdaftar dan aktif. Sel berformat Teks. |
 | Nama Barang | Tidak | Pembantu membaca saja; tidak dipakai mencocokkan. |
-| Jumlah Stok Awal | Ya | Bilangan bulat > 0; dapat diambil dari kolom Sisa kartu kendali lama. |
+| Jumlah | Ya | Bilangan bulat > 0. |
+| Tanggal | Ya, kecuali Stok Awal | Sel tanggal Excel atau teks DD/MM/YYYY; tidak boleh melewati hari ini. Stok Awal: kosong = 1 Januari tahun berjalan. |
+| Nomor Dasar | Ya untuk Pembelian dan Transfer Masuk | Maks. 60 aksara; aturan yang sama dengan Catat Stok Masuk (`StokMasuk::SUMBER_WAJIB_NOMOR_DASAR`). Sel berformat Teks. |
+| Keterangan | Tidak | Maks. 255 aksara, sama dengan Catat Stok Masuk. |
 
-Isian dialog: **Tanggal Stok Awal** (wajib, tidak melewati hari ini — aturan yang
-sama dengan Catat Stok Masuk) dan **Nomor Dasar** (boleh kosong, maks. 60
-aksara). Tanggal 1 Januari membuat saldo tampil sebagai *Stok Awal* kartu kendali
-tahun itu (`KartuKendaliService::bawaanTahunLalu`).
+**Stok Awal.** Pop-up menampilkan kotak peringatan: tanggal boleh dikosongkan
+(1 Januari tahun berjalan); tanggal 1 Januari membuat angka tampil sebagai *Stok
+Awal* kartu kendali tahun itu (`KartuKendaliService::bawaanTahunLalu`), sedangkan
+tanggal lain (mis. go-live di tengah tahun) tampil sebagai baris transaksi Stok
+Awal dan dicatat pada hasil impor; stok awal hanya untuk barang yang belum punya
+stok maupun riwayat transaksi. Pengaman stok ganda: barang yang sudah memiliki
+`stok_fisik > 0` **atau** baris mutasi apa pun ditolak, diperiksa pada baris
+barang yang terkunci di dalam transaksi, dan satu barang hanya boleh muncul
+sekali per berkas. Mengunggah berkas yang sama dua kali tidak menggandakan stok.
 
-Pengaman stok ganda: barang yang sudah memiliki `stok_fisik > 0` **atau** baris
-mutasi apa pun ditolak, diperiksa pada baris barang yang terkunci di dalam
-transaksi. Mengunggah berkas yang sama dua kali tidak menggandakan stok.
+**Jenis lain.** Tanggal wajib per baris. Satu barang boleh muncul di beberapa
+baris, tetapi baris dengan barang, Nomor Dasar, dan Tanggal yang sama persis
+ditolak sebagai kemungkinan input ganda. Galat saldo dari `StokService` (mis.
+saldo negatif karena tanggal mundur) menjadi galat baris.
 
 Pergantian tahun tidak memerlukan langkah manual: saldo awal kartu kendali
 tahun N dibaca dari `saldo_sesudah` transaksi terakhir sebelum 1 Januari N, dan
 `stok_fisik` tidak pernah di-nol-kan. Stok awal karena itu cukup diimpor sekali,
 saat SIMPBI mulai dipakai.
+
+---
+
+## J. Rupa template impor
+
+Sejak 25 September 2026 seluruh template (Tim Kerja, Pengguna, Aset Tetap,
+Kategori Barang, Barang Persediaan, Stok Masuk) dibentuk `PembuatTemplate` dengan
+tajuk bergaris dan berlatar, garis pada area isian baris 2–1000, lebar kolom
+menurut isinya, tajuk dibekukan, dan filter. Kolom kode (Kode Kategori, Kode
+Barang, Kode Akun, NUP, ID Sumber, NIP, No. HP, Nomor Dasar) berformat **Teks**
+supaya nol di depan tidak hilang saat diketik; kolom Tanggal berformat
+**DD/MM/YYYY** tanpa nilai. Lembar Petunjuk berupa tabel Kolom · Wajib · Format
+isian · Keterangan. Struktur yang dibaca `PembacaBerkas` tidak berubah: lembar
+Data tetap pertama, tajuk tetap baris 1 dengan teks yang sama, dan baris contoh
+tetap baris 2.
+
+**Baris contoh tidak ikut terimpor.** Pada setiap unggahan lewat tombol Impor,
+baris yang seluruh selnya sama persis dengan nilai contoh template (setelah
+normalisasi yang sama dengan pembacaan biasa; kolom tambahan milik pengguna harus
+kosong) dilewati dan hasil impor mencatat "Baris contoh dilewati.". Baris contoh
+yang diubah pengguna, walau satu sel, tetap terbaca sebagai data. Pengenalannya
+ada di `PembacaBerkas::lewatiContoh()` dan diaktifkan `AksiImpor` untuk keenam
+impor; nomor baris data lain tidak bergeser. Alasannya: contoh template Stok Masuk
+menunjuk barang yang ada di data (1010301001 / 000122), sehingga baris contoh yang
+tertinggal dengan jenis Pengembalian akan menambah 34 unit stok sungguhan.

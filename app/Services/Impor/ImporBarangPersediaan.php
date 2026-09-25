@@ -52,6 +52,7 @@ class ImporBarangPersediaan
                 contoh: '1010301001',
                 catatan: 'Harus sudah terdaftar sebagai kategori persediaan di menu Kategori Barang. '
                     . 'Kategori tidak dibuat otomatis, agar katalog kategori tidak tumbuh sendiri dari salah ketik.',
+                format: Kolom::TEKS,
             ),
             Kolom::buat(
                 kunci: 'kode_barang',
@@ -62,6 +63,7 @@ class ImporBarangPersediaan
                     . 'Format selnya sebagai Teks (atau awali dengan tanda petik \'), sebab Excel membuang '
                     . 'nol di depan pada sel angka. Bersama Kode Kategori menjadi kunci pencocokan: '
                     . 'barang yang sudah ada diperbarui, barang baru ditambahkan.',
+                format: Kolom::TEKS,
             ),
             Kolom::buat(
                 kunci: 'nama_barang',

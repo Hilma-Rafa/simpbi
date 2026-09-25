@@ -7,7 +7,7 @@ use App\Models\BarangPersediaan;
 use App\Models\Kategori;
 use App\Models\MutasiStok;
 use App\Services\Impor\HasilImpor;
-use App\Services\Impor\ImporStokAwal;
+use App\Services\Impor\ImporStokMasuk;
 use App\Services\Impor\PembuatTemplate;
 use App\Services\KartuKendaliService;
 use App\Services\StokService;
@@ -23,16 +23,18 @@ use Tests\Feature\Concerns\MenyiapkanDataUji;
 use Tests\TestCase;
 
 /**
- * Impor Stok Awal (F.1): setiap baris sah dicatat lewat StokService::tambah()
- * bersumber Stok Awal, sehingga stok fisik, buku besar mutasi, dan kartu
- * kendali tetap konsisten; barang yang sudah pernah memiliki stok ditolak.
+ * Impor Stok Masuk berjenis Stok Awal (semula Impor Stok Awal, F.1): setiap
+ * baris sah dicatat lewat StokService::tambah() bersumber Stok Awal, sehingga
+ * stok fisik, buku besar mutasi, dan kartu kendali tetap konsisten; barang yang
+ * sudah pernah memiliki stok ditolak. Sejak Impor Stok Masuk, tanggal dan nomor
+ * dasar ikut per baris berkas, dan jenis dipilih di pop-up.
  */
 class ImporStokAwalTest extends TestCase
 {
     use MenyiapkanDataUji;
     use RefreshDatabase;
 
-    private const TAJUK = ['Kode Kategori', 'Kode Barang', 'Nama Barang', 'Jumlah Stok Awal'];
+    private const TAJUK = ['Kode Kategori', 'Kode Barang', 'Nama Barang', 'Jumlah', 'Tanggal', 'Nomor Dasar'];
 
     private Kategori $atk;
 
@@ -62,11 +64,16 @@ class ImporStokAwalTest extends TestCase
         return $lintasan;
     }
 
-    /** @param list<list<mixed>> $baris */
+    /**
+     * Baris ditulis empat kolom seperti semula; tanggal dan nomor dasar yang
+     * dulu diisi di pop-up kini ditambahkan ke setiap baris.
+     *
+     * @param list<list<mixed>> $baris
+     */
     private function impor(array $baris, string $tanggal = '2026-01-01', ?string $nomor = null): HasilImpor
     {
-        $lintasan = $this->berkas($baris);
-        $hasil = app(ImporStokAwal::class)->jalankan($lintasan, $tanggal, $nomor, $this->gudang);
+        $lintasan = $this->berkas(array_map(fn (array $b) => [...$b, $tanggal, (string) $nomor], $baris));
+        $hasil = app(ImporStokMasuk::class)->jalankan($lintasan, 'stok_awal', $this->gudang);
         @unlink($lintasan);
 
         return $hasil;
@@ -136,10 +143,10 @@ class ImporStokAwalTest extends TestCase
     public function test_berkas_yang_sama_diimpor_dua_kali_tidak_menggandakan_stok(): void
     {
         $barang = $this->barang();
-        $lintasan = $this->berkas([['1010301001', '000122', '', '34']]);
+        $lintasan = $this->berkas([['1010301001', '000122', '', '34', '2026-01-01', '']]);
 
-        $pertama = app(ImporStokAwal::class)->jalankan($lintasan, '2026-01-01', null, $this->gudang);
-        $kedua = app(ImporStokAwal::class)->jalankan($lintasan, '2026-01-01', null, $this->gudang);
+        $pertama = app(ImporStokMasuk::class)->jalankan($lintasan, 'stok_awal', $this->gudang);
+        $kedua = app(ImporStokMasuk::class)->jalankan($lintasan, 'stok_awal', $this->gudang);
         @unlink($lintasan);
 
         $this->assertSame(1, $pertama->ditambah);
@@ -155,7 +162,7 @@ class ImporStokAwalTest extends TestCase
 
         $hasil = $this->impor([['1010301001', '000122', '', '34']]);
 
-        $this->assertStringContainsString('Catat Stok Masuk', $hasil->galat[0]);
+        $this->assertStringContainsString('sudah memiliki stok atau transaksi', $hasil->galat[0]);
         $this->assertSame(5, $barang->refresh()->stok_fisik);
         $this->assertSame(0, MutasiStok::count());
     }
@@ -224,7 +231,7 @@ class ImporStokAwalTest extends TestCase
 
         $hasil = $this->impor([['1010301001', '000122', '', $jumlah]]);
 
-        $this->assertStringContainsString('Jumlah Stok Awal', $hasil->galat[0]);
+        $this->assertStringContainsString('Jumlah berisi', $hasil->galat[0]);
         $this->assertSame(0, $barang->refresh()->stok_fisik);
         $this->assertSame(0, MutasiStok::count());
     }
@@ -261,7 +268,7 @@ class ImporStokAwalTest extends TestCase
         $hasil = $this->impor([['1010301001', '000122', '', '34']], '2026-09-26');
 
         $this->assertSame(0, $hasil->ditambah);
-        $this->assertStringContainsString('tidak boleh melewati hari ini', $hasil->galat[0]);
+        $this->assertStringContainsString('melewati hari ini', $hasil->galat[0]);
         $this->assertSame(0, $barang->refresh()->stok_fisik);
     }
 
@@ -283,9 +290,9 @@ class ImporStokAwalTest extends TestCase
     public function test_template_yang_diunduh_dapat_diimpor_kembali(): void
     {
         $this->barang();
-        $respons = app(PembuatTemplate::class)->buat(ImporStokAwal::JUDUL, ImporStokAwal::kolom(), 'Template-Impor-Stok-Awal.xlsx');
+        $respons = app(PembuatTemplate::class)->buat(ImporStokMasuk::JUDUL, ImporStokMasuk::kolom(), 'Template-Impor-Stok-Masuk.xlsx');
 
-        $hasil = app(ImporStokAwal::class)->jalankan($respons->getFile()->getPathname(), '2026-01-01', null, $this->gudang);
+        $hasil = app(ImporStokMasuk::class)->jalankan($respons->getFile()->getPathname(), 'stok_awal', $this->gudang);
 
         $this->assertSame(1, $hasil->ditambah, implode(' | ', $hasil->galat));
         $this->assertSame(34, BarangPersediaan::sole()->stok_fisik);
@@ -301,12 +308,12 @@ class ImporStokAwalTest extends TestCase
         $barang = $this->barang();
         $this->actingAs(\App\Models\User::find($this->gudang));
 
-        $berkas = UploadedFile::fake()->createWithContent('stok-awal.xlsx', file_get_contents($this->berkas([['1010301001', '000122', '', '34']])));
+        $berkas = UploadedFile::fake()->createWithContent('stok-awal.xlsx', file_get_contents($this->berkas([['1010301001', '000122', '', '34', '', '']])));
 
         Livewire::test(StokMasuk::class)
             ->assertActionExists('impor')
-            ->assertActionHasLabel('impor', 'Impor Stok Awal')
-            ->callAction('impor', ['berkas' => $berkas, 'tanggal' => '2026-01-01', 'nomor_dasar' => ''])
+            ->assertActionHasLabel('impor', 'Impor Stok Masuk')
+            ->callAction('impor', ['jenis' => 'stok_awal', 'berkas' => $berkas])
             ->assertHasNoActionErrors();
 
         $this->assertSame(34, $barang->refresh()->stok_fisik);
@@ -314,17 +321,18 @@ class ImporStokAwalTest extends TestCase
         $this->assertSame($this->gudang, MutasiStok::sole()->petugas_id);
     }
 
-    public function test_dialog_menolak_tanggal_di_masa_depan(): void
+    /** Tanggal kini per baris; yang wajib di pop-up adalah jenis transaksinya. */
+    public function test_dialog_menolak_tanpa_jenis_transaksi(): void
     {
         Filament::setCurrentPanel('admin');
         $this->barang();
         $this->actingAs(\App\Models\User::find($this->gudang));
 
-        $berkas = UploadedFile::fake()->createWithContent('stok-awal.xlsx', file_get_contents($this->berkas([['1010301001', '000122', '', '34']])));
+        $berkas = UploadedFile::fake()->createWithContent('stok-awal.xlsx', file_get_contents($this->berkas([['1010301001', '000122', '', '34', '', '']])));
 
         Livewire::test(StokMasuk::class)
-            ->callAction('impor', ['berkas' => $berkas, 'tanggal' => '2026-12-31'])
-            ->assertHasActionErrors(['tanggal']);
+            ->callAction('impor', ['berkas' => $berkas])
+            ->assertHasActionErrors(['jenis']);
 
         $this->assertSame(0, MutasiStok::count());
     }

@@ -46,6 +46,7 @@ class ImporKategori
                 contoh: '1010301001',
                 catatan: 'Kunci pencocokan: kode yang sudah ada diperbarui, kode baru ditambahkan. '
                     . 'Kode kategori sendiri tidak pernah diubah dari impor. Maks. 20 aksara.',
+                format: Kolom::TEKS,
             ),
             Kolom::buat(
                 kunci: 'nama_kategori',
@@ -62,6 +63,7 @@ class ImporKategori
                 catatan: 'Kode akun neraca (Bagan Akun Standar), mis. 117111 untuk Barang Konsumsi. '
                     . 'Kategori persediaan: tepat 6 digit angka. Kategori aset tetap: bebas, maks. 10 aksara. '
                     . 'Hanya keterangan; tidak memengaruhi stok, kartu kendali, maupun dokumen.',
+                format: Kolom::TEKS,
             ),
             Kolom::buat(
                 kunci: 'tipe',

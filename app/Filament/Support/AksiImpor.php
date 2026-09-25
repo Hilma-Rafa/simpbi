@@ -3,6 +3,7 @@
 namespace App\Filament\Support;
 
 use App\Services\Impor\HasilImpor;
+use App\Services\Impor\PembacaBerkas;
 use App\Services\Impor\PembuatTemplate;
 use Closure;
 use Filament\Actions\Action;
@@ -24,15 +25,19 @@ use Illuminate\Support\HtmlString;
 class AksiImpor
 {
     /**
-     * Isian tambahan (`$isian`) tampil di bawah unggahan berkas dan ikut
-     * diteruskan ke `$impor`. Dipakai impor Stok Awal, yang memerlukan tanggal
-     * dan nomor dokumen yang berlaku untuk seluruh berkas — sama seperti satu
-     * nota pada Catat Stok Masuk. Impor data induk tidak memakainya, dan
-     * closure satu parameter mereka tetap berjalan apa adanya.
+     * Isian tambahan (`$isian`) tampil di atas unggahan berkas dan ikut
+     * diteruskan ke `$impor`. Dipakai Impor Stok Masuk, yang meminta jenis
+     * transaksi lebih dulu karena jenis itulah yang menentukan cara berkas
+     * diisi. Impor data induk tidak memakainya, dan closure satu parameter
+     * mereka tetap berjalan apa adanya.
+     *
+     * `$petunjuk` adalah baris keterangan tambahan pada lembar Petunjuk
+     * template.
      *
      * @param  list<\App\Services\Impor\Kolom>  $kolom
      * @param  Closure(string, array<string,mixed>): HasilImpor  $impor  menerima lintasan berkas dan isian dialog
      * @param  array<int,\Filament\Schemas\Components\Component>  $isian
+     * @param  list<string>  $petunjuk
      */
     public static function buat(
         string $judul,
@@ -41,6 +46,7 @@ class AksiImpor
         Closure $impor,
         string $label = 'Impor',
         array $isian = [],
+        array $petunjuk = [],
     ): Action {
         return Action::make('impor')
             ->label($label)
@@ -52,6 +58,7 @@ class AksiImpor
             ->modalSubmitActionLabel('Impor')
             ->modalCancelActionLabel('Batal')
             ->schema([
+                ...$isian,
                 FileUpload::make('berkas')
                     ->label('Berkas Excel')
                     ->acceptedFileTypes([
@@ -71,23 +78,42 @@ class AksiImpor
                         'Belum punya berkasnya? Unduh templatnya lebih dulu lewat tombol di bawah, '
                         . 'isi datanya, lalu unggah kembali di sini.'
                     )),
-                ...$isian,
             ])
             ->extraModalFooterActions([
                 // Bergaris warna utama seperti tombol unduhan lain (GayaUnduh),
                 // bukan lagi tautan abu-abu yang tampak berbeda sendiri.
                 GayaUnduh::terapkan(Action::make('unduhTemplate'))
                     ->label('Unduh Template')
-                    ->action(fn () => app(PembuatTemplate::class)->buat($judul, $kolom, $namaTemplate)),
+                    ->action(fn () => app(PembuatTemplate::class)->buat($judul, $kolom, $namaTemplate, $petunjuk)),
             ])
-            ->action(function (array $data) use ($impor): void {
+            ->action(function (array $data) use ($impor, $kolom): void {
                 $berkas = $data['berkas'];
 
                 // FileUpload mengembalikan berkas unggahan sementara, kadang di
                 // dalam larik ketika komponennya pernah berganti keadaan.
                 $unggahan = is_array($berkas) ? reset($berkas) : $berkas;
 
-                $hasil = $impor($unggahan->getRealPath(), $data);
+                /*
+                 * Selama impor ini berjalan, setiap pengimpor yang meminta
+                 * PembacaBerkas menerima pembaca yang mengenali baris contoh
+                 * template ini dan melewatinya. Dipasang di sini, satu tempat
+                 * untuk keenam impor, karena di sinilah daftar kolom (beserta
+                 * contohnya) dan berkas unggahan bertemu; pengimpornya sendiri
+                 * tidak perlu diubah. Nomor baris data lain tidak bergeser,
+                 * sebab baris contoh dilewati pembaca, bukan dihapus dari berkas.
+                 */
+                $pembaca = (new PembacaBerkas())->lewatiContoh($kolom);
+                app()->instance(PembacaBerkas::class, $pembaca);
+
+                try {
+                    $hasil = $impor($unggahan->getRealPath(), $data);
+                } finally {
+                    app()->forgetInstance(PembacaBerkas::class);
+                }
+
+                if ($pembaca->contohDilewati !== []) {
+                    $hasil->catat('Baris contoh dilewati.');
+                }
 
                 static::beritahukan($hasil);
             });

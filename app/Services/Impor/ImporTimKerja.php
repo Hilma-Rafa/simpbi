@@ -55,6 +55,7 @@ class ImporTimKerja
                 catatan: 'Penanda tim kerja pada sistem sumber, disimpan sebagai keterangan asal. '
                     . 'Bukan kunci pencocokan — yang dicocokkan tetap Nama Tim. '
                     . 'Dikosongkan berarti tidak diubah.',
+                format: Kolom::TEKS,
             ),
             Kolom::buat(
                 kunci: 'status_aktif',

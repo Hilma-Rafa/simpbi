@@ -21,6 +21,89 @@ use OpenSpout\Reader\XLSX\Reader as PembacaXlsx;
 class PembacaBerkas
 {
     /**
+     * Nilai baris contoh template per tajuk seragam, dalam bentuk yang sama
+     * dengan hasil pembacaan biasa; null bila pengenalan baris contoh tidak
+     * diaktifkan.
+     *
+     * @var array<string,string>|null
+     */
+    protected ?array $contoh = null;
+
+    /** Nomor baris yang dilewati karena sama persis dengan baris contoh. @var list<int> */
+    public array $contohDilewati = [];
+
+    /**
+     * Mengaktifkan pengenalan baris contoh template.
+     *
+     * Template selalu membawa satu baris contoh, dan baris itu kerap tertinggal
+     * di berkas yang diunggah. Isinya tidak berbahaya karena salah, melainkan
+     * karena tampak benar: kode barang contoh pada template Stok Masuk menunjuk
+     * barang yang memang ada, sehingga baris yang lupa dihapus dapat menambah
+     * stok sungguhan. Baris yang seluruh selnya sama persis dengan contoh
+     * karena itu dilewati; baris contoh yang sudah diubah pengguna — satu sel
+     * saja — tetap terbaca sebagai data biasa.
+     *
+     * Contohnya dinormalkan seperti PembuatTemplate menuliskannya dan seperti
+     * baris biasa dibaca: teks dipangkas, dan contoh kolom tanggal (DD/MM/YYYY,
+     * ditulis sebagai sel tanggal) menjadi Y-m-d.
+     *
+     * @param  list<Kolom>  $kolom
+     */
+    public function lewatiContoh(array $kolom): static
+    {
+        $this->contoh = [];
+        foreach ($kolom as $k) {
+            $nilai = trim($k->contoh);
+            if ($k->format === Kolom::TANGGAL && preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $nilai, $m) === 1) {
+                $nilai = $m[3] . '-' . $m[2] . '-' . $m[1];
+            }
+            $this->contoh[$k->tajukSeragam()] = $nilai;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Mencatat dan melaporkan baris yang harus dilewati sebagai baris contoh.
+     * Selalu false bila pengenalan contoh tidak diaktifkan.
+     *
+     * @param  array<string,string>  $isi
+     */
+    protected function barisContoh(array $isi, int $nomorBaris): bool
+    {
+        if ($this->contoh === null || ! $this->samaDenganContoh($isi)) {
+            return false;
+        }
+
+        $this->contohDilewati[] = $nomorBaris;
+
+        return true;
+    }
+
+    /**
+     * Apakah isi baris sama persis dengan baris contoh: setiap kolom template
+     * berisi nilai contohnya, dan kolom lain yang ditambahkan pengguna kosong.
+     *
+     * @param  array<string,string>  $isi
+     */
+    protected function samaDenganContoh(array $isi): bool
+    {
+        foreach ($this->contoh as $tajuk => $nilai) {
+            if (($isi[$tajuk] ?? '') !== $nilai) {
+                return false;
+            }
+        }
+
+        foreach ($isi as $tajuk => $nilai) {
+            if (! array_key_exists($tajuk, $this->contoh) && $nilai !== '') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
      * Membaca berkas menjadi daftar baris bertajuk.
      *
      * Kunci setiap baris adalah tajuk kolom yang sudah diseragamkan, sehingga
@@ -69,6 +152,10 @@ class PembacaBerkas
                         continue;
                     }
                     $isi[$nama] = $sel[$kolom] ?? '';
+                }
+
+                if ($this->barisContoh($isi, $nomorBaris)) {
+                    continue;
                 }
 
                 $hasil[] = ['nomor' => $nomorBaris, 'isi' => $isi];
