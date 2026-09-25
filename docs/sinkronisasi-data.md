@@ -20,12 +20,17 @@ pernah mengirim apa pun kembali ke sistem sumber.
 |---|---|---|
 | Tim Kerja | `nama_tim`, tanpa peka besar kecil huruf | ✅ tersedia |
 | Aset Tetap (Peralatan dan Mesin) | `nup` | ✅ tersedia |
+| Kategori Barang *(impor data induk, sejak 25 Sep 2026)* | `kode_kategori` | ✅ tersedia — bagian H |
+| Barang Persediaan *(impor data induk, sejak 25 Sep 2026)* | `kode_kategori` + `kode_barang` | ✅ tersedia — bagian H |
+| Stok Awal *(impor transaksi, sejak 25 Sep 2026)* | `kode_kategori` + `kode_barang` | ✅ tersedia — bagian I |
 
-**Barang Persediaan berada di luar ruang lingkup sinkronisasi.** Datanya lahir
-dari transaksi SIMPBI sendiri — saldo dan pergerakannya dihitung dari buku besar
-mutasi stok — sehingga tidak ada yang perlu diselaraskan dari sistem sumber.
-Tidak ada pengimpor, kolom provenans, maupun aksi sinkronisasi yang dibuat
-untuknya.
+**Saldo Barang Persediaan tetap berada di luar ruang lingkup sinkronisasi.**
+Saldo dan pergerakannya lahir dari transaksi SIMPBI sendiri dan dihitung dari
+buku besar mutasi stok. Yang dapat diimpor hanyalah **data induknya** (kategori,
+kode, nama, satuan, stok minimum), tanpa kolom provenans dan tanpa strip
+"sinkronisasi terakhir" (keputusan pemilik G-7). Satu-satunya jalan stok masuk
+lewat berkas adalah **Impor Stok Awal** (bagian I), yang mencatat transaksi
+melalui jalur Stok Masuk biasa, bukan menyelaraskan angka.
 
 Yang **tidak pernah** disinkronkan, dalam keadaan apa pun:
 
@@ -167,6 +172,9 @@ Mengikuti kewenangan halamannya, tanpa peran baru:
 |---|---|
 | Aset Tetap | Admin Sistem, Kasubbag Umum |
 | Tim Kerja | Admin Sistem, Kasubbag Umum |
+| Kategori Barang (impor) | Admin Sistem, Kasubbag Umum |
+| Barang Persediaan (impor) | Admin Sistem, Kasubbag Umum |
+| Stok Awal (impor, halaman Stok Masuk) | Petugas Gudang |
 
 ---
 
@@ -182,3 +190,69 @@ ekspor yang sebenarnya. Bila berkas ekspor ternyata memakai nama kolom yang
 berbeda, tajuk pada template perlu disesuaikan — bukan datanya yang dipaksakan.
 Nama sistem sumber juga belum dibakukan: komentar migrasi menyebut KiPApp,
 sedangkan catatan penguji menyebut SAKTI dan Keep-Up.
+
+---
+
+## H. Impor data induk Kategori Barang dan Barang Persediaan
+
+Ditambahkan 25 September 2026 (`docs/audit/rencana-data-induk-persediaan.md`,
+bagian C). Polanya sama dengan Tim Kerja dan Aset Tetap — tombol **Impor** di
+kepala tabel, **Unduh Template** di kaki dialog, upsert per baris, baris sah tetap
+masuk, tidak pernah menghapus — tetapi tanpa `synced_at`/`external_id`, sebab
+kedua tabel tidak memilikinya dan tidak ditambahkan.
+
+**Kategori Barang** (`ImporKategori`, `Template-Impor-Kategori-Barang.xlsx`)
+
+| Kolom | Wajib | Keterangan |
+|---|---|---|
+| Kode Kategori | Ya | Kunci pencocokan; tidak pernah diubah dari impor. |
+| Nama Kategori | Ya | Diperbarui pada impor ulang. |
+| Kode Akun | Ya | Kode akun neraca BAS; kategori persediaan tepat 6 digit (mis. 117111), aset tetap bebas. |
+| Tipe | Ya | Persediaan / Aset Tetap. Kategori yang sudah dipakai tidak dapat berganti tipe. |
+
+**Barang Persediaan** (`ImporBarangPersediaan`, `Template-Impor-Barang-Persediaan.xlsx`)
+
+| Kolom | Wajib | Keterangan |
+|---|---|---|
+| Kode Kategori | Ya | Harus kategori persediaan yang sudah terdaftar. |
+| Kode Barang | Ya | Tepat 6 digit (teks). Sel angka yang kehilangan nol di depan ditolak dengan pesan khusus. |
+| Nama Barang | Ya | Diperbarui pada impor ulang. |
+| Satuan | Ya | Diperbarui pada impor ulang. |
+| Stok Minimum | Tidak | Kosong = 0 pada barang baru, tidak diubah pada barang lama. |
+
+Yang **tidak pernah** ditulis impor barang: `stok_fisik`, `stok_hold`,
+`status_aktif`, dan tabel `mutasi_stok`. Barang baru lahir berstok 0 dan aktif.
+Bila berkas membawa kolom stok (Stok, Stok Fisik, Stok Terkunci, …), kolomnya
+diabaikan dan keterangannya disampaikan pada hasil impor.
+
+---
+
+## I. Impor Stok Awal
+
+Ditambahkan 25 September 2026. Tombol **Impor Stok Awal** di halaman Stok Masuk
+(`ImporStokAwal`, `Template-Impor-Stok-Awal.xlsx`), hanya untuk Petugas Gudang.
+Berbeda dengan bagian H, impor ini **mencatat transaksi**: setiap baris sah
+dicatat lewat `StokService::tambah()` bersumber **Stok Awal** — jalur yang sama
+dengan Catat Stok Masuk — sehingga stok fisik, buku besar mutasi, kolom Sisa, dan
+kartu kendali tetap konsisten.
+
+| Kolom | Wajib | Keterangan |
+|---|---|---|
+| Kode Kategori | Ya | Kategori persediaan. |
+| Kode Barang | Ya | Tepat 6 digit; barang harus sudah terdaftar dan aktif. |
+| Nama Barang | Tidak | Pembantu membaca saja; tidak dipakai mencocokkan. |
+| Jumlah Stok Awal | Ya | Bilangan bulat > 0; dapat diambil dari kolom Sisa kartu kendali lama. |
+
+Isian dialog: **Tanggal Stok Awal** (wajib, tidak melewati hari ini — aturan yang
+sama dengan Catat Stok Masuk) dan **Nomor Dasar** (boleh kosong, maks. 60
+aksara). Tanggal 1 Januari membuat saldo tampil sebagai *Stok Awal* kartu kendali
+tahun itu (`KartuKendaliService::bawaanTahunLalu`).
+
+Pengaman stok ganda: barang yang sudah memiliki `stok_fisik > 0` **atau** baris
+mutasi apa pun ditolak, diperiksa pada baris barang yang terkunci di dalam
+transaksi. Mengunggah berkas yang sama dua kali tidak menggandakan stok.
+
+Pergantian tahun tidak memerlukan langkah manual: saldo awal kartu kendali
+tahun N dibaca dari `saldo_sesudah` transaksi terakhir sebelum 1 Januari N, dan
+`stok_fisik` tidak pernah di-nol-kan. Stok awal karena itu cukup diimpor sekali,
+saat SIMPBI mulai dipakai.
