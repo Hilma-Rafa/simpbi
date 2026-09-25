@@ -20,3 +20,6 @@ Artisan::command('inspire', function () {
 // penegakan. Membatasinya justru membuat permintaan yang lewat batas Jumat
 // sore baru ditandai kedaluwarsa Senin pagi.
 Schedule::command('permintaan:lepas-hold')->everyTenMinutes();
+Schedule::command('queue:work --queue=default,whatsapp --tries=3 --stop-when-empty --max-time=50')
+    ->everyMinute()
+    ->withoutOverlapping();
