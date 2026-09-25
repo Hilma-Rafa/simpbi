@@ -39,6 +39,7 @@ yarn-error.log
 /.claude/agents/
 /.claude/settings.local.json
 /skills-lock.json
+/tests/Feature/
 
 # Bukti visual hasil pengujian dan berkas kerja, bukan bahan yang dibutuhkan kode.
 # Berkas acuan Sub-Bagian Umum (Kartu-Kendali-Persediaan-*.xlsx, contoh-*)
