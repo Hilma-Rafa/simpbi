@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\AsetTetaps\Pages;
 
 use App\Filament\Resources\AsetTetaps\AsetTetapResource;
+use App\Filament\Support\AksiKembali;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Filament\Support\Exceptions\Halt;
@@ -12,6 +13,13 @@ use Illuminate\Database\UniqueConstraintViolationException;
 class CreateAsetTetap extends CreateRecord
 {
     protected static string $resource = AsetTetapResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            AksiKembali::keDaftar(static::getResource()),
+        ];
+    }
 
     /**
      * Jaring pengaman di server, sebab aturan `unique()` pada formulir dapat

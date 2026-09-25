@@ -4,12 +4,14 @@ namespace App\Filament\Resources\Kategoris\Tables;
 
 use App\Filament\Resources\Kategoris\KategoriResource;
 use App\Filament\Support\AksiHapusTerlindung;
+use App\Filament\Support\AksiImpor;
 use App\Filament\Support\KeadaanKosong;
 use Filament\Actions\BulkActionGroup;
 use App\Filament\Support\AksiUbah;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use App\Services\Impor\ImporKategori;
 
 class KategorisTable
 {
@@ -73,6 +75,16 @@ class KategorisTable
             ])
             ->recordActions([
                 AksiUbah::buat(),
+            ])
+            // Impor kategori, pola yang sama dengan data induk lain. Hak aksesnya
+            // mengikuti KategoriResource (Admin, Kasubbag).
+            ->headerActions([
+                AksiImpor::buat(
+                    judul: ImporKategori::JUDUL,
+                    kolom: ImporKategori::kolom(),
+                    namaTemplate: 'Template-Impor-Kategori-Barang.xlsx',
+                    impor: fn (string $lintasan) => app(ImporKategori::class)->jalankan($lintasan),
+                ),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

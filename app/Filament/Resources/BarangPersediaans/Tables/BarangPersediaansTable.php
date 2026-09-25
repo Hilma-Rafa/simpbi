@@ -4,9 +4,11 @@ namespace App\Filament\Resources\BarangPersediaans\Tables;
 
 use App\Filament\Resources\BarangPersediaans\BarangPersediaanResource;
 use App\Filament\Support\AksiHapusTerlindung;
+use App\Filament\Support\AksiImpor;
 use App\Filament\Support\AksiUbah;
 use App\Filament\Support\KeadaanKosong;
 use App\Models\BarangPersediaan;
+use App\Services\Impor\ImporBarangPersediaan;
 use Filament\Actions\BulkActionGroup;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -120,6 +122,20 @@ class BarangPersediaansTable
                  * hanya menggandakan satu fungsi yang sama.
                  */
                 AksiUbah::buat(),
+            ])
+            /*
+             * Impor data induk barang, memakai aksi impor yang sama dengan Tim
+             * Kerja, Pengguna, dan Aset Tetap. Hak aksesnya mengikuti
+             * BarangPersediaanResource (Admin, Kasubbag). Impor ini tidak
+             * pernah mengubah stok; lihat ImporBarangPersediaan.
+             */
+            ->headerActions([
+                AksiImpor::buat(
+                    judul: ImporBarangPersediaan::JUDUL,
+                    kolom: ImporBarangPersediaan::kolom(),
+                    namaTemplate: 'Template-Impor-Barang-Persediaan.xlsx',
+                    impor: fn (string $lintasan) => app(ImporBarangPersediaan::class)->jalankan($lintasan),
+                ),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

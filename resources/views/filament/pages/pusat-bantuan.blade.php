@@ -131,12 +131,21 @@
                                 </div>
                             </div>
 
+                            {{--
+                                Rupa disalin dari App\Filament\Support\GayaUnduh (acuan
+                                seluruh tombol unduhan): bergaris, warna utama, ikon
+                                heroicon-m-arrow-down-tray di depan label. Komponen Blade
+                                tidak dapat memanggil kelas itu, jadi bila GayaUnduh
+                                berubah, nilai di sini ikut diubah.
+                            --}}
                             <x-filament::button
                                 tag="a"
                                 href="{{ $this->panduanUrl() }}"
                                 download
-                                icon="heroicon-o-arrow-down-tray"
+                                icon="heroicon-m-arrow-down-tray"
+                                icon-position="before"
                                 color="primary"
+                                outlined
                                 class="h-12 w-full shrink-0 justify-center sm:w-auto"
                             >
                                 Unduh Panduan

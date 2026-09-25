@@ -24,17 +24,26 @@ use Illuminate\Support\HtmlString;
 class AksiImpor
 {
     /**
+     * Isian tambahan (`$isian`) tampil di bawah unggahan berkas dan ikut
+     * diteruskan ke `$impor`. Dipakai impor Stok Awal, yang memerlukan tanggal
+     * dan nomor dokumen yang berlaku untuk seluruh berkas — sama seperti satu
+     * nota pada Catat Stok Masuk. Impor data induk tidak memakainya, dan
+     * closure satu parameter mereka tetap berjalan apa adanya.
+     *
      * @param  list<\App\Services\Impor\Kolom>  $kolom
-     * @param  Closure(string): HasilImpor  $impor  menerima lintasan berkas
+     * @param  Closure(string, array<string,mixed>): HasilImpor  $impor  menerima lintasan berkas dan isian dialog
+     * @param  array<int,\Filament\Schemas\Components\Component>  $isian
      */
     public static function buat(
         string $judul,
         array $kolom,
         string $namaTemplate,
         Closure $impor,
+        string $label = 'Impor',
+        array $isian = [],
     ): Action {
         return Action::make('impor')
-            ->label('Impor')
+            ->label($label)
             ->icon('heroicon-m-arrow-up-tray')
             ->color('gray')
             ->outlined()
@@ -62,13 +71,13 @@ class AksiImpor
                         'Belum punya berkasnya? Unduh templatnya lebih dulu lewat tombol di bawah, '
                         . 'isi datanya, lalu unggah kembali di sini.'
                     )),
+                ...$isian,
             ])
             ->extraModalFooterActions([
-                Action::make('unduhTemplate')
+                // Bergaris warna utama seperti tombol unduhan lain (GayaUnduh),
+                // bukan lagi tautan abu-abu yang tampak berbeda sendiri.
+                GayaUnduh::terapkan(Action::make('unduhTemplate'))
                     ->label('Unduh Template')
-                    ->icon('heroicon-m-arrow-down-tray')
-                    ->color('gray')
-                    ->link()
                     ->action(fn () => app(PembuatTemplate::class)->buat($judul, $kolom, $namaTemplate)),
             ])
             ->action(function (array $data) use ($impor): void {
@@ -78,7 +87,7 @@ class AksiImpor
                 // dalam larik ketika komponennya pernah berganti keadaan.
                 $unggahan = is_array($berkas) ? reset($berkas) : $berkas;
 
-                $hasil = $impor($unggahan->getRealPath());
+                $hasil = $impor($unggahan->getRealPath(), $data);
 
                 static::beritahukan($hasil);
             });

@@ -93,7 +93,7 @@ class StokTerkunciBacaSajaTest extends TestCase
         Livewire::test(CreateBarangPersediaan::class)
             ->fillForm([
                 'kategori_id'  => $kategori->id,
-                'kode_barang'  => 'BR-001',
+                'kode_barang'  => '000501',
                 'nama_barang'  => 'Barang Baru',
                 'satuan'       => 'Buah',
                 'stok_fisik'   => 12,
@@ -105,7 +105,7 @@ class StokTerkunciBacaSajaTest extends TestCase
             ->call('create')
             ->assertHasNoFormErrors();
 
-        $barang = BarangPersediaan::where('kode_barang', 'BR-001')->sole();
+        $barang = BarangPersediaan::where('kode_barang', '000501')->sole();
         $this->assertSame(0, $barang->stok_hold);
         $this->assertSame(12, $barang->stok_fisik);
     }

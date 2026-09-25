@@ -4,6 +4,7 @@ namespace App\Filament\Resources\PermintaanBarangs;
 
 use App\Filament\Pages\Riwayat;
 use App\Filament\Resources\PermintaanBarangs\Pages;
+use App\Filament\Support\GayaUnduh;
 use App\Filament\Support\KeadaanKosong;
 use App\Models\User;
 use App\Support\TandaTangan;
@@ -294,16 +295,12 @@ class PermintaanBarangResource extends Resource
      * pada kepala halaman rincian, agar bentuknya seragam dengan tombol aksi
      * lain pada sistem: tombol bergaris dengan warna utama SIMPBI, bukan tautan
      * abu-abu yang tampak berbeda sendiri di antara tombol alur persetujuan.
+     * Rupanya kini diambil dari GayaUnduh, acuan seluruh tombol pengunduhan.
      */
     public static function aksiUnduhBukti(): Action
     {
-        return Action::make('unduhBukti')
+        return GayaUnduh::terapkan(Action::make('unduhBukti'))
             ->label('Unduh Bukti')
-            ->icon('heroicon-m-arrow-down-tray')
-            ->iconPosition(\Filament\Support\Enums\IconPosition::Before)
-            ->color('primary')
-            ->button()
-            ->outlined()
             ->tooltip('Unduh dokumen bukti permintaan yang telah disahkan')
             ->visible(fn ($record) => filled($record?->file_bukti_path))
             ->url(fn ($record) => route('bukti.unduh', $record))

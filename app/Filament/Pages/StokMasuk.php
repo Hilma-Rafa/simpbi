@@ -2,10 +2,13 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\AksiImpor;
 use App\Models\BarangPersediaan;
 use App\Models\Kategori;
 use App\Models\MutasiStok;
+use App\Services\Impor\ImporStokAwal;
 use App\Services\StokService;
+use App\Support\KodeBarang;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -122,6 +125,42 @@ class StokMasuk extends Page implements HasTable
                 ->tooltip('Lihat seluruh pergerakan stok, masuk maupun keluar')
                 ->url(\App\Filament\Pages\Riwayat::getUrl(['jenis' => 'mutasi_stok']))
                 ->visible(fn () => \App\Filament\Pages\Riwayat::canAccess()),
+
+            /*
+             * Impor stok awal dari kartu kendali lama. Memakai AksiImpor yang
+             * sama dengan impor data induk (termasuk Unduh Template), dan hak
+             * aksesnya ikut halaman ini: hanya Petugas Gudang. Setiap baris
+             * dicatat lewat StokService::tambah() bersumber Stok Awal — jalur
+             * yang sama dengan Catat Stok Masuk — sehingga kartu kendalinya
+             * tetap benar. Tanggal dan nomor dasar berlaku untuk seluruh
+             * berkas dan mengikuti aturan Catat Stok Masuk bersumber Stok Awal.
+             */
+            AksiImpor::buat(
+                judul: ImporStokAwal::JUDUL,
+                kolom: ImporStokAwal::kolom(),
+                namaTemplate: 'Template-Impor-Stok-Awal.xlsx',
+                impor: fn (string $lintasan, array $data) => app(ImporStokAwal::class)->jalankan(
+                    $lintasan,
+                    Carbon::parse($data['tanggal'])->toDateString(),
+                    $data['nomor_dasar'] ?? null,
+                    (int) auth()->id(),
+                ),
+                label: 'Impor Stok Awal',
+                isian: [
+                    DatePicker::make('tanggal')
+                        ->label('Tanggal Stok Awal')
+                        ->native(false)
+                        ->displayFormat('d-m-Y')
+                        ->default(now())
+                        ->required()
+                        ->maxDate(now())
+                        ->helperText('Berlaku untuk seluruh baris berkas. Tanggal 1 Januari membuat stok ini tampil sebagai Stok Awal kartu kendali tahun itu.'),
+                    TextInput::make('nomor_dasar')
+                        ->label('Nomor Dasar')
+                        ->helperText('Nomor dokumen, bila ada. Boleh dikosongkan untuk stok awal.')
+                        ->maxLength(60),
+                ],
+            ),
 
             Action::make('catat')
                 ->label('Catat Stok Masuk')
@@ -451,16 +490,28 @@ class StokMasuk extends Page implements HasTable
             TextInput::make('kode_barang')
                 ->label('Kode Barang')
                 ->required()
-                ->maxLength(30)
-                // Spasi di ujung dipangkas sebelum disimpan dan dibandingkan, sebab
-                // MySQL mengabaikannya pada pembanding unik sedangkan SQLite tidak.
-                ->dehydrateStateUsing(fn (?string $state): string => trim((string) $state))
+                // Aturan dan bentuk isian sama dengan form Barang Persediaan
+                // (KodeBarang), supaya barang yang lahir dari nota tidak memakai
+                // ukuran kode yang lain dari barang yang lahir dari katalog.
+                ->mask('999999')
+                ->inputMode('numeric')
+                ->placeholder(KodeBarang::CONTOH)
+                ->regex(KodeBarang::POLA)
+                ->validationMessages(['regex' => KodeBarang::PESAN])
+                ->rule('bail')
+                // Spasi di ujung dipangkas sebelum divalidasi, disimpan, dan
+                // dibandingkan: MySQL mengabaikannya pada pembanding unik
+                // sedangkan SQLite tidak. Memakai trim(), bukan
+                // dehydrateStateUsing(), karena yang terakhir baru berjalan
+                // sesudah validasi — " 000100 " akan tertolak aturan enam digit
+                // padahal setelah dipangkas sah.
+                ->trim()
                 ->rule(fn (Get $get) => function (string $attribute, $value, \Closure $fail) use ($get): void {
                     if (static::kodeBarangSudahDipakai((int) $get('kategori_id'), (string) $value)) {
                         $fail('Kode barang sudah dipakai pada kategori ini.');
                     }
                 })
-                ->helperText('Kode hanya perlu unik di dalam kategorinya, mengikuti penomoran Sub-Bagian Umum.'),
+                ->helperText(KodeBarang::BANTUAN),
 
             TextInput::make('nama_barang')
                 ->label('Nama Barang')

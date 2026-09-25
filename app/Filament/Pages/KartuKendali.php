@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Support\GayaUnduh;
 use App\Models\BarangPersediaan;
 use App\Models\Kategori;
 use App\Services\KartuKendaliService;
@@ -213,9 +214,10 @@ class KartuKendali extends Page implements HasTable
                         ->pdf(collect([$record]), (int) $data['tahun'])),
             ])
             ->toolbarActions([
-                Action::make('ekspor')
+                // Rupa tombol dari GayaUnduh; isi berkasnya tetap dibentuk
+                // KartuKendaliService seperti sebelumnya.
+                GayaUnduh::terapkan(Action::make('ekspor'))
                     ->label('Ekspor Kartu Kendali')
-                    ->icon('heroicon-m-arrow-down-tray')
                     ->modalHeading('Ekspor Kartu Kendali')
                     ->modalDescription(
                         'Berkas berisi satu kartu per barang, mengikuti tata letak kartu kendali '

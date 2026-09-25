@@ -4,6 +4,7 @@ namespace App\Filament\Resources\AsetTetaps\Pages;
 
 use App\Filament\Resources\AsetTetaps\AsetTetapResource;
 use App\Filament\Support\AksiHapusTerlindung;
+use App\Filament\Support\AksiKembali;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Exceptions\Halt;
@@ -46,6 +47,7 @@ class EditAsetTetap extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            AksiKembali::keDaftar(static::getResource()),
             AksiHapusTerlindung::tunggal(AsetTetapResource::ALASAN_TAK_DAPAT_DIHAPUS),
         ];
     }

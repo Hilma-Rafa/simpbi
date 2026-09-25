@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\Concerns;
 
+use App\Filament\Support\GayaUnduh;
 use App\Models\PermintaanBarang;
 use App\Services\EksporRiwayatService;
 use Filament\Actions\Action;
@@ -25,7 +26,10 @@ trait MengeksporRiwayat
         $banyakJenis = count($this->jenisTersedia) > 1;
 
         return [
-            ActionGroup::make(array_filter([
+            // Rupa tombol grup dari GayaUnduh, sama dengan tombol unduhan lain
+            // (keputusan pemilik G-8). Isi berkasnya tetap dibentuk
+            // EksporRiwayatService lewat ekspor() di bawah, tidak berubah.
+            GayaUnduh::terapkan(ActionGroup::make(array_filter([
                 Action::make('eksporPdf')
                     ->label('Ekspor PDF')
                     ->icon('heroicon-m-document-arrow-down')
@@ -57,11 +61,8 @@ trait MengeksporRiwayat
                         ->modalSubmitActionLabel('Ekspor Excel')
                         ->action(fn () => $this->ekspor('xlsx', true))
                     : null,
-            ]))
-                ->label('Ekspor')
-                ->icon('heroicon-m-arrow-down-tray')
-                ->button()
-                ->color('primary'),
+            ])))
+                ->label('Ekspor'),
         ];
     }
 

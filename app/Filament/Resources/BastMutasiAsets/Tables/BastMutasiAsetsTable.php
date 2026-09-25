@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\BastMutasiAsets\Tables;
 
+use App\Filament\Support\GayaUnduh;
 use App\Filament\Support\KeadaanKosong;
 use App\Models\BastMutasiAset;
 use App\Services\MutasiAsetService;
@@ -205,17 +206,12 @@ class BastMutasiAsetsTable
 
                 // Unduh dokumen BAST (tersedia setelah disahkan).
                 //
-                // Gaya disamakan dengan PermintaanBarangResource::aksiUnduhBukti(),
-                // sebab keduanya sama-sama tombol pengunduhan dokumen yang sudah
-                // disahkan — bergaris warna utama, bukan tautan abu-abu yang
-                // tampak berbeda sendiri di antara tombol pengunduhan lain.
-                Action::make('unduh')
+                // Gaya diambil dari GayaUnduh, definisi yang sama dengan Unduh
+                // Bukti pada permintaan barang, sebab keduanya sama-sama tombol
+                // pengunduhan dokumen yang sudah disahkan. Sebelumnya nilainya
+                // disalin di sini satu per satu.
+                GayaUnduh::terapkan(Action::make('unduh'))
                     ->label('Unduh BAST')
-                    ->icon('heroicon-m-arrow-down-tray')
-                    ->iconPosition(\Filament\Support\Enums\IconPosition::Before)
-                    ->color('primary')
-                    ->button()
-                    ->outlined()
                     ->tooltip('Unduh dokumen BAST yang telah disahkan')
                     ->url(fn (BastMutasiAset $r): ?string => $r->file_bast_path ? route('bast.unduh', $r) : null)
                     ->openUrlInNewTab()
